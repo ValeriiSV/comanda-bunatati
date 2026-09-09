@@ -4,6 +4,7 @@ import { ArrowLeft } from 'lucide-react';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import { saveExternalAdminSession } from '@/lib/firebaseRest';
+import SellerExcelExport from '@/components/SellerExcelExport';
 import AdminStablePage from './AdminStablePage';
 
 export default function AdminPage() {
@@ -62,6 +63,7 @@ export default function AdminPage() {
         Înapoi la catalog
       </Link>
       <AdminStablePage />
+      <SellerExcelExport />
     </div>
   );
 }
