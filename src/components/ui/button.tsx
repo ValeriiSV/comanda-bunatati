@@ -47,12 +47,10 @@ function Button({
   className,
   variant = 'default',
   size = 'default',
-  type = 'button',
   ...props
 }: ButtonProps) {
   return (
     <button
-      type={type}
       data-slot="button"
       className={cn(buttonVariants({ variant, size, className }))}
       {...props}
