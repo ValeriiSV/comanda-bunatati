@@ -8,9 +8,14 @@ export type MiaPaymentSettings = {
   recipientName: string;
 };
 
+// Linkul real extras din QR-ul MIA generat în MICB Mobile Banking.
+// Când colegul îl deschide, MIA îi permite să aleagă banca și apoi
+// îl redirecționează către aplicația bancară pentru confirmarea plății.
+const DEFAULT_MIA_PAYMENT_LINK = 'https://mia-qr.bnm.md/1/m/BNM/MCB983a07f55265457d90654eb9f97574fc';
+
 const emptySettings: MiaPaymentSettings = {
   phone: '',
-  paymentLink: '',
+  paymentLink: DEFAULT_MIA_PAYMENT_LINK,
   recipientName: '',
 };
 
@@ -26,7 +31,7 @@ export function useMiaPayment() {
         const data = snapshot.data() as Partial<MiaPaymentSettings>;
         setPayment({
           phone: data.phone || '',
-          paymentLink: data.paymentLink || '',
+          paymentLink: data.paymentLink || DEFAULT_MIA_PAYMENT_LINK,
           recipientName: data.recipientName || '',
         });
       }
