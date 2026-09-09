@@ -106,7 +106,7 @@ export default function AdminDashboard() {
 
   if (!authorized) return <main className="grid min-h-screen place-items-center bg-[#f2f5ed] p-5 text-[#173d2c]">
     <section className="w-full max-w-md rounded-[28px] border border-[#d9e3d7] bg-white p-7 shadow-[0_24px_70px_rgba(23,61,44,.12)] sm:p-9">
-      <Link href="/" className="mb-10 flex items-center gap-2 text-sm font-medium text-[#607269]"><ArrowLeft className="size-4" /> Înapoi la catalog</Link>
+      <Link to="/" className="mb-10 flex items-center gap-2 text-sm font-medium text-[#607269]"><ArrowLeft className="size-4" /> Înapoi la catalog</Link>
       <span className="mb-5 grid size-13 place-items-center rounded-2xl bg-[#e8f0e2]"><LockKeyhole /></span>
       <h1 className="font-serif text-3xl font-semibold">Panoul managerului</h1>
       <p className="mt-2 text-sm leading-6 text-[#74837b]">Intră cu același cont de administrator folosit pentru site-ul Victoria Ghecrea.</p>
@@ -122,7 +122,7 @@ export default function AdminDashboard() {
   </main>;
 
   return <main className="min-h-screen bg-[#f2f5ed] text-[#173d2c]">
-    <header className="border-b border-[#d9e3d7] bg-white"><div className="mx-auto flex max-w-[1400px] items-center justify-between gap-4 px-4 py-4 sm:px-8"><div className="flex items-center gap-4"><Link href="/" aria-label="Înapoi la catalog" className="grid size-10 place-items-center rounded-full border border-[#d6e0d5]"><ArrowLeft className="size-4" /></Link><div><h1 className="font-serif text-2xl font-semibold">Panoul managerului</h1><p className="text-xs text-[#74837b]">Actualizare automată din Firebase</p></div></div><div className="flex gap-2"><Button className="bg-[#173d2c]" onClick={exportCsv}><Download /> Descarcă CSV</Button><Button variant="outline" size="icon" aria-label="Ieși din cont" onClick={() => signOut(auth)}><LogOut /></Button></div></div></header>
+    <header className="border-b border-[#d9e3d7] bg-white"><div className="mx-auto flex max-w-[1400px] items-center justify-between gap-4 px-4 py-4 sm:px-8"><div className="flex items-center gap-4"><Link to="/" aria-label="Înapoi la catalog" className="grid size-10 place-items-center rounded-full border border-[#d6e0d5]"><ArrowLeft className="size-4" /></Link><div><h1 className="font-serif text-2xl font-semibold">Panoul managerului</h1><p className="text-xs text-[#74837b]">Actualizare automată din Firebase</p></div></div><div className="flex gap-2"><Button className="bg-[#173d2c]" onClick={exportCsv}><Download /> Descarcă CSV</Button><Button variant="outline" size="icon" aria-label="Ieși din cont" onClick={() => signOut(auth)}><LogOut /></Button></div></div></header>
     <div className="mx-auto max-w-[1400px] space-y-6 p-4 sm:p-8">
       {error && <p className="rounded-xl bg-red-50 p-3 text-sm text-red-700">{error}</p>}
       <section className="grid gap-3 sm:grid-cols-3"><Stat icon={<Users />} label="Comenzi" value={String(orders.length)} /><Stat icon={<WalletCards />} label="Total de încasat" value={`${lei(totals.totalBani)} lei`} /><Stat icon={<PackageCheck />} label="Încasat" value={`${lei(totals.paidBani)} lei`} /></section>
