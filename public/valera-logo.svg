@@ -1,1 +1,35 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256"><image width="256" height="256" href="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAkGBwgHBgkIBwgKCgkLDRYPDQwMDRsUF
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="t d">
+  <title id="t">Bunătăți împreună Valera</title>
+  <desc id="d">Logo rotund verde cu nuci și monede</desc>
+  <rect width="512" height="512" rx="44" fill="#f7f6f0"/>
+  <g fill="none" stroke="#173d2c" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="256" cy="256" r="224" stroke-width="10"/>
+    <circle cx="256" cy="256" r="205" stroke-width="3"/>
+    <path d="M78 196c14-57 49-100 99-124M334 72c50 24 85 67 100 124" stroke-width="4"/>
+    <path d="M78 326c14 57 49 100 99 124M334 450c50-24 85-67 100-124" stroke-width="4"/>
+
+    <g stroke-width="5">
+      <ellipse cx="185" cy="124" rx="30" ry="22" transform="rotate(-28 185 124)"/>
+      <path d="M164 134c14-1 30-10 42-25M171 143c17-4 31-13 42-28"/>
+      <ellipse cx="256" cy="120" rx="20" ry="38"/>
+      <path d="M256 88v64M247 97c6 14 6 31 0 47M265 97c-6 14-6 31 0 47"/>
+      <circle cx="333" cy="124" r="31"/>
+      <circle cx="333" cy="124" r="24" stroke-width="2"/>
+    </g>
+    <text x="333" y="137" text-anchor="middle" font-size="36" font-family="Georgia,serif" fill="#173d2c" stroke="none">$</text>
+
+    <g stroke-width="5">
+      <ellipse cx="197" cy="388" rx="34" ry="22" transform="rotate(18 197 388)"/>
+      <path d="M171 382c19 7 37 10 55 9M176 397c16 2 31 1 45-4"/>
+      <ellipse cx="258" cy="363" rx="36" ry="13"/>
+      <path d="M222 363v38c0 7 16 13 36 13s36-6 36-13v-38M222 382c0 7 16 13 36 13s36-6 36-13M222 399c0 7 16 13 36 13s36-6 36-13"/>
+      <circle cx="324" cy="392" r="35"/>
+      <circle cx="324" cy="392" r="27" stroke-width="2"/>
+    </g>
+    <text x="324" y="405" text-anchor="middle" font-size="34" font-family="Georgia,serif" fill="#173d2c" stroke="none">₾</text>
+  </g>
+
+  <text x="256" y="214" text-anchor="middle" font-size="27" font-weight="700" font-family="Georgia,serif" fill="#173d2c" letter-spacing="1">BUNĂTĂȚI ÎMPREUNĂ</text>
+  <text x="256" y="305" text-anchor="middle" font-size="86" font-weight="700" font-family="Georgia,serif" fill="#173d2c" letter-spacing="2">VALERA</text>
+  <path d="M116 229h280M116 319h280" stroke="#173d2c" stroke-width="3" opacity=".55"/>
+</svg>
