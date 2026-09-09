@@ -10,5 +10,29 @@
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
+    <script>
+      (() => {
+        if (location.pathname !== '/') return;
+        let attempts = 0;
+        const timer = setInterval(() => {
+          attempts += 1;
+          const header = document.querySelector('header');
+          const title = header?.querySelector('p.font-serif');
+          if (title) {
+            title.textContent = 'Bunătăți împreună cu Valera';
+            const brand = title.parentElement?.parentElement;
+            const oldIcon = brand?.querySelector(':scope > span');
+            if (oldIcon) {
+              oldIcon.innerHTML = '<img src="/valera-logo.svg" alt="Bunătăți împreună cu Valera" style="width:40px;height:40px;border-radius:999px;object-fit:cover;display:block" />';
+              oldIcon.style.background = 'transparent';
+              oldIcon.style.overflow = 'hidden';
+            }
+            clearInterval(timer);
+          } else if (attempts >= 50) {
+            clearInterval(timer);
+          }
+        }, 100);
+      })();
+    </script>
   </body>
 </html>
