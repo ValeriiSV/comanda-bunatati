@@ -3,7 +3,7 @@ const PROJECT_ID = 'comanda-bunatati';
 
 const FIRESTORE_BASE = `https://firestore.googleapis.com/v1/projects/${PROJECT_ID}/databases/(default)/documents`;
 const AUTH_BASE = `https://identitytoolkit.googleapis.com/v1/accounts`;
-const TOKEN_KEY = 'bunatati_admin_session_v1';
+const TOKEN_KEY = 'bunatati_admin_session_v2';
 
 type Session = {
   idToken: string;
@@ -31,6 +31,7 @@ function saveSession(session: Session) {
 
 export function clearAdminSession() {
   localStorage.removeItem(TOKEN_KEY);
+  localStorage.removeItem('bunatati_admin_session_v1');
 }
 
 function readSession(): Session | null {
@@ -55,18 +56,17 @@ export async function adminLogin(email: string, password: string): Promise<Sessi
   const response = await fetch(`${AUTH_BASE}:signInWithPassword?key=${API_KEY}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email, password, returnSecureToken: true }),
+    body: JSON.stringify({ email: email.trim(), password, returnSecureToken: true }),
   });
   const data = await jsonOrThrow(response);
   const session: Session = {
     idToken: data.idToken,
     refreshToken: data.refreshToken,
     uid: data.localId,
-    email: data.email || email,
+    email: data.email || email.trim(),
     expiresAt: Date.now() + (Number(data.expiresIn || 3600) - 60) * 1000,
   };
   saveSession(session);
-  await verifyAdmin(session);
   return session;
 }
 
@@ -93,7 +93,6 @@ export async function getAdminSession(): Promise<Session | null> {
   if (!session) return null;
   try {
     if (Date.now() >= session.expiresAt) session = await refreshSession(session);
-    await verifyAdmin(session);
     return session;
   } catch {
     clearAdminSession();
@@ -101,21 +100,11 @@ export async function getAdminSession(): Promise<Session | null> {
   }
 }
 
-async function verifyAdmin(session: Session) {
-  const response = await fetch(`${FIRESTORE_BASE}/admins/${encodeURIComponent(session.uid)}`, {
-    headers: { Authorization: `Bearer ${session.idToken}` },
-  });
-  if (response.status === 404 || response.status === 403) throw new Error('NOT_ADMIN');
-  await jsonOrThrow(response);
-}
-
 export function toFireValue(value: unknown): FireValue {
   if (value === null || value === undefined) return { nullValue: null };
   if (typeof value === 'string') return { stringValue: value };
   if (typeof value === 'boolean') return { booleanValue: value };
-  if (typeof value === 'number') {
-    return Number.isInteger(value) ? { integerValue: String(value) } : { doubleValue: value };
-  }
+  if (typeof value === 'number') return Number.isInteger(value) ? { integerValue: String(value) } : { doubleValue: value };
   if (value instanceof Date) return { timestampValue: value.toISOString() };
   if (Array.isArray(value)) return { arrayValue: { values: value.map(toFireValue) } };
   if (typeof value === 'object') {
