@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { CheckCircle2, ChevronRight, Minus, Plus, Search, ShoppingBag, Sparkles } from 'lucide-react';
+import { CalendarDays, CheckCircle2, ChevronRight, Minus, Plus, Search, ShoppingBag, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { categories, linePrice, priceLabel, type Category, type Product } from '@/lib/products';
 import { useProducts, type ManagedProduct } from '@/hooks/useProducts';
+import { formatOrderDate, useOrderSchedule, type OrderSchedule } from '@/hooks/useOrderSchedule';
 import { addDoc, collection, serverTimestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 
@@ -22,7 +23,23 @@ function money(value: number) {
   return new Intl.NumberFormat('ro-MD', { maximumFractionDigits: 2 }).format(value);
 }
 
-function CartPanel({ cart, setCart, products }: { cart: Cart; setCart: React.Dispatch<React.SetStateAction<Cart>>; products: Product[] }) {
+function ScheduleNotice({ schedule, compact = false }: { schedule: OrderSchedule; compact?: boolean }) {
+  if (!schedule.dates.length) return null;
+  return <div className={`rounded-2xl border border-[#e4d4b8] bg-[#fff7e9] ${compact ? 'p-3' : 'p-4 sm:p-5'}`}>
+    <div className="flex items-start gap-3">
+      <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-[#f7dfb8] text-[#8b581c]"><CalendarDays className="size-4.5" /></span>
+      <div>
+        <p className="text-xs font-bold uppercase tracking-[.1em] text-[#9a6222]">Următoarea comandă</p>
+        <div className="mt-1.5 flex flex-wrap gap-x-2 gap-y-1 text-sm font-semibold text-[#5d4527]">
+          {schedule.dates.map((date, index) => <span key={date}>{formatOrderDate(date)}{index < schedule.dates.length - 1 ? ' •' : ''}</span>)}
+        </div>
+        {schedule.message && <p className="mt-2 text-xs leading-5 text-[#7d674d]">{schedule.message}</p>}
+      </div>
+    </div>
+  </div>;
+}
+
+function CartPanel({ cart, setCart, products, schedule }: { cart: Cart; setCart: React.Dispatch<React.SetStateAction<Cart>>; products: Product[]; schedule: OrderSchedule }) {
   const [name, setName] = useState('');
   const [note, setNote] = useState('');
   const [sending, setSending] = useState(false);
@@ -47,6 +64,7 @@ function CartPanel({ cart, setCart, products }: { cart: Cart; setCart: React.Dis
         totalBani: Math.round(total * 100),
         paid: false,
         createdAt: serverTimestamp(),
+        scheduledOrderDates: schedule.dates,
         items: lines.map((product) => ({ productId: product.id, productName: product.name, category: product.category, grams: cart[product.id], lineTotalBani: Math.round(linePrice(product, cart[product.id]) * 100) })),
       });
       setCart({});
@@ -64,13 +82,15 @@ function CartPanel({ cart, setCart, products }: { cart: Cart; setCart: React.Dis
       <span className="mb-5 grid size-16 place-items-center rounded-full bg-[#e5f2d5] text-[#315b32]"><CheckCircle2 className="size-8" /></span>
       <h2 className="font-serif text-3xl font-semibold text-[#173d2c]">Comandă trimisă</h2>
       <p className="mt-3 max-w-xs text-[#607269]">Codul tău este <strong className="text-[#173d2c]">{success}</strong>. Managerul vede deja comanda.</p>
+      {schedule.dates.length > 0 && <p className="mt-3 max-w-xs rounded-xl bg-[#fff4df] px-4 py-2.5 text-sm text-[#7a5325]">Comanda comună este planificată pentru <strong>{schedule.dates.map(formatOrderDate).join(' / ')}</strong>.</p>}
       <Button className="mt-7 h-11 rounded-full bg-[#173d2c] px-5" onClick={() => setSuccess(null)}>Comandă din nou</Button>
     </div>;
   }
 
   return <div className="flex h-full flex-col">
     <div className="flex-1 overflow-y-auto px-5 pb-5">
-      {lines.length === 0 ? <div className="flex min-h-[280px] flex-col items-center justify-center text-center text-[#74837b]">
+      {schedule.dates.length > 0 && <div className="mb-4 pt-1"><ScheduleNotice schedule={schedule} compact /></div>}
+      {lines.length === 0 ? <div className="flex min-h-[240px] flex-col items-center justify-center text-center text-[#74837b]">
         <ShoppingBag className="mb-4 size-11 stroke-1" /><p className="font-medium text-[#315b32]">Coșul este gol</p><p className="mt-1 max-w-[230px] text-sm">Adaugă bunătățile dorite din catalog.</p>
       </div> : <div className="space-y-3">{lines.map((product) => <div key={product.id} className="rounded-2xl border border-[#dfe8df] bg-white p-4">
         <div className="flex items-start justify-between gap-4"><div><p className="font-medium text-[#173d2c]">{product.name}</p><p className="mt-1 text-sm text-[#74837b]">{money(linePrice(product, cart[product.id]))} lei</p></div>
@@ -87,6 +107,7 @@ function CartPanel({ cart, setCart, products }: { cart: Cart; setCart: React.Dis
 
 export default function OrderApp() {
   const { products: firestoreProducts, loading, error } = useProducts();
+  const { schedule } = useOrderSchedule();
   const products = useMemo(() => firestoreProducts.filter((product) => product.active !== false), [firestoreProducts]);
   const [activeCategory, setActiveCategory] = useState<Category>('Nuci');
   const [search, setSearch] = useState('');
@@ -125,27 +146,28 @@ export default function OrderApp() {
         });
         const orderCode = `CMD-${crypto.randomUUID().slice(0, 6).toUpperCase()}`;
         const totalBani = selected.reduce((sum, item) => sum + item.lineTotalBani, 0);
-        await addDoc(collection(db, 'groupOrders'), { orderCode, customerName: order.customerName.trim(), note: order.note?.trim() || '', totalBani, paid: false, createdAt: serverTimestamp(), items: selected.map(({ product, grams, lineTotalBani }) => ({ productId: product.id, productName: product.name, category: product.category, grams, lineTotalBani })) });
+        await addDoc(collection(db, 'groupOrders'), { orderCode, customerName: order.customerName.trim(), note: order.note?.trim() || '', totalBani, paid: false, createdAt: serverTimestamp(), scheduledOrderDates: schedule.dates, items: selected.map(({ product, grams, lineTotalBani }) => ({ productId: product.id, productName: product.name, category: product.category, grams, lineTotalBani })) });
         setCart({});
         setAgentNotice(`Comanda ${orderCode} a fost trimisă.`);
         return { orderCode, totalLei: totalBani / 100 };
       },
     });
-  }, [products]);
+  }, [products, schedule.dates]);
 
   return <main className="min-h-screen bg-[#f6f7f0] pb-28 text-[#173d2c] lg:pb-0">
     {agentNotice && <div role="status" className="fixed left-1/2 top-20 z-50 -translate-x-1/2 rounded-full bg-[#173d2c] px-5 py-3 text-sm font-medium text-white shadow-xl">{agentNotice}</div>}
     <header className="sticky top-0 z-30 border-b border-[#d9e2d8]/80 bg-[#f6f7f0]/92 backdrop-blur-xl"><div className="mx-auto flex h-18 max-w-[1440px] items-center justify-between px-4 sm:px-8"><div className="flex items-center gap-3"><span className="grid size-10 place-items-center rounded-full bg-[#173d2c] text-xl">🌰</span><div><p className="font-serif text-xl font-bold leading-none">Bunătăți împreună</p><p className="mt-1 text-xs text-[#74837b]">Comanda echipei</p></div></div><Link className="text-sm font-medium text-[#607269] transition hover:text-[#173d2c]" to="/admin">Manager</Link></div></header>
     <div className="mx-auto max-w-[1440px] lg:grid lg:grid-cols-[minmax(0,1fr)_390px]">
       <section className="min-w-0 px-4 py-5 sm:px-8 lg:py-7">
-        <div className="relative mb-7 min-h-[250px] overflow-hidden rounded-[28px] bg-[#173d2c] text-white shadow-[0_22px_70px_rgba(23,61,44,.14)]"><img src="/catalog-hero.png" alt="Nuci și fructe uscate aranjate în boluri" className="absolute inset-0 size-full object-cover object-center" /><div className="absolute inset-0 bg-gradient-to-r from-[#173d2c] via-[#173d2c]/90 to-transparent" /><div className="relative flex min-h-[250px] max-w-xl flex-col justify-center p-7 sm:p-10"><span className="mb-4 flex w-fit items-center gap-2 rounded-full bg-white/12 px-3 py-1.5 text-xs font-semibold uppercase tracking-[.12em] text-[#f8c982]"><Sparkles className="size-3.5" /> Comandă deschisă</span><h1 className="font-serif text-4xl font-semibold leading-[1.05] sm:text-5xl">Alege ce-ți place.<br />Noi comandăm împreună.</h1><p className="mt-4 max-w-md text-sm leading-6 text-white/75 sm:text-base">Cantitatea crește automat în pasul setat pentru fiecare produs. Prețul și totalul se calculează din Firebase.</p></div></div>
+        <div className="relative mb-5 min-h-[250px] overflow-hidden rounded-[28px] bg-[#173d2c] text-white shadow-[0_22px_70px_rgba(23,61,44,.14)]"><img src="/catalog-hero.png" alt="Nuci și fructe uscate aranjate în boluri" className="absolute inset-0 size-full object-cover object-center" /><div className="absolute inset-0 bg-gradient-to-r from-[#173d2c] via-[#173d2c]/90 to-transparent" /><div className="relative flex min-h-[250px] max-w-xl flex-col justify-center p-7 sm:p-10"><span className="mb-4 flex w-fit items-center gap-2 rounded-full bg-white/12 px-3 py-1.5 text-xs font-semibold uppercase tracking-[.12em] text-[#f8c982]"><Sparkles className="size-3.5" /> Comandă deschisă</span><h1 className="font-serif text-4xl font-semibold leading-[1.05] sm:text-5xl">Alege ce-ți place.<br />Noi comandăm împreună.</h1><p className="mt-4 max-w-md text-sm leading-6 text-white/75 sm:text-base">Cantitatea crește automat în pasul setat pentru fiecare produs. Prețul și totalul se calculează din Firebase.</p></div></div>
+        {schedule.dates.length > 0 && <div className="mb-5"><ScheduleNotice schedule={schedule} /></div>}
         {error && <p className="mb-4 rounded-xl bg-amber-50 p-3 text-sm text-amber-800">{error}</p>}
         <div className="mb-6 flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between"><div className="flex gap-2 overflow-x-auto pb-1">{categories.map((category) => <button key={category} onClick={() => setActiveCategory(category)} className={`shrink-0 rounded-full px-4 py-2.5 text-sm font-semibold transition ${activeCategory === category ? 'bg-[#173d2c] text-white shadow-md' : 'border border-[#d6e0d5] bg-white text-[#607269] hover:border-[#9aae9b]'}`}><span className="mr-1.5">{categoryMeta[category].icon}</span>{category}</button>)}</div><label className="relative block w-full xl:w-72"><Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[#839087]" /><Input value={search} onChange={(event) => setSearch(event.target.value)} className="h-11 rounded-full border-[#d6e0d5] bg-white pl-10" placeholder="Caută un produs" /></label></div>
         <div className="mb-4 flex items-baseline justify-between"><div><h2 className="font-serif text-3xl font-semibold">{activeCategory}</h2><p className="mt-1 text-sm text-[#74837b]">{categoryMeta[activeCategory].note}</p></div><span className="text-sm text-[#839087]">{loading ? 'Se încarcă…' : `${filtered.length} produse`}</span></div>
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">{filtered.map((product: ManagedProduct) => { const amount = cart[product.id] || 0; return <article key={product.id} className={`group rounded-[22px] border bg-white p-5 transition ${amount ? 'border-[#7f9e76] shadow-[0_14px_34px_rgba(23,61,44,.09)]' : 'border-[#dfe7dc] hover:-translate-y-0.5 hover:shadow-[0_14px_34px_rgba(23,61,44,.07)]'}`}><div className="mb-7 flex items-start justify-between gap-3"><span className="grid size-11 place-items-center rounded-2xl bg-[#eef3e8] text-xl">{categoryMeta[product.category].icon}</span><div className="flex flex-wrap justify-end gap-1.5">{product.isNew && <span className="rounded-full bg-[#e3f2d7] px-2.5 py-1 text-xs font-semibold text-[#315b32]">Nou</span>}{product.promo && <span className="rounded-full bg-[#fff0d9] px-2.5 py-1 text-xs font-semibold text-[#a65d13]">Promo</span>}<span className="rounded-full bg-[#f5efe1] px-2.5 py-1 text-xs font-semibold text-[#9a6222]">{priceLabel(product)}</span></div></div><h3 className="min-h-12 text-[17px] font-semibold leading-6">{product.name}</h3>{amount ? <div className="mt-4 flex items-center justify-between"><div className="flex items-center gap-1 rounded-full bg-[#eef3e8] p-1"><Button aria-label={`Scade ${product.name}`} variant="ghost" size="icon-sm" className="rounded-full" onClick={() => change(product.id, -product.stepGrams)}><Minus /></Button><strong className="min-w-14 text-center text-sm">{amount} g</strong><Button aria-label={`Adaugă ${product.name}`} variant="ghost" size="icon-sm" className="rounded-full" onClick={() => change(product.id, product.stepGrams)}><Plus /></Button></div><strong>{money(linePrice(product, amount))} lei</strong></div> : <Button onClick={() => change(product.id, product.stepGrams)} variant="outline" className="mt-4 h-10 w-full rounded-xl border-[#c9d7c7] text-[#315b32] hover:bg-[#eef3e8]"><Plus /> Adaugă {product.stepGrams} g</Button>}</article>; })}</div>
       </section>
-      <aside className="sticky top-18 hidden h-[calc(100vh-4.5rem)] border-l border-[#d9e2d8] bg-[#fbfcf8] lg:block"><div className="border-b border-[#dfe8df] px-5 py-5"><h2 className="font-serif text-2xl font-semibold">Comanda mea</h2><p className="mt-1 text-sm text-[#74837b]">{itemCount ? `${itemCount} produse alese` : 'Alege produsele din catalog'}</p></div><CartPanel cart={cart} setCart={setCart} products={products} /></aside>
+      <aside className="sticky top-18 hidden h-[calc(100vh-4.5rem)] border-l border-[#d9e2d8] bg-[#fbfcf8] lg:block"><div className="border-b border-[#dfe8df] px-5 py-5"><h2 className="font-serif text-2xl font-semibold">Comanda mea</h2><p className="mt-1 text-sm text-[#74837b]">{itemCount ? `${itemCount} produse alese` : 'Alege produsele din catalog'}</p></div><CartPanel cart={cart} setCart={setCart} products={products} schedule={schedule} /></aside>
     </div>
-    <div className="fixed inset-x-0 bottom-0 z-40 border-t border-[#d5dfd4] bg-white/95 p-3 backdrop-blur-xl lg:hidden"><Sheet><SheetTrigger render={<Button className="h-13 w-full rounded-2xl bg-[#173d2c] px-5 text-base" />}><ShoppingBag /> Vezi comanda <span className="ml-auto">{money(total)} lei</span></SheetTrigger><SheetContent side="bottom" className="max-h-[88vh] rounded-t-[28px] bg-[#fbfcf8]"><SheetHeader className="border-b border-[#dfe8df] px-5 py-4"><SheetTitle className="font-serif text-2xl">Comanda mea</SheetTitle><SheetDescription>{itemCount ? `${itemCount} produse alese` : 'Coșul este gol'}</SheetDescription></SheetHeader><CartPanel cart={cart} setCart={setCart} products={products} /></SheetContent></Sheet></div>
+    <div className="fixed inset-x-0 bottom-0 z-40 border-t border-[#d5dfd4] bg-white/95 p-3 backdrop-blur-xl lg:hidden"><Sheet><SheetTrigger render={<Button className="h-13 w-full rounded-2xl bg-[#173d2c] px-5 text-base" />}><ShoppingBag /> Vezi comanda <span className="ml-auto">{money(total)} lei</span></SheetTrigger><SheetContent side="bottom" className="max-h-[88vh] rounded-t-[28px] bg-[#fbfcf8]"><SheetHeader className="border-b border-[#dfe8df] px-5 py-4"><SheetTitle className="font-serif text-2xl">Comanda mea</SheetTitle><SheetDescription>{itemCount ? `${itemCount} produse alese` : 'Coșul este gol'}</SheetDescription></SheetHeader><CartPanel cart={cart} setCart={setCart} products={products} schedule={schedule} /></SheetContent></Sheet></div>
   </main>;
 }
