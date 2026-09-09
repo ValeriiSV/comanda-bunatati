@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowLeft, CalendarDays, Check, Download, Eye, EyeOff, LockKeyhole, LogOut, PackageCheck, Pencil, Plus, Save, Trash2, Users, WalletCards, X } from 'lucide-react';
-import { GoogleAuthProvider, onAuthStateChanged, signInWithEmailAndPassword, signInWithPopup, signOut } from 'firebase/auth';
-import { collection, deleteDoc, doc, getDoc, onSnapshot, orderBy, query, serverTimestamp, setDoc, updateDoc, writeBatch } from 'firebase/firestore';
+import { ArrowLeft, CalendarDays, Check, Download, Eye, EyeOff, LogOut, PackageCheck, Pencil, Plus, Save, Trash2, Users, WalletCards, X } from 'lucide-react';
+import { GoogleAuthProvider, onAuthStateChanged, signInWithEmailAndPassword, signInWithPopup, signOut, type User } from 'firebase/auth';
+import { collection, deleteDoc, doc, onSnapshot, orderBy, query, serverTimestamp, setDoc, updateDoc, writeBatch } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -17,7 +17,6 @@ type Order = {
   orderCode?: string;
   customerName?: string;
   phone?: string;
-  note?: string;
   totalBani?: number;
   paid?: boolean;
   createdAt?: { toDate?: () => Date } | null;
@@ -64,8 +63,8 @@ export default function AdminDashboard() {
   const { schedule } = useOrderSchedule();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [authorized, setAuthorized] = useState(false);
-  const [checking, setChecking] = useState(true);
+  const [authorized, setAuthorized] = useState(Boolean(auth.currentUser));
+  const [checking, setChecking] = useState(!auth.currentUser);
   const [orders, setOrders] = useState<Order[]>([]);
   const [selectedMonth, setSelectedMonth] = useState(monthKey(new Date()));
   const [products, setProducts] = useState<ManagedProduct[]>([]);
@@ -84,61 +83,83 @@ export default function AdminDashboard() {
   useEffect(() => {
     let stopOrders = () => {};
     let stopProducts = () => {};
+    let activeUid = '';
 
-    const stopAuth = onAuthStateChanged(auth, async (user) => {
+    const stopData = () => {
       stopOrders();
       stopProducts();
-      setChecking(true);
+      stopOrders = () => {};
+      stopProducts = () => {};
+      activeUid = '';
+    };
+
+    const startData = (user: User) => {
+      if (activeUid === user.uid) return;
+      stopData();
+      activeUid = user.uid;
+      setAuthorized(true);
+      setChecking(false);
       setError('');
 
-      if (!user) {
-        setAuthorized(false);
-        setChecking(false);
-        return;
-      }
+      stopOrders = onSnapshot(
+        query(collection(db, 'groupOrders'), orderBy('createdAt', 'desc')),
+        (snapshot) => setOrders(snapshot.docs.map((entry) => ({ id: entry.id, ...(entry.data() as Omit<Order, 'id'>) }))),
+        (err) => {
+          console.error('groupOrders listener:', err);
+          setError('Nu pot încărca comenzile. Contul autentificat nu are permisiune sau conexiunea Firebase este indisponibilă.');
+        },
+      );
 
-      try {
-        const admin = await Promise.race([
-          getDoc(doc(db, 'admins', user.uid)),
-          new Promise<never>((_, reject) => setTimeout(() => reject(new Error('timeout')), 10000)),
-        ]);
-
-        if (!admin.exists()) {
-          setAuthorized(false);
-          setError('Acest cont nu are acces de administrator.');
-          await signOut(auth);
-          return;
-        }
-
-        setAuthorized(true);
-
-        stopOrders = onSnapshot(query(collection(db, 'groupOrders'), orderBy('createdAt', 'desc')), (snapshot) => {
-          setOrders(snapshot.docs.map((entry) => ({ id: entry.id, ...(entry.data() as Omit<Order, 'id'>) })));
-        }, () => setError('Comenzile nu au putut fi încărcate. Verifică regulile Firestore.'));
-
-        stopProducts = onSnapshot(query(collection(db, 'products'), orderBy('sortOrder', 'asc')), (snapshot) => {
+      stopProducts = onSnapshot(
+        query(collection(db, 'products'), orderBy('sortOrder', 'asc')),
+        (snapshot) => {
           setProducts(snapshot.docs.map((entry) => ({ id: entry.id, ...(entry.data() as Omit<ManagedProduct, 'id'>) })));
           setProductsReady(true);
-        }, () => {
+        },
+        (err) => {
+          console.error('products listener:', err);
           setProductsReady(true);
-          setError('Produsele nu au putut fi încărcate. Verifică regulile Firestore pentru colecția products.');
-        });
-      } catch (err) {
-        console.error('Admin access check failed:', err);
+          setError('Nu pot încărca produsele. Verifică permisiunile contului în Firebase.');
+        },
+      );
+    };
+
+    if (auth.currentUser) startData(auth.currentUser);
+
+    const authWatchdog = window.setTimeout(() => {
+      setChecking(false);
+    }, 2500);
+
+    const stopAuth = onAuthStateChanged(auth, (user) => {
+      window.clearTimeout(authWatchdog);
+      if (user) {
+        startData(user);
+      } else {
+        stopData();
         setAuthorized(false);
-        setError('Nu am putut verifica accesul de administrator. Reîncarcă pagina sau autentifică-te din nou.');
-      } finally {
         setChecking(false);
       }
+    }, (err) => {
+      console.error('Firebase Auth listener:', err);
+      window.clearTimeout(authWatchdog);
+      stopData();
+      setAuthorized(false);
+      setChecking(false);
+      setError('Firebase Authentication nu a putut porni. Reîncarcă pagina.');
     });
 
-    return () => { stopAuth(); stopOrders(); stopProducts(); };
+    return () => {
+      window.clearTimeout(authWatchdog);
+      stopAuth();
+      stopData();
+    };
   }, []);
 
   const login = async (event: React.FormEvent) => {
-    event.preventDefault(); setError(''); setChecking(true);
+    event.preventDefault();
+    setError('');
     try { await signInWithEmailAndPassword(auth, email.trim(), password); }
-    catch { setChecking(false); setError('Email sau parolă incorectă.'); }
+    catch { setError('Email sau parolă incorectă.'); }
   };
 
   const loginWithGoogle = async () => {
@@ -146,7 +167,7 @@ export default function AdminDashboard() {
     try { await signInWithPopup(auth, new GoogleAuthProvider()); }
     catch (loginError) {
       const code = (loginError as { code?: string }).code;
-      if (code !== 'auth/popup-closed-by-user') setError('Autentificarea cu Google nu a reușit. Încearcă din nou.');
+      if (code !== 'auth/popup-closed-by-user') setError('Autentificarea cu Google nu a reușit.');
     }
   };
 
@@ -164,8 +185,7 @@ export default function AdminDashboard() {
     const byProduct = new Map<string, { name: string; grams: number }>();
     visibleOrders.forEach((order) => (Array.isArray(order.items) ? order.items : []).forEach((item) => {
       const id = item.productId || item.productName || 'produs';
-      const name = item.productName || 'Produs';
-      const current = byProduct.get(id) || { name, grams: 0 };
+      const current = byProduct.get(id) || { name: item.productName || 'Produs', grams: 0 };
       current.grams += Number(item.grams) || 0;
       byProduct.set(id, current);
     }));
@@ -179,7 +199,7 @@ export default function AdminDashboard() {
 
   const removeOrder = async (order: Order) => {
     const name = order.customerName || 'acestui coleg';
-    if (!window.confirm(`Ștergi comanda lui ${name}? Această acțiune nu poate fi anulată.`)) return;
+    if (!window.confirm(`Ștergi comanda lui ${name}?`)) return;
     try { await deleteDoc(doc(db, 'groupOrders', order.id)); setNotice(`Comanda lui ${name} a fost ștearsă.`); }
     catch { setError('Comanda nu a putut fi ștearsă.'); }
   };
@@ -226,6 +246,7 @@ export default function AdminDashboard() {
     setEditingId(product.id);
     setDraft({ name: product.name, category: product.category, priceLei: String(product.priceLei), baseGrams: String(product.baseGrams), stepGrams: String(product.stepGrams), active: product.active !== false, isNew: !!product.isNew, promo: !!product.promo });
   };
+
   const cancelEdit = () => { setEditingId(null); setDraft(emptyDraft); };
 
   const saveProduct = async (event: React.FormEvent) => {
@@ -255,17 +276,17 @@ export default function AdminDashboard() {
     catch { setError('Produsul nu a putut fi șters.'); }
   };
 
-  if (checking) return <main className="grid min-h-screen place-items-center bg-[#f2f5ed] text-[#607269]"><div className="text-center"><img src="/valera-logo.svg" alt="Bunătăți împreună cu Valera" className="mx-auto mb-4 size-20 rounded-full" /><p>Se verifică accesul…</p><p className="mt-2 text-xs text-[#8a968f]">Dacă verificarea durează prea mult, vei primi automat un mesaj de eroare.</p></div></main>;
+  if (checking) return <main className="grid min-h-screen place-items-center bg-[#f2f5ed] text-[#607269]"><div className="text-center"><img src="/valera-logo.svg?v=4" alt="Bunătăți împreună cu Valera" className="mx-auto mb-4 size-20 rounded-full" /><p>Se inițializează panoul…</p></div></main>;
 
   if (!authorized) return <main className="grid min-h-screen place-items-center bg-[#f2f5ed] p-5 text-[#173d2c]">
     <section className="w-full max-w-md rounded-[28px] border border-[#d9e3d7] bg-white p-7 shadow-[0_24px_70px_rgba(23,61,44,.12)] sm:p-9">
       <Link to="/" className="mb-7 flex items-center gap-2 text-sm font-medium text-[#607269]"><ArrowLeft className="size-4" /> Înapoi la catalog</Link>
-      <img src="/valera-logo.svg" alt="Bunătăți împreună cu Valera" className="mb-5 size-20 rounded-full border border-[#d9e3d7]" />
+      <img src="/valera-logo.svg?v=4" alt="Bunătăți împreună cu Valera" className="mb-5 size-20 rounded-full border border-[#d9e3d7]" />
       <h1 className="font-serif text-3xl font-semibold">Panoul managerului</h1>
       <p className="mt-2 text-sm leading-6 text-[#74837b]">Bunătăți împreună cu Valera</p>
       <form className="mt-7 space-y-3" onSubmit={login}>
-        <Input type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="Email" className="h-12 rounded-xl" />
-        <Input type="password" value={password} onChange={(event) => setPassword(event.target.value)} placeholder="Parolă" className="h-12 rounded-xl" />
+        <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Email" className="h-12 rounded-xl" />
+        <Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Parolă" className="h-12 rounded-xl" />
         <Button disabled={!email || !password} className="h-12 w-full rounded-xl bg-[#173d2c] text-base">Intră în panou</Button>
       </form>
       <div className="my-4 flex items-center gap-3 text-xs text-[#8a968f]"><span className="h-px flex-1 bg-[#dfe7df]" />sau<span className="h-px flex-1 bg-[#dfe7df]" /></div>
@@ -275,7 +296,7 @@ export default function AdminDashboard() {
   </main>;
 
   return <main className="min-h-screen bg-[#f2f5ed] text-[#173d2c]">
-    <header className="border-b border-[#d9e3d7] bg-white"><div className="mx-auto flex max-w-[1400px] items-center justify-between gap-4 px-4 py-4 sm:px-8"><div className="flex items-center gap-3"><Link to="/"><img src="/valera-logo.svg" alt="Bunătăți împreună cu Valera" className="size-12 rounded-full border border-[#d6e0d5]" /></Link><div><h1 className="font-serif text-2xl font-semibold">Panoul managerului</h1><p className="text-xs text-[#74837b]">Bunătăți împreună cu Valera</p></div></div><div className="flex gap-2"><Button className="bg-[#173d2c]" onClick={exportCsv}><Download /> Descarcă CSV</Button><Button variant="outline" size="icon" onClick={() => signOut(auth)}><LogOut /></Button></div></div></header>
+    <header className="border-b border-[#d9e3d7] bg-white"><div className="mx-auto flex max-w-[1400px] items-center justify-between gap-4 px-4 py-4 sm:px-8"><div className="flex items-center gap-3"><Link to="/"><img src="/valera-logo.svg?v=4" alt="Bunătăți împreună cu Valera" className="size-12 rounded-full border border-[#d6e0d5]" /></Link><div><h1 className="font-serif text-2xl font-semibold">Panoul managerului</h1><p className="text-xs text-[#74837b]">Bunătăți împreună cu Valera</p></div></div><div className="flex gap-2"><Button className="bg-[#173d2c]" onClick={exportCsv}><Download /> Descarcă CSV</Button><Button variant="outline" size="icon" aria-label="Ieși" onClick={() => signOut(auth)}><LogOut /></Button></div></div></header>
     <div className="mx-auto max-w-[1400px] space-y-6 p-4 sm:p-8">
       {error && <p className="rounded-xl bg-red-50 p-3 text-sm text-red-700">{error}</p>}
       {notice && <p className="rounded-xl bg-[#e8f3df] p-3 text-sm text-[#315b32]">{notice}</p>}
@@ -283,7 +304,7 @@ export default function AdminDashboard() {
       <section className="rounded-[24px] border border-[#e4d4b8] bg-[#fffaf0] p-5 sm:p-6">
         <div className="mb-5 flex items-start gap-3"><CalendarDays /><div><h2 className="font-serif text-2xl font-semibold">Următoarea comandă</h2><p className="mt-1 text-sm text-[#7d674d]">Setează data sau datele afișate colegilor.</p></div></div>
         <div className="flex flex-col gap-3 sm:flex-row"><Input type="date" value={newOrderDate} onChange={(e) => setNewOrderDate(e.target.value)} className="h-11 max-w-xs bg-white" /><Button onClick={addOrderDate} disabled={!newOrderDate || savingSchedule} className="h-11 bg-[#173d2c]"><Plus /> Adaugă data</Button></div>
-        {schedule.dates.length > 0 && <div className="mt-4 flex flex-wrap gap-2">{schedule.dates.map((date) => <div key={date} className="flex items-center gap-2 rounded-full border bg-white py-1.5 pl-3 pr-1.5 text-sm font-semibold"><span>{formatOrderDate(date)}</span><button onClick={() => removeOrderDate(date)} className="grid size-7 place-items-center rounded-full text-red-600"><X className="size-3.5" /></button></div>)}</div>}
+        {schedule.dates.length > 0 && <div className="mt-4 flex flex-wrap gap-2">{schedule.dates.map((date) => <div key={date} className="flex items-center gap-2 rounded-full border bg-white py-1.5 pl-3 pr-1.5 text-sm font-semibold"><span>{formatOrderDate(date)}</span><button type="button" onClick={() => removeOrderDate(date)} className="grid size-7 place-items-center rounded-full text-red-600"><X className="size-3.5" /></button></div>)}</div>}
         <div className="mt-5 flex flex-col gap-2 sm:flex-row"><Input value={scheduleMessage} onChange={(e) => setScheduleMessage(e.target.value)} placeholder="Mesaj opțional" className="h-11 bg-white" /><Button variant="outline" onClick={saveScheduleMessage} disabled={savingSchedule}><Save /> Salvează mesajul</Button></div>
       </section>
 
