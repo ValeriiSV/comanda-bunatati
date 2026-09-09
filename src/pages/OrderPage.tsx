@@ -1,16 +1,18 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { CalendarDays, CheckCircle2, ChevronRight, Minus, Plus, Search, ShoppingBag, Sparkles } from 'lucide-react';
+import { CalendarDays, CheckCircle2, ChevronRight, Copy, ExternalLink, Minus, Plus, Search, ShoppingBag, Sparkles, WalletCards } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { categories, linePrice, priceLabel, type Category, type Product } from '@/lib/products';
 import { useProducts, type ManagedProduct } from '@/hooks/useProducts';
 import { formatOrderDate, useOrderSchedule, type OrderSchedule } from '@/hooks/useOrderSchedule';
+import { useMiaPayment, type MiaPaymentSettings } from '@/hooks/useMiaPayment';
 import { addDoc, collection, serverTimestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 
 type Cart = Record<string, number>;
+type SuccessState = { code: string; total: number } | null;
 
 const categoryMeta: Record<Category, { icon: string; note: string }> = {
   Nuci: { icon: '🥜', note: 'crude, coapte și speciale' },
@@ -39,11 +41,35 @@ function ScheduleNotice({ schedule, compact = false }: { schedule: OrderSchedule
   </div>;
 }
 
-function CartPanel({ cart, setCart, products, schedule }: { cart: Cart; setCart: React.Dispatch<React.SetStateAction<Cart>>; products: Product[]; schedule: OrderSchedule }) {
+function MiaPaymentBox({ payment, total }: { payment: MiaPaymentSettings; total: number }) {
+  const copyPhone = async () => {
+    if (!payment.phone) return;
+    try { await navigator.clipboard.writeText(payment.phone); }
+    catch { /* clipboard may be unavailable in some browsers */ }
+  };
+
+  if (!payment.phone && !payment.paymentLink) return null;
+
+  return <div className="mt-5 w-full max-w-sm rounded-2xl border border-[#cfe1d1] bg-[#f3f8ef] p-4 text-left">
+    <div className="flex items-start gap-3">
+      <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-white text-[#315b32]"><WalletCards /></span>
+      <div className="min-w-0 flex-1">
+        <p className="text-xs font-bold uppercase tracking-[.1em] text-[#607269]">Achită prin MIA</p>
+        <p className="mt-1 text-sm text-[#607269]">Transferă suma exactă a comenzii:</p>
+        <strong className="mt-1 block font-serif text-3xl text-[#173d2c]">{money(total)} lei</strong>
+        {payment.recipientName && <p className="mt-3 text-sm"><span className="text-[#74837b]">Beneficiar:</span> <strong>{payment.recipientName}</strong></p>}
+        {payment.phone && <div className="mt-2 flex items-center gap-2 rounded-xl bg-white px-3 py-2"><span className="min-w-0 flex-1 truncate font-semibold">{payment.phone}</span><Button type="button" variant="ghost" size="icon" aria-label="Copiază numărul MIA" onClick={copyPhone}><Copy className="size-4" /></Button></div>}
+        {payment.paymentLink ? <Button type="button" className="mt-3 w-full bg-[#173d2c]" onClick={() => window.open(payment.paymentLink, '_blank', 'noopener,noreferrer')}><ExternalLink /> Plătește prin MIA</Button> : <p className="mt-3 text-xs leading-5 text-[#74837b]">În aplicația băncii alege MIA → Transfer către persoană, introdu numărul de mai sus și suma comenzii.</p>}
+      </div>
+    </div>
+  </div>;
+}
+
+function CartPanel({ cart, setCart, products, schedule, payment }: { cart: Cart; setCart: React.Dispatch<React.SetStateAction<Cart>>; products: Product[]; schedule: OrderSchedule; payment: MiaPaymentSettings }) {
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [sending, setSending] = useState(false);
-  const [success, setSuccess] = useState<string | null>(null);
+  const [success, setSuccess] = useState<SuccessState>(null);
   const lines = products.filter((product) => cart[product.id] > 0);
   const total = lines.reduce((sum, product) => sum + linePrice(product, cart[product.id]), 0);
 
@@ -57,11 +83,12 @@ function CartPanel({ cart, setCart, products, schedule }: { cart: Cart; setCart:
     setSuccess(null);
     try {
       const orderCode = `CMD-${crypto.randomUUID().slice(0, 6).toUpperCase()}`;
+      const orderTotal = total;
       await addDoc(collection(db, 'groupOrders'), {
         orderCode,
         customerName: name.trim(),
         phone: phone.trim(),
-        totalBani: Math.round(total * 100),
+        totalBani: Math.round(orderTotal * 100),
         paid: false,
         createdAt: serverTimestamp(),
         scheduledOrderDates: schedule.dates,
@@ -69,7 +96,7 @@ function CartPanel({ cart, setCart, products, schedule }: { cart: Cart; setCart:
       });
       setCart({});
       setPhone('');
-      setSuccess(orderCode);
+      setSuccess({ code: orderCode, total: orderTotal });
     } catch {
       alert('Nu am putut trimite comanda. Încearcă din nou.');
     } finally {
@@ -78,12 +105,13 @@ function CartPanel({ cart, setCart, products, schedule }: { cart: Cart; setCart:
   };
 
   if (success) {
-    return <div className="flex min-h-[360px] flex-col items-center justify-center px-6 text-center">
+    return <div className="flex min-h-[420px] flex-col items-center justify-center px-5 py-6 text-center">
       <span className="mb-5 grid size-16 place-items-center rounded-full bg-[#e5f2d5] text-[#315b32]"><CheckCircle2 className="size-8" /></span>
       <h2 className="font-serif text-3xl font-semibold text-[#173d2c]">Comandă trimisă</h2>
-      <p className="mt-3 max-w-xs text-[#607269]">Codul tău este <strong className="text-[#173d2c]">{success}</strong>. Managerul vede deja comanda.</p>
+      <p className="mt-3 max-w-xs text-[#607269]">Codul tău este <strong className="text-[#173d2c]">{success.code}</strong>. Managerul vede deja comanda.</p>
       {schedule.dates.length > 0 && <p className="mt-3 max-w-xs rounded-xl bg-[#fff4df] px-4 py-2.5 text-sm text-[#7a5325]">Comanda comună este planificată pentru <strong>{schedule.dates.map(formatOrderDate).join(' / ')}</strong>.</p>}
-      <Button className="mt-7 h-11 rounded-full bg-[#173d2c] px-5" onClick={() => setSuccess(null)}>Comandă din nou</Button>
+      <MiaPaymentBox payment={payment} total={success.total} />
+      <Button className="mt-6 h-11 rounded-full bg-[#173d2c] px-5" onClick={() => setSuccess(null)}>Comandă din nou</Button>
     </div>;
   }
 
@@ -103,6 +131,7 @@ function CartPanel({ cart, setCart, products, schedule }: { cart: Cart; setCart:
         <Input className="h-11 rounded-xl border-[#cedbce] bg-white px-3" placeholder="Numele și prenumele *" value={name} onChange={(event) => setName(event.target.value)} />
         {schedule.dates.length > 0 ? <ScheduleNotice schedule={schedule} compact /> : <div className="rounded-xl border border-dashed border-[#d6e0d5] bg-white p-3 text-sm text-[#74837b]">Data următoarei comenzi nu este încă stabilită.</div>}
         <Input type="tel" inputMode="tel" autoComplete="tel" className="h-11 rounded-xl border-[#cedbce] bg-white px-3" placeholder="Număr de telefon *" value={phone} onChange={(event) => setPhone(event.target.value)} />
+        {(payment.phone || payment.paymentLink) && <p className="rounded-xl bg-[#edf5e8] px-3 py-2 text-xs leading-5 text-[#526a56]">După trimitere vei vedea suma exactă și datele pentru achitare prin MIA.</p>}
         <Button disabled={!name.trim() || !phone.trim() || !lines.length || sending} onClick={submit} className="h-12 w-full rounded-xl bg-[#f2a444] text-base font-semibold text-[#17301f] hover:bg-[#e89531]">{sending ? 'Se trimite…' : 'Trimite comanda'} <ChevronRight /></Button>
       </div>
     </div>
@@ -112,6 +141,7 @@ function CartPanel({ cart, setCart, products, schedule }: { cart: Cart; setCart:
 export default function OrderApp() {
   const { products: firestoreProducts, loading, error } = useProducts();
   const { schedule } = useOrderSchedule();
+  const { payment } = useMiaPayment();
   const products = useMemo(() => firestoreProducts.filter((product) => product.active !== false), [firestoreProducts]);
   const [activeCategory, setActiveCategory] = useState<Category>('Nuci');
   const [search, setSearch] = useState('');
@@ -170,8 +200,8 @@ export default function OrderApp() {
         <div className="mb-4 flex items-baseline justify-between"><div><h2 className="font-serif text-3xl font-semibold">{activeCategory}</h2><p className="mt-1 text-sm text-[#74837b]">{categoryMeta[activeCategory].note}</p></div><span className="text-sm text-[#839087]">{loading ? 'Se încarcă…' : `${filtered.length} produse`}</span></div>
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">{filtered.map((product: ManagedProduct) => { const amount = cart[product.id] || 0; return <article key={product.id} className={`group rounded-[22px] border bg-white p-5 transition ${amount ? 'border-[#7f9e76] shadow-[0_14px_34px_rgba(23,61,44,.09)]' : 'border-[#dfe7dc] hover:-translate-y-0.5 hover:shadow-[0_14px_34px_rgba(23,61,44,.07)]'}`}><div className="mb-7 flex items-start justify-between gap-3"><span className="grid size-11 place-items-center rounded-2xl bg-[#eef3e8] text-xl">{categoryMeta[product.category].icon}</span><div className="flex flex-wrap justify-end gap-1.5">{product.isNew && <span className="rounded-full bg-[#e3f2d7] px-2.5 py-1 text-xs font-semibold text-[#315b32]">Nou</span>}{product.promo && <span className="rounded-full bg-[#fff0d9] px-2.5 py-1 text-xs font-semibold text-[#a65d13]">Promo</span>}<span className="rounded-full bg-[#f5efe1] px-2.5 py-1 text-xs font-semibold text-[#9a6222]">{priceLabel(product)}</span></div></div><h3 className="min-h-12 text-[17px] font-semibold leading-6">{product.name}</h3>{amount ? <div className="mt-4 flex items-center justify-between"><div className="flex items-center gap-1 rounded-full bg-[#eef3e8] p-1"><Button aria-label={`Scade ${product.name}`} variant="ghost" size="icon-sm" className="rounded-full" onClick={() => change(product.id, -product.stepGrams)}><Minus /></Button><strong className="min-w-14 text-center text-sm">{amount} g</strong><Button aria-label={`Adaugă ${product.name}`} variant="ghost" size="icon-sm" className="rounded-full" onClick={() => change(product.id, product.stepGrams)}><Plus /></Button></div><strong>{money(linePrice(product, amount))} lei</strong></div> : <Button onClick={() => change(product.id, product.stepGrams)} variant="outline" className="mt-4 h-10 w-full rounded-xl border-[#c9d7c7] text-[#315b32] hover:bg-[#eef3e8]"><Plus /> Adaugă {product.stepGrams} g</Button>}</article>; })}</div>
       </section>
-      <aside className="sticky top-18 hidden h-[calc(100vh-4.5rem)] border-l border-[#d9e2d8] bg-[#fbfcf8] lg:block"><div className="border-b border-[#dfe8df] px-5 py-5"><h2 className="font-serif text-2xl font-semibold">Comanda mea</h2><p className="mt-1 text-sm text-[#74837b]">{itemCount ? `${itemCount} produse alese` : 'Alege produsele din catalog'}</p></div><CartPanel cart={cart} setCart={setCart} products={products} schedule={schedule} /></aside>
+      <aside className="sticky top-18 hidden h-[calc(100vh-4.5rem)] border-l border-[#d9e2d8] bg-[#fbfcf8] lg:block"><div className="border-b border-[#dfe8df] px-5 py-5"><h2 className="font-serif text-2xl font-semibold">Comanda mea</h2><p className="mt-1 text-sm text-[#74837b]">{itemCount ? `${itemCount} produse alese` : 'Alege produsele din catalog'}</p></div><CartPanel cart={cart} setCart={setCart} products={products} schedule={schedule} payment={payment} /></aside>
     </div>
-    <div className="fixed inset-x-0 bottom-0 z-40 border-t border-[#d5dfd4] bg-white/95 p-3 backdrop-blur-xl lg:hidden"><Sheet><SheetTrigger render={<Button className="h-13 w-full rounded-2xl bg-[#173d2c] px-5 text-base" />}><ShoppingBag /> Vezi comanda <span className="ml-auto">{money(total)} lei</span></SheetTrigger><SheetContent side="bottom" className="max-h-[88vh] rounded-t-[28px] bg-[#fbfcf8]"><SheetHeader className="border-b border-[#dfe8df] px-5 py-4"><SheetTitle className="font-serif text-2xl">Comanda mea</SheetTitle><SheetDescription>{itemCount ? `${itemCount} produse alese` : 'Coșul este gol'}</SheetDescription></SheetHeader><CartPanel cart={cart} setCart={setCart} products={products} schedule={schedule} /></SheetContent></Sheet></div>
+    <div className="fixed inset-x-0 bottom-0 z-40 border-t border-[#d5dfd4] bg-white/95 p-3 backdrop-blur-xl lg:hidden"><Sheet><SheetTrigger render={<Button className="h-13 w-full rounded-2xl bg-[#173d2c] px-5 text-base" />}><ShoppingBag /> Vezi comanda <span className="ml-auto">{money(total)} lei</span></SheetTrigger><SheetContent side="bottom" className="max-h-[88vh] rounded-t-[28px] bg-[#fbfcf8]"><SheetHeader className="border-b border-[#dfe8df] px-5 py-4"><SheetTitle className="font-serif text-2xl">Comanda mea</SheetTitle><SheetDescription>{itemCount ? `${itemCount} produse alese` : 'Coșul este gol'}</SheetDescription></SheetHeader><CartPanel cart={cart} setCart={setCart} products={products} schedule={schedule} payment={payment} /></SheetContent></Sheet></div>
   </main>;
 }
