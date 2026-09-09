@@ -9,25 +9,6 @@
   </head>
   <body>
     <div id="root"></div>
-    <script>
-      if (location.pathname === '/') {
-        const applyBrand = () => {
-          const title = document.querySelector('header p.font-serif');
-          if (!title) return;
-          title.textContent = 'Bunătăți împreună cu Valera';
-          const brand = title.parentElement?.parentElement;
-          const icon = brand?.querySelector(':scope > span');
-          if (icon && !icon.querySelector('img[data-valera-logo]')) {
-            icon.innerHTML = '<img data-valera-logo src="/valera-logo.svg" alt="Bunătăți împreună cu Valera" style="width:40px;height:40px;border-radius:999px;object-fit:cover" />';
-            icon.style.background = 'transparent';
-          }
-        };
-        const observer = new MutationObserver(applyBrand);
-        observer.observe(document.documentElement, { childList: true, subtree: true });
-        window.addEventListener('load', applyBrand);
-        applyBrand();
-      }
-    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
