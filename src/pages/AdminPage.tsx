@@ -26,15 +26,7 @@ type ProductDraft = {
 };
 
 const emptyDraft: ProductDraft = {
-  id: '',
-  name: '',
-  category: 'Nuci',
-  priceLei: '',
-  baseGrams: '1000',
-  stepGrams: '250',
-  active: true,
-  isNew: false,
-  promo: false,
+  id: '', name: '', category: 'Nuci', priceLei: '', baseGrams: '1000', stepGrams: '250', active: true, isNew: false, promo: false,
 };
 
 function lei(bani: number) {
@@ -43,6 +35,15 @@ function lei(bani: number) {
 
 function orderDate(order: Order) {
   return order.createdAt?.toDate?.() || new Date();
+}
+
+function monthKey(date: Date) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+}
+
+function monthLabel(key: string) {
+  const [year, month] = key.split('-').map(Number);
+  return new Intl.DateTimeFormat('ro-MD', { month: 'long', year: 'numeric' }).format(new Date(year, month - 1, 1));
 }
 
 function slugify(value: string) {
@@ -55,6 +56,7 @@ export default function AdminDashboard() {
   const [authorized, setAuthorized] = useState(false);
   const [checking, setChecking] = useState(true);
   const [orders, setOrders] = useState<Order[]>([]);
+  const [selectedMonth, setSelectedMonth] = useState(monthKey(new Date()));
   const [products, setProducts] = useState<ManagedProduct[]>([]);
   const [productsReady, setProductsReady] = useState(false);
   const [draft, setDraft] = useState<ProductDraft>(emptyDraft);
@@ -67,8 +69,7 @@ export default function AdminDashboard() {
     let stopOrders = () => {};
     let stopProducts = () => {};
     const stopAuth = onAuthStateChanged(auth, async (user) => {
-      stopOrders();
-      stopProducts();
+      stopOrders(); stopProducts();
       if (!user) { setAuthorized(false); setChecking(false); return; }
       const admin = await getDoc(doc(db, 'admins', user.uid));
       if (!admin.exists()) {
@@ -94,8 +95,7 @@ export default function AdminDashboard() {
   }, []);
 
   const login = async (event: React.FormEvent) => {
-    event.preventDefault();
-    setError('');
+    event.preventDefault(); setError('');
     try { await signInWithEmailAndPassword(auth, email.trim(), password); }
     catch { setError('Email sau parolă incorectă.'); }
   };
@@ -109,47 +109,58 @@ export default function AdminDashboard() {
     }
   };
 
+  const monthOptions = useMemo(() => {
+    const keys = new Set(orders.map((order) => monthKey(orderDate(order))));
+    keys.add(monthKey(new Date()));
+    return [...keys].sort().reverse();
+  }, [orders]);
+
+  const visibleOrders = useMemo(
+    () => orders.filter((order) => monthKey(orderDate(order)) === selectedMonth),
+    [orders, selectedMonth],
+  );
+
   const totals = useMemo(() => {
-    const totalBani = orders.reduce((sum, order) => sum + order.totalBani, 0);
-    const paidBani = orders.filter((order) => order.paid).reduce((sum, order) => sum + order.totalBani, 0);
+    const totalBani = visibleOrders.reduce((sum, order) => sum + order.totalBani, 0);
+    const paidBani = visibleOrders.filter((order) => order.paid).reduce((sum, order) => sum + order.totalBani, 0);
     const byProduct = new Map<string, { name: string; grams: number }>();
-    orders.forEach((order) => order.items.forEach((item) => {
+    visibleOrders.forEach((order) => order.items.forEach((item) => {
       const current = byProduct.get(item.productId) || { name: item.productName, grams: 0 };
       current.grams += item.grams;
       byProduct.set(item.productId, current);
     }));
     return { totalBani, paidBani, byProduct: [...byProduct.values()].sort((a, b) => a.name.localeCompare(b.name, 'ro')) };
-  }, [orders]);
+  }, [visibleOrders]);
 
   const togglePaid = async (order: Order) => {
     await updateDoc(doc(db, 'groupOrders', order.id), { paid: !order.paid, updatedAt: serverTimestamp() });
   };
 
+  const removeOrder = async (order: Order) => {
+    if (!window.confirm(`Ștergi comanda lui ${order.customerName}? Această acțiune nu poate fi anulată.`)) return;
+    try {
+      await deleteDoc(doc(db, 'groupOrders', order.id));
+      setNotice(`Comanda lui ${order.customerName} a fost ștearsă.`);
+    } catch {
+      setError('Comanda nu a putut fi ștearsă.');
+    }
+  };
+
   const exportCsv = () => {
     const rows = [['Cod', 'Data', 'Nume', 'Achitat', 'Produs', 'Categorie', 'Cantitate (g)', 'Produs (lei)', 'Total persoană (lei)', 'Notă']];
-    orders.forEach((order) => order.items.forEach((item) => rows.push([
-      order.orderCode,
-      orderDate(order).toLocaleString('ro-MD'),
-      order.customerName,
-      order.paid ? 'Da' : 'Nu',
-      item.productName,
-      item.category,
-      String(item.grams),
-      lei(item.lineTotalBani),
-      lei(order.totalBani),
-      order.note,
+    visibleOrders.forEach((order) => order.items.forEach((item) => rows.push([
+      order.orderCode, orderDate(order).toLocaleString('ro-MD'), order.customerName, order.paid ? 'Da' : 'Nu', item.productName,
+      item.category, String(item.grams), lei(item.lineTotalBani), lei(order.totalBani), order.note,
     ])));
     const csv = '\uFEFF' + rows.map((row) => row.map((cell) => `"${String(cell).replaceAll('"', '""')}"`).join(';')).join('\n');
     const link = document.createElement('a');
     link.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
-    link.download = `comenzi-bunatati-${new Date().toISOString().slice(0, 10)}.csv`;
-    link.click();
-    URL.revokeObjectURL(link.href);
+    link.download = `comenzi-bunatati-${selectedMonth}.csv`;
+    link.click(); URL.revokeObjectURL(link.href);
   };
 
   const seedProducts = async () => {
-    setSavingProduct(true);
-    setError('');
+    setSavingProduct(true); setError('');
     try {
       const batch = writeBatch(db);
       defaultProducts.forEach((product, index) => {
@@ -159,91 +170,45 @@ export default function AdminDashboard() {
       setNotice('Catalogul actual a fost încărcat în Firebase. De acum îl poți modifica direct de aici.');
     } catch {
       setError('Nu am putut inițializa produsele. Verifică regulile Firestore pentru administratori.');
-    } finally {
-      setSavingProduct(false);
-    }
+    } finally { setSavingProduct(false); }
   };
 
   const startEdit = (product: ManagedProduct) => {
     setEditingId(product.id);
-    setDraft({
-      id: product.id,
-      name: product.name,
-      category: product.category,
-      priceLei: String(product.priceLei),
-      baseGrams: String(product.baseGrams),
-      stepGrams: String(product.stepGrams),
-      active: product.active !== false,
-      isNew: !!product.isNew,
-      promo: !!product.promo,
-    });
+    setDraft({ id: product.id, name: product.name, category: product.category, priceLei: String(product.priceLei), baseGrams: String(product.baseGrams), stepGrams: String(product.stepGrams), active: product.active !== false, isNew: !!product.isNew, promo: !!product.promo });
     setNotice('');
   };
 
-  const cancelEdit = () => {
-    setEditingId(null);
-    setDraft(emptyDraft);
-  };
+  const cancelEdit = () => { setEditingId(null); setDraft(emptyDraft); };
 
   const saveProduct = async (event: React.FormEvent) => {
-    event.preventDefault();
-    setError('');
-    setNotice('');
+    event.preventDefault(); setError(''); setNotice('');
     const name = draft.name.trim();
-    const priceLei = Number(draft.priceLei);
-    const baseGrams = Number(draft.baseGrams);
-    const stepGrams = Number(draft.stepGrams);
+    const priceLei = Number(draft.priceLei); const baseGrams = Number(draft.baseGrams); const stepGrams = Number(draft.stepGrams);
     if (!name || !Number.isFinite(priceLei) || priceLei <= 0 || !Number.isInteger(baseGrams) || baseGrams <= 0 || !Number.isInteger(stepGrams) || stepGrams <= 0) {
-      setError('Completează corect denumirea, prețul și cantitățile.');
-      return;
+      setError('Completează corect denumirea, prețul și cantitățile.'); return;
     }
     const id = editingId || slugify(name) || `produs-${Date.now()}`;
-    if (!editingId && products.some((product) => product.id === id)) {
-      setError('Există deja un produs cu aceeași denumire. Modifică denumirea sau editează produsul existent.');
-      return;
-    }
+    if (!editingId && products.some((product) => product.id === id)) { setError('Există deja un produs cu aceeași denumire.'); return; }
     setSavingProduct(true);
     try {
       const existing = editingId ? products.find((product) => product.id === editingId) : undefined;
-      await setDoc(doc(db, 'products', id), {
-        name,
-        category: draft.category,
-        priceLei,
-        baseGrams,
-        stepGrams,
-        active: draft.active,
-        isNew: draft.isNew,
-        promo: draft.promo,
-        sortOrder: existing?.sortOrder ?? products.length,
-        updatedAt: serverTimestamp(),
-        ...(editingId ? {} : { createdAt: serverTimestamp() }),
-      }, { merge: true });
+      await setDoc(doc(db, 'products', id), { name, category: draft.category, priceLei, baseGrams, stepGrams, active: draft.active, isNew: draft.isNew, promo: draft.promo, sortOrder: existing?.sortOrder ?? products.length, updatedAt: serverTimestamp(), ...(editingId ? {} : { createdAt: serverTimestamp() }) }, { merge: true });
       setNotice(editingId ? 'Produsul a fost actualizat. Modificarea apare automat pe site.' : 'Produsul nou a fost adăugat și apare automat pe site.');
       cancelEdit();
-    } catch {
-      setError('Produsul nu a putut fi salvat. Verifică regulile Firestore.');
-    } finally {
-      setSavingProduct(false);
-    }
+    } catch { setError('Produsul nu a putut fi salvat. Verifică regulile Firestore.'); }
+    finally { setSavingProduct(false); }
   };
 
   const toggleProduct = async (product: ManagedProduct) => {
-    try {
-      await updateDoc(doc(db, 'products', product.id), { active: product.active === false, updatedAt: serverTimestamp() });
-    } catch {
-      setError('Nu am putut schimba disponibilitatea produsului.');
-    }
+    try { await updateDoc(doc(db, 'products', product.id), { active: product.active === false, updatedAt: serverTimestamp() }); }
+    catch { setError('Nu am putut schimba disponibilitatea produsului.'); }
   };
 
   const removeProduct = async (product: ManagedProduct) => {
     if (!window.confirm(`Ștergi produsul „${product.name}”? Comenzile vechi rămân neschimbate.`)) return;
-    try {
-      await deleteDoc(doc(db, 'products', product.id));
-      setNotice('Produsul a fost șters din catalog.');
-      if (editingId === product.id) cancelEdit();
-    } catch {
-      setError('Produsul nu a putut fi șters.');
-    }
+    try { await deleteDoc(doc(db, 'products', product.id)); setNotice('Produsul a fost șters din catalog.'); if (editingId === product.id) cancelEdit(); }
+    catch { setError('Produsul nu a putut fi șters.'); }
   };
 
   if (checking) return <main className="grid min-h-screen place-items-center bg-[#f2f5ed] text-[#607269]">Se verifică accesul…</main>;
@@ -270,13 +235,16 @@ export default function AdminDashboard() {
     <div className="mx-auto max-w-[1400px] space-y-6 p-4 sm:p-8">
       {error && <p className="rounded-xl bg-red-50 p-3 text-sm text-red-700">{error}</p>}
       {notice && <p className="rounded-xl bg-[#e8f3df] p-3 text-sm text-[#315b32]">{notice}</p>}
-      <section className="grid gap-3 sm:grid-cols-3"><Stat icon={<Users />} label="Comenzi" value={String(orders.length)} /><Stat icon={<WalletCards />} label="Total de încasat" value={`${lei(totals.totalBani)} lei`} /><Stat icon={<PackageCheck />} label="Încasat" value={`${lei(totals.paidBani)} lei`} /></section>
+
+      <section className="rounded-[22px] border border-[#d9e3d7] bg-white p-4 sm:p-5">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><div><p className="text-sm font-semibold">Perioada comenzilor</p><p className="mt-1 text-xs text-[#74837b]">Fiecare lună este păstrată separat în istoric.</p></div><select value={selectedMonth} onChange={(event) => setSelectedMonth(event.target.value)} className="h-11 min-w-56 rounded-xl border border-[#d6e0d5] bg-white px-3 text-sm font-semibold outline-none">{monthOptions.map((key) => <option key={key} value={key}>{monthLabel(key)}</option>)}</select></div>
+      </section>
+
+      <section className="grid gap-3 sm:grid-cols-3"><Stat icon={<Users />} label={`Comenzi · ${monthLabel(selectedMonth)}`} value={String(visibleOrders.length)} /><Stat icon={<WalletCards />} label="Total de încasat" value={`${lei(totals.totalBani)} lei`} /><Stat icon={<PackageCheck />} label="Încasat" value={`${lei(totals.paidBani)} lei`} /></section>
 
       <section className="rounded-[24px] border border-[#d9e3d7] bg-white p-5 sm:p-6">
         <div className="mb-5 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"><div><h2 className="font-serif text-2xl font-semibold">Produse</h2><p className="mt-1 text-sm text-[#74837b]">Orice modificare salvată aici apare automat în catalogul public, fără redeploy.</p></div>{productsReady && products.length === 0 && <Button onClick={seedProducts} disabled={savingProduct} className="bg-[#173d2c]">{savingProduct ? 'Se încarcă…' : 'Încarcă catalogul actual în Firebase'}</Button>}</div>
-
         {products.length > 0 && <div className="mb-6 overflow-x-auto rounded-2xl border border-[#e1e8df]"><Table><TableHeader><TableRow><TableHead>Produs</TableHead><TableHead>Categorie</TableHead><TableHead>Preț</TableHead><TableHead>Pas</TableHead><TableHead>Status</TableHead><TableHead className="text-right">Acțiuni</TableHead></TableRow></TableHeader><TableBody>{products.map((product) => <TableRow key={product.id}><TableCell className="min-w-52"><strong>{product.name}</strong><div className="mt-1 flex gap-1.5">{product.isNew && <span className="rounded-full bg-[#e3f2d7] px-2 py-0.5 text-[11px] font-semibold text-[#315b32]">Nou</span>}{product.promo && <span className="rounded-full bg-[#fff0d9] px-2 py-0.5 text-[11px] font-semibold text-[#a65d13]">Promo</span>}</div></TableCell><TableCell>{product.category}</TableCell><TableCell className="whitespace-nowrap font-semibold">{product.priceLei} lei/{product.baseGrams === 1000 ? 'kg' : `${product.baseGrams} g`}</TableCell><TableCell>{product.stepGrams} g</TableCell><TableCell>{product.active === false ? <span className="text-[#a65d13]">Ascuns</span> : <span className="text-[#315b32]">Activ</span>}</TableCell><TableCell><div className="flex justify-end gap-1"><Button variant="ghost" size="icon" aria-label={product.active === false ? 'Arată produsul' : 'Ascunde produsul'} onClick={() => toggleProduct(product)}>{product.active === false ? <Eye /> : <EyeOff />}</Button><Button variant="ghost" size="icon" aria-label="Editează produsul" onClick={() => startEdit(product)}><Pencil /></Button><Button variant="ghost" size="icon" aria-label="Șterge produsul" onClick={() => removeProduct(product)}><Trash2 /></Button></div></TableCell></TableRow>)}</TableBody></Table></div>}
-
         <form onSubmit={saveProduct} className="rounded-2xl bg-[#f5f8f1] p-4 sm:p-5">
           <div className="mb-4 flex items-center justify-between"><div><h3 className="font-semibold">{editingId ? 'Editează produsul' : 'Adaugă produs nou'}</h3><p className="mt-1 text-xs text-[#74837b]">Prețul este raportat la cantitatea de bază.</p></div>{editingId && <Button type="button" variant="ghost" size="icon" onClick={cancelEdit}><X /></Button>}</div>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-6"><Input value={draft.name} onChange={(event) => setDraft((current) => ({ ...current, name: event.target.value }))} placeholder="Denumire produs" className="lg:col-span-2" /><select value={draft.category} onChange={(event) => setDraft((current) => ({ ...current, category: event.target.value as Category }))} className="h-9 rounded-md border border-input bg-transparent px-3 text-sm outline-none">{categories.map((category) => <option key={category}>{category}</option>)}</select><Input type="number" min="0.01" step="0.01" value={draft.priceLei} onChange={(event) => setDraft((current) => ({ ...current, priceLei: event.target.value }))} placeholder="Preț lei" /><Input type="number" min="1" step="1" value={draft.baseGrams} onChange={(event) => setDraft((current) => ({ ...current, baseGrams: event.target.value }))} placeholder="Bază g" /><Input type="number" min="1" step="1" value={draft.stepGrams} onChange={(event) => setDraft((current) => ({ ...current, stepGrams: event.target.value }))} placeholder="Pas g" /></div>
@@ -284,8 +252,9 @@ export default function AdminDashboard() {
         </form>
       </section>
 
-      <section className="rounded-[24px] border border-[#d9e3d7] bg-white p-5 sm:p-6"><div className="mb-5"><h2 className="font-serif text-2xl font-semibold">Lista pentru vânzător</h2><p className="mt-1 text-sm text-[#74837b]">Cantitățile cumulate din toate comenzile</p></div>{totals.byProduct.length ? <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">{totals.byProduct.map((product) => <div key={product.name} className="flex items-center justify-between rounded-xl bg-[#f2f6ee] px-4 py-3"><span className="font-medium">{product.name}</span><strong>{product.grams >= 1000 ? `${product.grams / 1000} kg` : `${product.grams} g`}</strong></div>)}</div> : <p className="py-8 text-center text-[#74837b]">Încă nu există produse comandate.</p>}</section>
-      <section className="overflow-hidden rounded-[24px] border border-[#d9e3d7] bg-white"><div className="border-b border-[#e1e8df] p-5 sm:p-6"><h2 className="font-serif text-2xl font-semibold">Comenzi individuale</h2></div><div className="overflow-x-auto"><Table><TableHeader><TableRow><TableHead>Nume</TableHead><TableHead>Produse</TableHead><TableHead>Total</TableHead><TableHead>Notă</TableHead><TableHead>Plată</TableHead></TableRow></TableHeader><TableBody>{orders.map((order) => <TableRow key={order.id}><TableCell className="min-w-44"><strong>{order.customerName}</strong><span className="mt-1 block text-xs text-[#829087]">{order.orderCode}</span></TableCell><TableCell className="min-w-72">{order.items.map((item) => <span key={item.productId} className="mr-1.5 mb-1.5 inline-flex rounded-full bg-[#eef3e8] px-2.5 py-1 text-xs">{item.productName} · {item.grams} g</span>)}</TableCell><TableCell className="whitespace-nowrap font-semibold">{lei(order.totalBani)} lei</TableCell><TableCell className="max-w-56 text-[#74837b]">{order.note || '—'}</TableCell><TableCell><Button size="sm" variant={order.paid ? 'secondary' : 'outline'} className={order.paid ? 'bg-[#dff0d2] text-[#315b32]' : ''} onClick={() => togglePaid(order)}>{order.paid && <Check />} {order.paid ? 'Achitat' : 'Neachitat'}</Button></TableCell></TableRow>)}</TableBody></Table></div></section>
+      <section className="rounded-[24px] border border-[#d9e3d7] bg-white p-5 sm:p-6"><div className="mb-5"><h2 className="font-serif text-2xl font-semibold">Lista pentru vânzător</h2><p className="mt-1 text-sm text-[#74837b]">Cantitățile cumulate pentru {monthLabel(selectedMonth)}</p></div>{totals.byProduct.length ? <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">{totals.byProduct.map((product) => <div key={product.name} className="flex items-center justify-between rounded-xl bg-[#f2f6ee] px-4 py-3"><span className="font-medium">{product.name}</span><strong>{product.grams >= 1000 ? `${product.grams / 1000} kg` : `${product.grams} g`}</strong></div>)}</div> : <p className="py-8 text-center text-[#74837b]">Nu există produse comandate în această lună.</p>}</section>
+
+      <section className="overflow-hidden rounded-[24px] border border-[#d9e3d7] bg-white"><div className="border-b border-[#e1e8df] p-5 sm:p-6"><h2 className="font-serif text-2xl font-semibold">Comenzi individuale · {monthLabel(selectedMonth)}</h2><p className="mt-1 text-sm text-[#74837b]">Poți șterge o comandă dacă persoana se răzgândește.</p></div><div className="overflow-x-auto"><Table><TableHeader><TableRow><TableHead>Nume</TableHead><TableHead>Produse</TableHead><TableHead>Total</TableHead><TableHead>Notă</TableHead><TableHead>Plată</TableHead><TableHead className="text-right">Acțiuni</TableHead></TableRow></TableHeader><TableBody>{visibleOrders.map((order) => <TableRow key={order.id}><TableCell className="min-w-44"><strong>{order.customerName}</strong><span className="mt-1 block text-xs text-[#829087]">{order.orderCode} · {orderDate(order).toLocaleDateString('ro-MD')}</span></TableCell><TableCell className="min-w-72">{order.items.map((item) => <span key={item.productId} className="mr-1.5 mb-1.5 inline-flex rounded-full bg-[#eef3e8] px-2.5 py-1 text-xs">{item.productName} · {item.grams} g</span>)}</TableCell><TableCell className="whitespace-nowrap font-semibold">{lei(order.totalBani)} lei</TableCell><TableCell className="max-w-56 text-[#74837b]">{order.note || '—'}</TableCell><TableCell><Button size="sm" variant={order.paid ? 'secondary' : 'outline'} className={order.paid ? 'bg-[#dff0d2] text-[#315b32]' : ''} onClick={() => togglePaid(order)}>{order.paid && <Check />} {order.paid ? 'Achitat' : 'Neachitat'}</Button></TableCell><TableCell className="text-right"><Button variant="ghost" size="icon" aria-label={`Șterge comanda lui ${order.customerName}`} onClick={() => removeOrder(order)} className="text-red-600 hover:text-red-700"><Trash2 /></Button></TableCell></TableRow>)}{visibleOrders.length === 0 && <TableRow><TableCell colSpan={6} className="py-10 text-center text-[#74837b]">Nu există comenzi pentru această lună.</TableCell></TableRow>}</TableBody></Table></div></section>
     </div>
   </main>;
 }
