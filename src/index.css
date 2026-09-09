@@ -143,3 +143,43 @@ button, a, input {
     @apply font-sans;
   }
 }
+
+/* Bunătăți Împreună: desktop cart height fix */
+@media (min-width: 1024px) {
+  main aside {
+    display: flex !important;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  main aside > div:last-child {
+    flex: 1 1 auto;
+    min-height: 0;
+    height: auto;
+    overflow: hidden;
+  }
+}
+
+/* Brand logo in the order-page header */
+header > div > div:first-child > span:first-child {
+  width: 3.5rem;
+  height: 3.5rem;
+  flex: 0 0 3.5rem;
+  border-radius: 9999px;
+  background-color: transparent !important;
+  background-image: url('/logo-site.jpg');
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: contain;
+  color: transparent;
+  font-size: 0;
+  box-shadow: 0 6px 18px rgb(23 61 44 / 0.12);
+}
+
+@media (max-width: 639px) {
+  header > div > div:first-child > span:first-child {
+    width: 3rem;
+    height: 3rem;
+    flex-basis: 3rem;
+  }
+}
