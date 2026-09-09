@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowLeft, Check, Download, Eye, EyeOff, LogOut, Pencil, Plus, RefreshCw, Save, Trash2, X } from 'lucide-react';
-import { GoogleAuthProvider, getRedirectResult, signInWithRedirect, signOut } from 'firebase/auth';
+import { GoogleAuthProvider, signInWithPopup, signOut } from 'firebase/auth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -30,6 +30,8 @@ function friendly(message: string) {
   if (message.includes('PERMISSION_DENIED') || message.includes('403')) return 'Contul este autentificat, dar nu are permisiune de administrator în Firestore.';
   if (message.includes('auth/unauthorized-domain')) return 'Domeniul comanda-bunatati.pages.dev nu este autorizat în Firebase Authentication.';
   if (message.includes('auth/operation-not-allowed')) return 'Google Sign-In nu este activat în Firebase Authentication.';
+  if (message.includes('auth/popup-blocked')) return 'Browserul a blocat fereastra Google. Permite pop-up pentru acest site și încearcă din nou.';
+  if (message.includes('auth/popup-closed-by-user')) return 'Fereastra Google a fost închisă înainte de autentificare.';
   return message;
 }
 
@@ -64,7 +66,6 @@ export default function AdminStablePage() {
     } finally { setBusy(false); }
   };
 
-  // IMPORTANT: pagina de login NU este blocată de restaurarea sesiunii sau de Google redirect.
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -74,24 +75,10 @@ export default function AdminStablePage() {
           setAuthorized(true);
           await loadAll();
         }
-      } catch { /* loginul rămâne disponibil */ }
-    })();
-
-    (async () => {
-      try {
-        const result = await timeout(getRedirectResult(auth), 4000, 'GOOGLE_REDIRECT_TIMEOUT');
-        if (!cancelled && result?.user) {
-          const token = await timeout(result.user.getIdToken(), 5000, 'GOOGLE_TOKEN_TIMEOUT');
-          saveExternalAdminSession({ idToken: token, uid: result.user.uid, email: (result.user.email || '').toLowerCase() });
-          setAuthorized(true);
-          await loadAll();
-        }
-      } catch (e) {
-        const msg = (e as Error).message;
-        if (!msg.includes('GOOGLE_REDIRECT_TIMEOUT') && !cancelled) setError(`Google: ${friendly(msg)}`);
+      } catch {
+        // Loginul rămâne disponibil.
       }
     })();
-
     return () => { cancelled = true; };
   }, []);
 
@@ -110,14 +97,36 @@ export default function AdminStablePage() {
 
   const loginGoogle = async () => {
     setError('');
+    setBusy(true);
     try {
       const provider = new GoogleAuthProvider();
       provider.setCustomParameters({ prompt: 'select_account' });
-      await signInWithRedirect(auth, provider);
-    } catch (e) { setError(`Google: ${friendly((e as Error).message)}`); }
+      const result = await signInWithPopup(auth, provider);
+      const token = await result.user.getIdToken(true);
+      saveExternalAdminSession({
+        idToken: token,
+        uid: result.user.uid,
+        email: (result.user.email || '').toLowerCase(),
+      });
+      setAuthorized(true);
+      await loadAll();
+    } catch (e) {
+      setError(`Google: ${friendly((e as Error).message)}`);
+      setAuthorized(false);
+    } finally {
+      setBusy(false);
+    }
   };
 
-  const logout = async () => { clearAdminSession(); try { await signOut(auth); } catch {} setAuthorized(false); setOrders([]); setProducts([]); };
+  const logout = async () => {
+    setBusy(true);
+    clearAdminSession();
+    try { await signOut(auth); } catch {}
+    setAuthorized(false);
+    setOrders([]);
+    setProducts([]);
+    window.location.replace('/admin?loggedout=1');
+  };
 
   const monthOptions = useMemo(() => { const keys = new Set(orders.map((o) => monthKey(orderDate(o)))); keys.add(monthKey(new Date())); return [...keys].sort().reverse(); }, [orders]);
   const visibleOrders = useMemo(() => orders.filter((o) => monthKey(orderDate(o)) === selectedMonth), [orders, selectedMonth]);
@@ -140,9 +149,9 @@ export default function AdminStablePage() {
 
   const exportCsv = () => { const rows = [['Cod','Data','Nume','Telefon','Achitat','Produs','Categorie','Cantitate (g)','Produs (lei)','Total persoană (lei)']]; visibleOrders.forEach((o) => (o.items || []).forEach((i) => rows.push([o.orderCode || '', orderDate(o).toLocaleString('ro-MD'), o.customerName || '', o.phone || '', o.paid ? 'Da' : 'Nu', i.productName || '', i.category || '', String(i.grams || 0), lei(i.lineTotalBani || 0), lei(o.totalBani || 0)]))); const csv = '\uFEFF' + rows.map((r) => r.map((c) => `"${String(c).replaceAll('"','""')}"`).join(';')).join('\n'); const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' })); a.download = `comenzi-bunatati-${selectedMonth}.csv`; a.click(); URL.revokeObjectURL(a.href); };
 
-  if (!authorized) return <main className="grid min-h-screen place-items-center bg-[#f2f5ed] p-5 text-[#173d2c]"><section className="w-full max-w-md rounded-[28px] border border-[#d9e3d7] bg-white p-8 shadow-xl"><Link to="/" className="mb-7 flex items-center gap-2 text-sm text-[#607269]"><ArrowLeft className="size-4" /> Înapoi la catalog</Link><img src="/valera-logo.svg?v=8" className="mb-5 size-20 rounded-full border" alt="Logo" /><h1 className="font-serif text-3xl font-semibold">Panoul managerului</h1><p className="mt-2 text-sm text-[#74837b]">Bunătăți împreună cu Valera</p><form onSubmit={login} className="mt-7 space-y-3"><Input type="email" autoComplete="username" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Email" className="h-12 rounded-xl" /><Input type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Parolă" className="h-12 rounded-xl" /><Button disabled={busy || !email || !password} className="h-12 w-full rounded-xl bg-[#173d2c]">{busy ? 'Se autentifică…' : 'Intră în panou'}</Button></form><div className="my-4 flex items-center gap-3 text-xs text-[#8a968f]"><span className="h-px flex-1 bg-[#dfe7df]" />sau<span className="h-px flex-1 bg-[#dfe7df]" /></div><Button type="button" variant="outline" onClick={loginGoogle} className="h-12 w-full rounded-xl">Continuă cu Google</Button>{error && <p className="mt-4 rounded-xl bg-red-50 p-3 text-sm text-red-700">{error}</p>}</section></main>;
+  if (!authorized) return <main className="grid min-h-screen place-items-center bg-[#f2f5ed] p-5 text-[#173d2c]"><section className="w-full max-w-md rounded-[28px] border border-[#d9e3d7] bg-white p-8 shadow-xl"><Link to="/" className="mb-7 flex items-center gap-2 text-sm text-[#607269]"><ArrowLeft className="size-4" /> Înapoi la catalog</Link><img src="/valera-logo.svg?v=8" className="mb-5 size-20 rounded-full border" alt="Logo" /><h1 className="font-serif text-3xl font-semibold">Panoul managerului</h1><p className="mt-2 text-sm text-[#74837b]">Bunătăți împreună cu Valera</p><form onSubmit={login} className="mt-7 space-y-3"><Input type="email" autoComplete="username" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Email" className="h-12 rounded-xl" /><Input type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Parolă" className="h-12 rounded-xl" /><Button disabled={busy || !email || !password} className="h-12 w-full rounded-xl bg-[#173d2c]">{busy ? 'Se autentifică…' : 'Intră în panou'}</Button></form><div className="my-4 flex items-center gap-3 text-xs text-[#8a968f]"><span className="h-px flex-1 bg-[#dfe7df]" />sau<span className="h-px flex-1 bg-[#dfe7df]" /></div><Button type="button" variant="outline" onClick={loginGoogle} disabled={busy} className="h-12 w-full rounded-xl">{busy ? 'Se conectează…' : 'Continuă cu Google'}</Button>{error && <p className="mt-4 rounded-xl bg-red-50 p-3 text-sm text-red-700">{error}</p>}</section></main>;
 
-  return <main className="min-h-screen bg-[#f2f5ed] text-[#173d2c]"><header className="border-b bg-white"><div className="mx-auto flex max-w-[1400px] items-center justify-between gap-4 px-4 py-4 sm:px-8"><div className="flex items-center gap-3"><Link to="/"><img src="/valera-logo.svg?v=8" className="size-12 rounded-full border" alt="Logo" /></Link><div><h1 className="font-serif text-2xl font-semibold">Panoul managerului</h1><p className="text-xs text-[#74837b]">Bunătăți împreună cu Valera</p></div></div><div className="flex gap-2"><Button variant="outline" onClick={loadAll} disabled={busy}><RefreshCw /> Reîncarcă</Button><Button onClick={exportCsv} className="bg-[#173d2c]"><Download /> CSV</Button><Button variant="outline" size="icon" onClick={logout}><LogOut /></Button></div></div></header><div className="mx-auto max-w-[1400px] space-y-6 p-4 sm:p-8">{error && <p className="rounded-xl bg-red-50 p-3 text-sm text-red-700">{error}</p>}{notice && <p className="rounded-xl bg-[#e8f3df] p-3 text-sm text-[#315b32]">{notice}</p>}
+  return <main className="min-h-screen bg-[#f2f5ed] text-[#173d2c]"><header className="border-b bg-white"><div className="mx-auto flex max-w-[1400px] items-center justify-between gap-4 px-4 py-4 sm:px-8"><div className="flex items-center gap-3"><Link to="/"><img src="/valera-logo.svg?v=8" className="size-12 rounded-full border" alt="Logo" /></Link><div><h1 className="font-serif text-2xl font-semibold">Panoul managerului</h1><p className="text-xs text-[#74837b]">Bunătăți împreună cu Valera</p></div></div><div className="flex gap-2"><Button variant="outline" onClick={loadAll} disabled={busy}><RefreshCw /> Reîncarcă</Button><Button onClick={exportCsv} className="bg-[#173d2c]"><Download /> CSV</Button><Button type="button" variant="outline" size="icon" onClick={logout} disabled={busy} title="Ieșire"><LogOut /></Button></div></div></header><div className="mx-auto max-w-[1400px] space-y-6 p-4 sm:p-8">{error && <p className="rounded-xl bg-red-50 p-3 text-sm text-red-700">{error}</p>}{notice && <p className="rounded-xl bg-[#e8f3df] p-3 text-sm text-[#315b32]">{notice}</p>}
 
   <section className="rounded-[24px] border border-[#e4d4b8] bg-[#fffaf0] p-5"><h2 className="font-serif text-2xl font-semibold">Următoarea comandă</h2><div className="mt-4 flex flex-col gap-3 sm:flex-row"><Input type="date" value={newDate} onChange={(e) => setNewDate(e.target.value)} className="max-w-xs bg-white" /><Button onClick={() => { if (newDate) { saveSchedule([...dates, newDate]); setNewDate(''); } }} className="bg-[#173d2c]"><Plus /> Adaugă data</Button></div>{dates.length > 0 && <div className="mt-4 flex flex-wrap gap-2">{dates.map((d) => <div key={d} className="flex items-center gap-2 rounded-full border bg-white py-1.5 pl-3 pr-1.5 text-sm"><span>{formatOrderDate(d)}</span><button onClick={() => saveSchedule(dates.filter((x) => x !== d))} className="grid size-7 place-items-center text-red-600"><X className="size-4" /></button></div>)}</div>}<div className="mt-4 flex gap-2"><Input value={scheduleMessage} onChange={(e) => setScheduleMessage(e.target.value)} placeholder="Mesaj opțional" className="bg-white" /><Button variant="outline" onClick={() => saveSchedule(dates, scheduleMessage)}><Save /> Salvează</Button></div></section>
 
