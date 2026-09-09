@@ -1,15 +1,41 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowLeft, Check, Download, LockKeyhole, LogOut, PackageCheck, Users, WalletCards } from 'lucide-react';
+import { ArrowLeft, Check, Download, Eye, EyeOff, LockKeyhole, LogOut, PackageCheck, Pencil, Plus, Save, Trash2, Users, WalletCards, X } from 'lucide-react';
 import { GoogleAuthProvider, onAuthStateChanged, signInWithEmailAndPassword, signInWithPopup, signOut } from 'firebase/auth';
-import { collection, doc, getDoc, onSnapshot, orderBy, query, serverTimestamp, updateDoc } from 'firebase/firestore';
+import { collection, deleteDoc, doc, getDoc, onSnapshot, orderBy, query, serverTimestamp, setDoc, updateDoc, writeBatch } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { auth, db } from '@/lib/firebase';
+import { categories, products as defaultProducts, type Category } from '@/lib/products';
+import type { ManagedProduct } from '@/hooks/useProducts';
 
 type OrderItem = { productId: string; productName: string; category: string; grams: number; lineTotalBani: number };
 type Order = { id: string; orderCode: string; customerName: string; note: string; totalBani: number; paid: boolean; createdAt: { toDate?: () => Date } | null; items: OrderItem[] };
+
+type ProductDraft = {
+  id: string;
+  name: string;
+  category: Category;
+  priceLei: string;
+  baseGrams: string;
+  stepGrams: string;
+  active: boolean;
+  isNew: boolean;
+  promo: boolean;
+};
+
+const emptyDraft: ProductDraft = {
+  id: '',
+  name: '',
+  category: 'Nuci',
+  priceLei: '',
+  baseGrams: '1000',
+  stepGrams: '250',
+  active: true,
+  isNew: false,
+  promo: false,
+};
 
 function lei(bani: number) {
   return new Intl.NumberFormat('ro-MD', { maximumFractionDigits: 2 }).format(bani / 100);
@@ -19,18 +45,30 @@ function orderDate(order: Order) {
   return order.createdAt?.toDate?.() || new Date();
 }
 
+function slugify(value: string) {
+  return value.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+}
+
 export default function AdminDashboard() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [authorized, setAuthorized] = useState(false);
   const [checking, setChecking] = useState(true);
   const [orders, setOrders] = useState<Order[]>([]);
+  const [products, setProducts] = useState<ManagedProduct[]>([]);
+  const [productsReady, setProductsReady] = useState(false);
+  const [draft, setDraft] = useState<ProductDraft>(emptyDraft);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [savingProduct, setSavingProduct] = useState(false);
   const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
 
   useEffect(() => {
     let stopOrders = () => {};
+    let stopProducts = () => {};
     const stopAuth = onAuthStateChanged(auth, async (user) => {
       stopOrders();
+      stopProducts();
       if (!user) { setAuthorized(false); setChecking(false); return; }
       const admin = await getDoc(doc(db, 'admins', user.uid));
       if (!admin.exists()) {
@@ -44,8 +82,15 @@ export default function AdminDashboard() {
       stopOrders = onSnapshot(query(collection(db, 'groupOrders'), orderBy('createdAt', 'desc')), (snapshot) => {
         setOrders(snapshot.docs.map((entry) => ({ id: entry.id, ...entry.data() }) as Order));
       }, () => setError('Comenzile nu au putut fi încărcate. Verifică regulile Firestore.'));
+      stopProducts = onSnapshot(query(collection(db, 'products'), orderBy('sortOrder', 'asc')), (snapshot) => {
+        setProducts(snapshot.docs.map((entry) => ({ id: entry.id, ...(entry.data() as Omit<ManagedProduct, 'id'>) })));
+        setProductsReady(true);
+      }, () => {
+        setProductsReady(true);
+        setError('Produsele nu au putut fi încărcate. Verifică regulile Firestore pentru colecția products.');
+      });
     });
-    return () => { stopAuth(); stopOrders(); };
+    return () => { stopAuth(); stopOrders(); stopProducts(); };
   }, []);
 
   const login = async (event: React.FormEvent) => {
@@ -102,6 +147,105 @@ export default function AdminDashboard() {
     URL.revokeObjectURL(link.href);
   };
 
+  const seedProducts = async () => {
+    setSavingProduct(true);
+    setError('');
+    try {
+      const batch = writeBatch(db);
+      defaultProducts.forEach((product, index) => {
+        batch.set(doc(db, 'products', product.id), { ...product, active: true, isNew: false, promo: false, sortOrder: index, createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
+      });
+      await batch.commit();
+      setNotice('Catalogul actual a fost încărcat în Firebase. De acum îl poți modifica direct de aici.');
+    } catch {
+      setError('Nu am putut inițializa produsele. Verifică regulile Firestore pentru administratori.');
+    } finally {
+      setSavingProduct(false);
+    }
+  };
+
+  const startEdit = (product: ManagedProduct) => {
+    setEditingId(product.id);
+    setDraft({
+      id: product.id,
+      name: product.name,
+      category: product.category,
+      priceLei: String(product.priceLei),
+      baseGrams: String(product.baseGrams),
+      stepGrams: String(product.stepGrams),
+      active: product.active !== false,
+      isNew: !!product.isNew,
+      promo: !!product.promo,
+    });
+    setNotice('');
+  };
+
+  const cancelEdit = () => {
+    setEditingId(null);
+    setDraft(emptyDraft);
+  };
+
+  const saveProduct = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setError('');
+    setNotice('');
+    const name = draft.name.trim();
+    const priceLei = Number(draft.priceLei);
+    const baseGrams = Number(draft.baseGrams);
+    const stepGrams = Number(draft.stepGrams);
+    if (!name || !Number.isFinite(priceLei) || priceLei <= 0 || !Number.isInteger(baseGrams) || baseGrams <= 0 || !Number.isInteger(stepGrams) || stepGrams <= 0) {
+      setError('Completează corect denumirea, prețul și cantitățile.');
+      return;
+    }
+    const id = editingId || slugify(name) || `produs-${Date.now()}`;
+    if (!editingId && products.some((product) => product.id === id)) {
+      setError('Există deja un produs cu aceeași denumire. Modifică denumirea sau editează produsul existent.');
+      return;
+    }
+    setSavingProduct(true);
+    try {
+      const existing = editingId ? products.find((product) => product.id === editingId) : undefined;
+      await setDoc(doc(db, 'products', id), {
+        name,
+        category: draft.category,
+        priceLei,
+        baseGrams,
+        stepGrams,
+        active: draft.active,
+        isNew: draft.isNew,
+        promo: draft.promo,
+        sortOrder: existing?.sortOrder ?? products.length,
+        updatedAt: serverTimestamp(),
+        ...(editingId ? {} : { createdAt: serverTimestamp() }),
+      }, { merge: true });
+      setNotice(editingId ? 'Produsul a fost actualizat. Modificarea apare automat pe site.' : 'Produsul nou a fost adăugat și apare automat pe site.');
+      cancelEdit();
+    } catch {
+      setError('Produsul nu a putut fi salvat. Verifică regulile Firestore.');
+    } finally {
+      setSavingProduct(false);
+    }
+  };
+
+  const toggleProduct = async (product: ManagedProduct) => {
+    try {
+      await updateDoc(doc(db, 'products', product.id), { active: product.active === false, updatedAt: serverTimestamp() });
+    } catch {
+      setError('Nu am putut schimba disponibilitatea produsului.');
+    }
+  };
+
+  const removeProduct = async (product: ManagedProduct) => {
+    if (!window.confirm(`Ștergi produsul „${product.name}”? Comenzile vechi rămân neschimbate.`)) return;
+    try {
+      await deleteDoc(doc(db, 'products', product.id));
+      setNotice('Produsul a fost șters din catalog.');
+      if (editingId === product.id) cancelEdit();
+    } catch {
+      setError('Produsul nu a putut fi șters.');
+    }
+  };
+
   if (checking) return <main className="grid min-h-screen place-items-center bg-[#f2f5ed] text-[#607269]">Se verifică accesul…</main>;
 
   if (!authorized) return <main className="grid min-h-screen place-items-center bg-[#f2f5ed] p-5 text-[#173d2c]">
@@ -109,7 +253,7 @@ export default function AdminDashboard() {
       <Link to="/" className="mb-10 flex items-center gap-2 text-sm font-medium text-[#607269]"><ArrowLeft className="size-4" /> Înapoi la catalog</Link>
       <span className="mb-5 grid size-13 place-items-center rounded-2xl bg-[#e8f0e2]"><LockKeyhole /></span>
       <h1 className="font-serif text-3xl font-semibold">Panoul managerului</h1>
-      <p className="mt-2 text-sm leading-6 text-[#74837b]">Intră cu același cont de administrator folosit pentru site-ul Victoria Ghecrea.</p>
+      <p className="mt-2 text-sm leading-6 text-[#74837b]">Intră cu contul de administrator configurat în Firebase.</p>
       <form className="mt-7 space-y-3" onSubmit={login}>
         <Input type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="Email" className="h-12 rounded-xl" />
         <Input type="password" value={password} onChange={(event) => setPassword(event.target.value)} placeholder="Parolă" className="h-12 rounded-xl" />
@@ -122,10 +266,24 @@ export default function AdminDashboard() {
   </main>;
 
   return <main className="min-h-screen bg-[#f2f5ed] text-[#173d2c]">
-    <header className="border-b border-[#d9e3d7] bg-white"><div className="mx-auto flex max-w-[1400px] items-center justify-between gap-4 px-4 py-4 sm:px-8"><div className="flex items-center gap-4"><Link to="/" aria-label="Înapoi la catalog" className="grid size-10 place-items-center rounded-full border border-[#d6e0d5]"><ArrowLeft className="size-4" /></Link><div><h1 className="font-serif text-2xl font-semibold">Panoul managerului</h1><p className="text-xs text-[#74837b]">Actualizare automată din Firebase</p></div></div><div className="flex gap-2"><Button className="bg-[#173d2c]" onClick={exportCsv}><Download /> Descarcă CSV</Button><Button variant="outline" size="icon" aria-label="Ieși din cont" onClick={() => signOut(auth)}><LogOut /></Button></div></div></header>
+    <header className="border-b border-[#d9e3d7] bg-white"><div className="mx-auto flex max-w-[1400px] items-center justify-between gap-4 px-4 py-4 sm:px-8"><div className="flex items-center gap-4"><Link to="/" aria-label="Înapoi la catalog" className="grid size-10 place-items-center rounded-full border border-[#d6e0d5]"><ArrowLeft className="size-4" /></Link><div><h1 className="font-serif text-2xl font-semibold">Panoul managerului</h1><p className="text-xs text-[#74837b]">Produse și comenzi sincronizate cu Firebase</p></div></div><div className="flex gap-2"><Button className="bg-[#173d2c]" onClick={exportCsv}><Download /> Descarcă CSV</Button><Button variant="outline" size="icon" aria-label="Ieși din cont" onClick={() => signOut(auth)}><LogOut /></Button></div></div></header>
     <div className="mx-auto max-w-[1400px] space-y-6 p-4 sm:p-8">
       {error && <p className="rounded-xl bg-red-50 p-3 text-sm text-red-700">{error}</p>}
+      {notice && <p className="rounded-xl bg-[#e8f3df] p-3 text-sm text-[#315b32]">{notice}</p>}
       <section className="grid gap-3 sm:grid-cols-3"><Stat icon={<Users />} label="Comenzi" value={String(orders.length)} /><Stat icon={<WalletCards />} label="Total de încasat" value={`${lei(totals.totalBani)} lei`} /><Stat icon={<PackageCheck />} label="Încasat" value={`${lei(totals.paidBani)} lei`} /></section>
+
+      <section className="rounded-[24px] border border-[#d9e3d7] bg-white p-5 sm:p-6">
+        <div className="mb-5 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"><div><h2 className="font-serif text-2xl font-semibold">Produse</h2><p className="mt-1 text-sm text-[#74837b]">Orice modificare salvată aici apare automat în catalogul public, fără redeploy.</p></div>{productsReady && products.length === 0 && <Button onClick={seedProducts} disabled={savingProduct} className="bg-[#173d2c]">{savingProduct ? 'Se încarcă…' : 'Încarcă catalogul actual în Firebase'}</Button>}</div>
+
+        {products.length > 0 && <div className="mb-6 overflow-x-auto rounded-2xl border border-[#e1e8df]"><Table><TableHeader><TableRow><TableHead>Produs</TableHead><TableHead>Categorie</TableHead><TableHead>Preț</TableHead><TableHead>Pas</TableHead><TableHead>Status</TableHead><TableHead className="text-right">Acțiuni</TableHead></TableRow></TableHeader><TableBody>{products.map((product) => <TableRow key={product.id}><TableCell className="min-w-52"><strong>{product.name}</strong><div className="mt-1 flex gap-1.5">{product.isNew && <span className="rounded-full bg-[#e3f2d7] px-2 py-0.5 text-[11px] font-semibold text-[#315b32]">Nou</span>}{product.promo && <span className="rounded-full bg-[#fff0d9] px-2 py-0.5 text-[11px] font-semibold text-[#a65d13]">Promo</span>}</div></TableCell><TableCell>{product.category}</TableCell><TableCell className="whitespace-nowrap font-semibold">{product.priceLei} lei/{product.baseGrams === 1000 ? 'kg' : `${product.baseGrams} g`}</TableCell><TableCell>{product.stepGrams} g</TableCell><TableCell>{product.active === false ? <span className="text-[#a65d13]">Ascuns</span> : <span className="text-[#315b32]">Activ</span>}</TableCell><TableCell><div className="flex justify-end gap-1"><Button variant="ghost" size="icon" aria-label={product.active === false ? 'Arată produsul' : 'Ascunde produsul'} onClick={() => toggleProduct(product)}>{product.active === false ? <Eye /> : <EyeOff />}</Button><Button variant="ghost" size="icon" aria-label="Editează produsul" onClick={() => startEdit(product)}><Pencil /></Button><Button variant="ghost" size="icon" aria-label="Șterge produsul" onClick={() => removeProduct(product)}><Trash2 /></Button></div></TableCell></TableRow>)}</TableBody></Table></div>}
+
+        <form onSubmit={saveProduct} className="rounded-2xl bg-[#f5f8f1] p-4 sm:p-5">
+          <div className="mb-4 flex items-center justify-between"><div><h3 className="font-semibold">{editingId ? 'Editează produsul' : 'Adaugă produs nou'}</h3><p className="mt-1 text-xs text-[#74837b]">Prețul este raportat la cantitatea de bază.</p></div>{editingId && <Button type="button" variant="ghost" size="icon" onClick={cancelEdit}><X /></Button>}</div>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-6"><Input value={draft.name} onChange={(event) => setDraft((current) => ({ ...current, name: event.target.value }))} placeholder="Denumire produs" className="lg:col-span-2" /><select value={draft.category} onChange={(event) => setDraft((current) => ({ ...current, category: event.target.value as Category }))} className="h-9 rounded-md border border-input bg-transparent px-3 text-sm outline-none">{categories.map((category) => <option key={category}>{category}</option>)}</select><Input type="number" min="0.01" step="0.01" value={draft.priceLei} onChange={(event) => setDraft((current) => ({ ...current, priceLei: event.target.value }))} placeholder="Preț lei" /><Input type="number" min="1" step="1" value={draft.baseGrams} onChange={(event) => setDraft((current) => ({ ...current, baseGrams: event.target.value }))} placeholder="Bază g" /><Input type="number" min="1" step="1" value={draft.stepGrams} onChange={(event) => setDraft((current) => ({ ...current, stepGrams: event.target.value }))} placeholder="Pas g" /></div>
+          <div className="mt-4 flex flex-wrap items-center gap-4"><label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={draft.active} onChange={(event) => setDraft((current) => ({ ...current, active: event.target.checked }))} /> Activ pe site</label><label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={draft.isNew} onChange={(event) => setDraft((current) => ({ ...current, isNew: event.target.checked }))} /> Marcaj „Nou”</label><label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={draft.promo} onChange={(event) => setDraft((current) => ({ ...current, promo: event.target.checked }))} /> Marcaj „Promo”</label><Button type="submit" disabled={savingProduct || !draft.name.trim() || !draft.priceLei} className="ml-auto bg-[#173d2c]">{editingId ? <Save /> : <Plus />} {savingProduct ? 'Se salvează…' : editingId ? 'Salvează modificările' : 'Adaugă produs'}</Button></div>
+        </form>
+      </section>
+
       <section className="rounded-[24px] border border-[#d9e3d7] bg-white p-5 sm:p-6"><div className="mb-5"><h2 className="font-serif text-2xl font-semibold">Lista pentru vânzător</h2><p className="mt-1 text-sm text-[#74837b]">Cantitățile cumulate din toate comenzile</p></div>{totals.byProduct.length ? <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">{totals.byProduct.map((product) => <div key={product.name} className="flex items-center justify-between rounded-xl bg-[#f2f6ee] px-4 py-3"><span className="font-medium">{product.name}</span><strong>{product.grams >= 1000 ? `${product.grams / 1000} kg` : `${product.grams} g`}</strong></div>)}</div> : <p className="py-8 text-center text-[#74837b]">Încă nu există produse comandate.</p>}</section>
       <section className="overflow-hidden rounded-[24px] border border-[#d9e3d7] bg-white"><div className="border-b border-[#e1e8df] p-5 sm:p-6"><h2 className="font-serif text-2xl font-semibold">Comenzi individuale</h2></div><div className="overflow-x-auto"><Table><TableHeader><TableRow><TableHead>Nume</TableHead><TableHead>Produse</TableHead><TableHead>Total</TableHead><TableHead>Notă</TableHead><TableHead>Plată</TableHead></TableRow></TableHeader><TableBody>{orders.map((order) => <TableRow key={order.id}><TableCell className="min-w-44"><strong>{order.customerName}</strong><span className="mt-1 block text-xs text-[#829087]">{order.orderCode}</span></TableCell><TableCell className="min-w-72">{order.items.map((item) => <span key={item.productId} className="mr-1.5 mb-1.5 inline-flex rounded-full bg-[#eef3e8] px-2.5 py-1 text-xs">{item.productName} · {item.grams} g</span>)}</TableCell><TableCell className="whitespace-nowrap font-semibold">{lei(order.totalBani)} lei</TableCell><TableCell className="max-w-56 text-[#74837b]">{order.note || '—'}</TableCell><TableCell><Button size="sm" variant={order.paid ? 'secondary' : 'outline'} className={order.paid ? 'bg-[#dff0d2] text-[#315b32]' : ''} onClick={() => togglePaid(order)}>{order.paid && <Check />} {order.paid ? 'Achitat' : 'Neachitat'}</Button></TableCell></TableRow>)}</TableBody></Table></div></section>
     </div>
