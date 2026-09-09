@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowLeft, Check, Download, Eye, EyeOff, LockKeyhole, LogOut, PackageCheck, Pencil, Plus, Save, Trash2, Users, WalletCards, X } from 'lucide-react';
+import { ArrowLeft, CalendarDays, Check, Download, Eye, EyeOff, LockKeyhole, LogOut, PackageCheck, Pencil, Plus, Save, Trash2, Users, WalletCards, X } from 'lucide-react';
 import { GoogleAuthProvider, onAuthStateChanged, signInWithEmailAndPassword, signInWithPopup, signOut } from 'firebase/auth';
 import { collection, deleteDoc, doc, getDoc, onSnapshot, orderBy, query, serverTimestamp, setDoc, updateDoc, writeBatch } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
@@ -9,6 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { auth, db } from '@/lib/firebase';
 import { categories, products as defaultProducts, type Category } from '@/lib/products';
 import type { ManagedProduct } from '@/hooks/useProducts';
+import { formatOrderDate, useOrderSchedule } from '@/hooks/useOrderSchedule';
 
 type OrderItem = { productId: string; productName: string; category: string; grams: number; lineTotalBani: number };
 type Order = { id: string; orderCode: string; customerName: string; note: string; totalBani: number; paid: boolean; createdAt: { toDate?: () => Date } | null; items: OrderItem[] };
@@ -51,6 +52,7 @@ function slugify(value: string) {
 }
 
 export default function AdminDashboard() {
+  const { schedule } = useOrderSchedule();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [authorized, setAuthorized] = useState(false);
@@ -62,8 +64,15 @@ export default function AdminDashboard() {
   const [draft, setDraft] = useState<ProductDraft>(emptyDraft);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [savingProduct, setSavingProduct] = useState(false);
+  const [newOrderDate, setNewOrderDate] = useState('');
+  const [scheduleMessage, setScheduleMessage] = useState('');
+  const [savingSchedule, setSavingSchedule] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
+
+  useEffect(() => {
+    setScheduleMessage(schedule.message || '');
+  }, [schedule.message]);
 
   useEffect(() => {
     let stopOrders = () => {};
@@ -159,6 +168,34 @@ export default function AdminDashboard() {
     link.click(); URL.revokeObjectURL(link.href);
   };
 
+  const saveSchedule = async (dates: string[], message = scheduleMessage) => {
+    setSavingSchedule(true); setError(''); setNotice('');
+    try {
+      await setDoc(doc(db, 'settings', 'orderSchedule'), {
+        dates: [...new Set(dates)].filter(Boolean).sort(),
+        message: message.trim(),
+        updatedAt: serverTimestamp(),
+      }, { merge: true });
+      setNotice('Datele următoarei comenzi au fost actualizate și apar automat colegilor.');
+    } catch {
+      setError('Nu am putut salva datele. Trebuie permis accesul la colecția settings în regulile Firestore.');
+    } finally { setSavingSchedule(false); }
+  };
+
+  const addOrderDate = async () => {
+    if (!newOrderDate) return;
+    await saveSchedule([...schedule.dates, newOrderDate]);
+    setNewOrderDate('');
+  };
+
+  const removeOrderDate = async (date: string) => {
+    await saveSchedule(schedule.dates.filter((item) => item !== date));
+  };
+
+  const saveScheduleMessage = async () => {
+    await saveSchedule(schedule.dates, scheduleMessage);
+  };
+
   const seedProducts = async () => {
     setSavingProduct(true); setError('');
     try {
@@ -235,6 +272,13 @@ export default function AdminDashboard() {
     <div className="mx-auto max-w-[1400px] space-y-6 p-4 sm:p-8">
       {error && <p className="rounded-xl bg-red-50 p-3 text-sm text-red-700">{error}</p>}
       {notice && <p className="rounded-xl bg-[#e8f3df] p-3 text-sm text-[#315b32]">{notice}</p>}
+
+      <section className="rounded-[24px] border border-[#e4d4b8] bg-[#fffaf0] p-5 sm:p-6">
+        <div className="mb-5 flex items-start gap-3"><span className="grid size-11 shrink-0 place-items-center rounded-2xl bg-[#f5dfbb] text-[#8b581c]"><CalendarDays /></span><div><h2 className="font-serif text-2xl font-semibold">Următoarea comandă</h2><p className="mt-1 text-sm text-[#7d674d]">Setează data sau datele pe care colegii trebuie să le vadă înainte să trimită comanda.</p></div></div>
+        <div className="flex flex-col gap-3 sm:flex-row"><Input type="date" value={newOrderDate} onChange={(event) => setNewOrderDate(event.target.value)} className="h-11 max-w-xs bg-white" /><Button onClick={addOrderDate} disabled={!newOrderDate || savingSchedule} className="h-11 bg-[#173d2c]"><Plus /> Adaugă data</Button></div>
+        {schedule.dates.length > 0 ? <div className="mt-4 flex flex-wrap gap-2">{schedule.dates.map((date) => <div key={date} className="flex items-center gap-2 rounded-full border border-[#e4d4b8] bg-white py-1.5 pl-3 pr-1.5 text-sm font-semibold text-[#62492b]"><span>{formatOrderDate(date)}</span><button type="button" onClick={() => removeOrderDate(date)} disabled={savingSchedule} className="grid size-7 place-items-center rounded-full text-red-600 hover:bg-red-50" aria-label={`Șterge ${formatOrderDate(date)}`}><X className="size-3.5" /></button></div>)}</div> : <p className="mt-4 text-sm text-[#8a765d]">Nu ai setat încă o dată pentru următoarea comandă.</p>}
+        <div className="mt-5 flex flex-col gap-2 sm:flex-row"><Input value={scheduleMessage} onChange={(event) => setScheduleMessage(event.target.value)} placeholder="Mesaj opțional, ex: Trimite comanda până pe 18 septembrie" className="h-11 bg-white" /><Button variant="outline" onClick={saveScheduleMessage} disabled={savingSchedule} className="h-11 shrink-0"><Save /> Salvează mesajul</Button></div>
+      </section>
 
       <section className="rounded-[22px] border border-[#d9e3d7] bg-white p-4 sm:p-5">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><div><p className="text-sm font-semibold">Perioada comenzilor</p><p className="mt-1 text-xs text-[#74837b]">Fiecare lună este păstrată separat în istoric.</p></div><select value={selectedMonth} onChange={(event) => setSelectedMonth(event.target.value)} className="h-11 min-w-56 rounded-xl border border-[#d6e0d5] bg-white px-3 text-sm font-semibold outline-none">{monthOptions.map((key) => <option key={key} value={key}>{monthLabel(key)}</option>)}</select></div>
