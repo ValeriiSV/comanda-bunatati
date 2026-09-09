@@ -3,7 +3,7 @@ const PROJECT_ID = 'comanda-bunatati';
 
 const FIRESTORE_BASE = `https://firestore.googleapis.com/v1/projects/${PROJECT_ID}/databases/(default)/documents`;
 const AUTH_BASE = `https://identitytoolkit.googleapis.com/v1/accounts`;
-const TOKEN_KEY = 'bunatati_admin_session_v2';
+const TOKEN_KEY = 'bunatati_admin_session_v3';
 
 type Session = {
   idToken: string;
@@ -11,6 +11,7 @@ type Session = {
   uid: string;
   email: string;
   expiresAt: number;
+  provider?: 'password' | 'google';
 };
 
 export type RestDocument = { name?: string; fields?: Record<string, FireValue> };
@@ -29,9 +30,23 @@ function saveSession(session: Session) {
   localStorage.setItem(TOKEN_KEY, JSON.stringify(session));
 }
 
+export function saveExternalAdminSession(input: { idToken: string; uid: string; email: string }) {
+  const session: Session = {
+    idToken: input.idToken,
+    refreshToken: '',
+    uid: input.uid,
+    email: input.email,
+    expiresAt: Date.now() + 50 * 60 * 1000,
+    provider: 'google',
+  };
+  saveSession(session);
+  return session;
+}
+
 export function clearAdminSession() {
   localStorage.removeItem(TOKEN_KEY);
   localStorage.removeItem('bunatati_admin_session_v1');
+  localStorage.removeItem('bunatati_admin_session_v2');
 }
 
 function readSession(): Session | null {
@@ -40,6 +55,19 @@ function readSession(): Session | null {
     return raw ? JSON.parse(raw) as Session : null;
   } catch {
     return null;
+  }
+}
+
+async function fetchWithTimeout(url: string, init: RequestInit = {}, timeoutMs = 10000) {
+  const controller = new AbortController();
+  const timer = window.setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, { ...init, signal: controller.signal });
+  } catch (error) {
+    if ((error as Error).name === 'AbortError') throw new Error('TIMEOUT_FIREBASE');
+    throw error;
+  } finally {
+    window.clearTimeout(timer);
   }
 }
 
@@ -53,7 +81,7 @@ async function jsonOrThrow(response: Response) {
 }
 
 export async function adminLogin(email: string, password: string): Promise<Session> {
-  const response = await fetch(`${AUTH_BASE}:signInWithPassword?key=${API_KEY}`, {
+  const response = await fetchWithTimeout(`${AUTH_BASE}:signInWithPassword?key=${API_KEY}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ email: email.trim(), password, returnSecureToken: true }),
@@ -65,13 +93,15 @@ export async function adminLogin(email: string, password: string): Promise<Sessi
     uid: data.localId,
     email: data.email || email.trim(),
     expiresAt: Date.now() + (Number(data.expiresIn || 3600) - 60) * 1000,
+    provider: 'password',
   };
   saveSession(session);
   return session;
 }
 
 async function refreshSession(session: Session): Promise<Session> {
-  const response = await fetch(`https://securetoken.googleapis.com/v1/token?key=${API_KEY}`, {
+  if (!session.refreshToken) throw new Error('SESSION_EXPIRED');
+  const response = await fetchWithTimeout(`https://securetoken.googleapis.com/v1/token?key=${API_KEY}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: new URLSearchParams({ grant_type: 'refresh_token', refresh_token: session.refreshToken }),
@@ -83,6 +113,7 @@ async function refreshSession(session: Session): Promise<Session> {
     uid: data.user_id || session.uid,
     email: session.email,
     expiresAt: Date.now() + (Number(data.expires_in || 3600) - 60) * 1000,
+    provider: session.provider,
   };
   saveSession(updated);
   return updated;
@@ -143,14 +174,14 @@ async function authHeaders() {
 
 export async function listCollection(path: string) {
   const headers = await authHeaders();
-  const response = await fetch(`${FIRESTORE_BASE}/${path}?pageSize=300`, { headers });
+  const response = await fetchWithTimeout(`${FIRESTORE_BASE}/${path}?pageSize=300`, { headers });
   const data = await jsonOrThrow(response);
   return (data.documents || []).map(decodeDocument);
 }
 
 export async function getDocument(path: string) {
   const headers = await authHeaders();
-  const response = await fetch(`${FIRESTORE_BASE}/${path}`, { headers });
+  const response = await fetchWithTimeout(`${FIRESTORE_BASE}/${path}`, { headers });
   if (response.status === 404) return null;
   return decodeDocument(await jsonOrThrow(response));
 }
@@ -158,7 +189,7 @@ export async function getDocument(path: string) {
 export async function setDocument(path: string, data: Record<string, unknown>) {
   const headers = await authHeaders();
   const fields = Object.fromEntries(Object.entries(data).map(([key, value]) => [key, toFireValue(value)]));
-  const response = await fetch(`${FIRESTORE_BASE}/${path}`, {
+  const response = await fetchWithTimeout(`${FIRESTORE_BASE}/${path}`, {
     method: 'PATCH',
     headers,
     body: JSON.stringify({ fields }),
@@ -170,7 +201,7 @@ export async function updateDocument(path: string, data: Record<string, unknown>
   const headers = await authHeaders();
   const fields = Object.fromEntries(Object.entries(data).map(([key, value]) => [key, toFireValue(value)]));
   const mask = Object.keys(data).map((key) => `updateMask.fieldPaths=${encodeURIComponent(key)}`).join('&');
-  const response = await fetch(`${FIRESTORE_BASE}/${path}?${mask}`, {
+  const response = await fetchWithTimeout(`${FIRESTORE_BASE}/${path}?${mask}`, {
     method: 'PATCH',
     headers,
     body: JSON.stringify({ fields }),
@@ -180,6 +211,6 @@ export async function updateDocument(path: string, data: Record<string, unknown>
 
 export async function deleteDocument(path: string) {
   const headers = await authHeaders();
-  const response = await fetch(`${FIRESTORE_BASE}/${path}`, { method: 'DELETE', headers });
+  const response = await fetchWithTimeout(`${FIRESTORE_BASE}/${path}`, { method: 'DELETE', headers });
   if (!response.ok && response.status !== 404) await jsonOrThrow(response);
 }
