@@ -41,7 +41,7 @@ function ScheduleNotice({ schedule, compact = false }: { schedule: OrderSchedule
 
 function CartPanel({ cart, setCart, products, schedule }: { cart: Cart; setCart: React.Dispatch<React.SetStateAction<Cart>>; products: Product[]; schedule: OrderSchedule }) {
   const [name, setName] = useState('');
-  const [note, setNote] = useState('');
+  const [phone, setPhone] = useState('');
   const [sending, setSending] = useState(false);
   const [success, setSuccess] = useState<string | null>(null);
   const lines = products.filter((product) => cart[product.id] > 0);
@@ -52,7 +52,7 @@ function CartPanel({ cart, setCart, products, schedule }: { cart: Cart; setCart:
   };
 
   const submit = async () => {
-    if (!name.trim() || !lines.length) return;
+    if (!name.trim() || !phone.trim() || !lines.length) return;
     setSending(true);
     setSuccess(null);
     try {
@@ -60,7 +60,7 @@ function CartPanel({ cart, setCart, products, schedule }: { cart: Cart; setCart:
       await addDoc(collection(db, 'groupOrders'), {
         orderCode,
         customerName: name.trim(),
-        note: note.trim(),
+        phone: phone.trim(),
         totalBani: Math.round(total * 100),
         paid: false,
         createdAt: serverTimestamp(),
@@ -68,7 +68,7 @@ function CartPanel({ cart, setCart, products, schedule }: { cart: Cart; setCart:
         items: lines.map((product) => ({ productId: product.id, productName: product.name, category: product.category, grams: cart[product.id], lineTotalBani: Math.round(linePrice(product, cart[product.id]) * 100) })),
       });
       setCart({});
-      setNote('');
+      setPhone('');
       setSuccess(orderCode);
     } catch {
       alert('Nu am putut trimite comanda. Încearcă din nou.');
@@ -89,7 +89,6 @@ function CartPanel({ cart, setCart, products, schedule }: { cart: Cart; setCart:
 
   return <div className="flex h-full flex-col">
     <div className="flex-1 overflow-y-auto px-5 pb-5">
-      {schedule.dates.length > 0 && <div className="mb-4 pt-1"><ScheduleNotice schedule={schedule} compact /></div>}
       {lines.length === 0 ? <div className="flex min-h-[240px] flex-col items-center justify-center text-center text-[#74837b]">
         <ShoppingBag className="mb-4 size-11 stroke-1" /><p className="font-medium text-[#315b32]">Coșul este gol</p><p className="mt-1 max-w-[230px] text-sm">Adaugă bunătățile dorite din catalog.</p>
       </div> : <div className="space-y-3">{lines.map((product) => <div key={product.id} className="rounded-2xl border border-[#dfe8df] bg-white p-4">
@@ -100,7 +99,12 @@ function CartPanel({ cart, setCart, products, schedule }: { cart: Cart; setCart:
     </div>
     <div className="border-t border-[#dfe8df] bg-[#fbfcf8] p-5">
       <div className="mb-4 flex items-end justify-between"><span className="text-sm text-[#607269]">Total de plată</span><strong className="font-serif text-3xl text-[#173d2c]">{money(total)} lei</strong></div>
-      <div className="space-y-3"><Input className="h-11 rounded-xl border-[#cedbce] bg-white px-3" placeholder="Numele și prenumele *" value={name} onChange={(event) => setName(event.target.value)} /><Input className="h-11 rounded-xl border-[#cedbce] bg-white px-3" placeholder="Notă pentru manager (opțional)" value={note} onChange={(event) => setNote(event.target.value)} /><Button disabled={!name.trim() || !lines.length || sending} onClick={submit} className="h-12 w-full rounded-xl bg-[#f2a444] text-base font-semibold text-[#17301f] hover:bg-[#e89531]">{sending ? 'Se trimite…' : 'Trimite comanda'} <ChevronRight /></Button></div>
+      <div className="space-y-3">
+        <Input className="h-11 rounded-xl border-[#cedbce] bg-white px-3" placeholder="Numele și prenumele *" value={name} onChange={(event) => setName(event.target.value)} />
+        {schedule.dates.length > 0 ? <ScheduleNotice schedule={schedule} compact /> : <div className="rounded-xl border border-dashed border-[#d6e0d5] bg-white p-3 text-sm text-[#74837b]">Data următoarei comenzi nu este încă stabilită.</div>}
+        <Input type="tel" inputMode="tel" autoComplete="tel" className="h-11 rounded-xl border-[#cedbce] bg-white px-3" placeholder="Număr de telefon *" value={phone} onChange={(event) => setPhone(event.target.value)} />
+        <Button disabled={!name.trim() || !phone.trim() || !lines.length || sending} onClick={submit} className="h-12 w-full rounded-xl bg-[#f2a444] text-base font-semibold text-[#17301f] hover:bg-[#e89531]">{sending ? 'Se trimite…' : 'Trimite comanda'} <ChevronRight /></Button>
+      </div>
     </div>
   </div>;
 }
@@ -130,15 +134,15 @@ export default function OrderApp() {
       title: 'Trimite o comandă de bunătăți',
       description: 'Trimite o comandă nouă de nuci, fructe uscate sau dulciuri pentru un coleg. Folosește ID-urile din catalog și cantități conforme cu pasul produsului.',
       inputSchema: {
-        type: 'object', required: ['customerName', 'items'], additionalProperties: false,
+        type: 'object', required: ['customerName', 'phone', 'items'], additionalProperties: false,
         properties: {
           customerName: { type: 'string', minLength: 1, maxLength: 80 },
-          note: { type: 'string', maxLength: 300 },
+          phone: { type: 'string', minLength: 5, maxLength: 30 },
           items: { type: 'array', minItems: 1, items: { type: 'object', required: ['productId', 'grams'], additionalProperties: false, properties: { productId: { type: 'string', enum: products.map((product) => product.id) }, grams: { type: 'integer', minimum: 1, maximum: 20000 } } } },
         },
       },
       execute: async (input: unknown) => {
-        const order = input as { customerName: string; note?: string; items: Array<{ productId: string; grams: number }> };
+        const order = input as { customerName: string; phone: string; items: Array<{ productId: string; grams: number }> };
         const selected = order.items.map((item) => {
           const product = products.find((candidate) => candidate.id === item.productId);
           if (!product || item.grams % product.stepGrams !== 0) throw new Error('Produs sau cantitate nevalidă');
@@ -146,7 +150,7 @@ export default function OrderApp() {
         });
         const orderCode = `CMD-${crypto.randomUUID().slice(0, 6).toUpperCase()}`;
         const totalBani = selected.reduce((sum, item) => sum + item.lineTotalBani, 0);
-        await addDoc(collection(db, 'groupOrders'), { orderCode, customerName: order.customerName.trim(), note: order.note?.trim() || '', totalBani, paid: false, createdAt: serverTimestamp(), scheduledOrderDates: schedule.dates, items: selected.map(({ product, grams, lineTotalBani }) => ({ productId: product.id, productName: product.name, category: product.category, grams, lineTotalBani })) });
+        await addDoc(collection(db, 'groupOrders'), { orderCode, customerName: order.customerName.trim(), phone: order.phone.trim(), totalBani, paid: false, createdAt: serverTimestamp(), scheduledOrderDates: schedule.dates, items: selected.map(({ product, grams, lineTotalBani }) => ({ productId: product.id, productName: product.name, category: product.category, grams, lineTotalBani })) });
         setCart({});
         setAgentNotice(`Comanda ${orderCode} a fost trimisă.`);
         return { orderCode, totalLei: totalBani / 100 };
