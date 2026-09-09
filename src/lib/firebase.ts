@@ -3,12 +3,12 @@ import { getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 
 const firebaseConfig = {
-  apiKey: 'AIzaSyB48maYhxqPs_3XQqTfLbbTa0SfYyyEPq4',
-  authDomain: 'victoria-ghecrea-crm.firebaseapp.com',
-  projectId: 'victoria-ghecrea-crm',
-  storageBucket: 'victoria-ghecrea-crm.firebasestorage.app',
-  messagingSenderId: '461744075686',
-  appId: '1:461744075686:web:b9f73d32d40f797535d567',
+  apiKey: 'AIzaSyDu86lUJXgQYTkbNQlLX3bIFd5ht3_PWoY',
+  authDomain: 'comanda-bunatati.firebaseapp.com',
+  projectId: 'comanda-bunatati',
+  storageBucket: 'comanda-bunatati.firebasestorage.app',
+  messagingSenderId: '600432537903',
+  appId: '1:600432537903:web:a1a6813a59a6033c33f1da',
 };
 
 const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
