@@ -80,62 +80,57 @@ export default function AdminDashboard() {
 
   useEffect(() => setScheduleMessage(schedule.message || ''), [schedule.message]);
 
-  useEffect(() => {
-    let stopOrders = () => {};
-    let stopProducts = () => {};
-    let activeUid = '';
+  const attachDataListeners = (user: User) => {
+    setAuthorized(true);
+    setChecking(false);
+    setError('');
 
-    const stopData = () => {
-      stopOrders();
-      stopProducts();
-      stopOrders = () => {};
-      stopProducts = () => {};
-      activeUid = '';
-    };
+    const stopOrders = onSnapshot(
+      query(collection(db, 'groupOrders'), orderBy('createdAt', 'desc')),
+      (snapshot) => setOrders(snapshot.docs.map((entry) => ({ id: entry.id, ...(entry.data() as Omit<Order, 'id'>) }))),
+      (err) => {
+        console.error('groupOrders listener:', err);
+        setError(`Nu pot încărca comenzile (${err.code || 'eroare Firebase'}).`);
+      },
+    );
+
+    const stopProducts = onSnapshot(
+      query(collection(db, 'products'), orderBy('sortOrder', 'asc')),
+      (snapshot) => {
+        setProducts(snapshot.docs.map((entry) => ({ id: entry.id, ...(entry.data() as Omit<ManagedProduct, 'id'>) })));
+        setProductsReady(true);
+      },
+      (err) => {
+        console.error('products listener:', err);
+        setProductsReady(true);
+        setError(`Nu pot încărca produsele (${err.code || 'eroare Firebase'}).`);
+      },
+    );
+
+    return () => { stopOrders(); stopProducts(); };
+  };
+
+  useEffect(() => {
+    let stopData = () => {};
+    let activeUid = '';
 
     const startData = (user: User) => {
       if (activeUid === user.uid) return;
       stopData();
       activeUid = user.uid;
-      setAuthorized(true);
-      setChecking(false);
-      setError('');
-
-      stopOrders = onSnapshot(
-        query(collection(db, 'groupOrders'), orderBy('createdAt', 'desc')),
-        (snapshot) => setOrders(snapshot.docs.map((entry) => ({ id: entry.id, ...(entry.data() as Omit<Order, 'id'>) }))),
-        (err) => {
-          console.error('groupOrders listener:', err);
-          setError('Nu pot încărca comenzile. Contul autentificat nu are permisiune sau conexiunea Firebase este indisponibilă.');
-        },
-      );
-
-      stopProducts = onSnapshot(
-        query(collection(db, 'products'), orderBy('sortOrder', 'asc')),
-        (snapshot) => {
-          setProducts(snapshot.docs.map((entry) => ({ id: entry.id, ...(entry.data() as Omit<ManagedProduct, 'id'>) })));
-          setProductsReady(true);
-        },
-        (err) => {
-          console.error('products listener:', err);
-          setProductsReady(true);
-          setError('Nu pot încărca produsele. Verifică permisiunile contului în Firebase.');
-        },
-      );
+      stopData = attachDataListeners(user);
     };
 
     if (auth.currentUser) startData(auth.currentUser);
 
-    const authWatchdog = window.setTimeout(() => {
-      setChecking(false);
-    }, 2500);
+    const authWatchdog = window.setTimeout(() => setChecking(false), 2500);
 
     const stopAuth = onAuthStateChanged(auth, (user) => {
       window.clearTimeout(authWatchdog);
-      if (user) {
-        startData(user);
-      } else {
+      if (user) startData(user);
+      else {
         stopData();
+        activeUid = '';
         setAuthorized(false);
         setChecking(false);
       }
@@ -143,9 +138,10 @@ export default function AdminDashboard() {
       console.error('Firebase Auth listener:', err);
       window.clearTimeout(authWatchdog);
       stopData();
+      activeUid = '';
       setAuthorized(false);
       setChecking(false);
-      setError('Firebase Authentication nu a putut porni. Reîncarcă pagina.');
+      setError(`Firebase Authentication: ${err.code || err.message}`);
     });
 
     return () => {
@@ -158,16 +154,28 @@ export default function AdminDashboard() {
   const login = async (event: React.FormEvent) => {
     event.preventDefault();
     setError('');
-    try { await signInWithEmailAndPassword(auth, email.trim(), password); }
-    catch { setError('Email sau parolă incorectă.'); }
+    setChecking(true);
+    try {
+      const credential = await signInWithEmailAndPassword(auth, email.trim(), password);
+      attachDataListeners(credential.user);
+    } catch (loginError) {
+      const code = (loginError as { code?: string; message?: string }).code || 'auth/unknown';
+      setChecking(false);
+      setAuthorized(false);
+      setError(`Autentificarea nu a reușit: ${code}`);
+    }
   };
 
   const loginWithGoogle = async () => {
     setError('');
-    try { await signInWithPopup(auth, new GoogleAuthProvider()); }
-    catch (loginError) {
-      const code = (loginError as { code?: string }).code;
-      if (code !== 'auth/popup-closed-by-user') setError('Autentificarea cu Google nu a reușit.');
+    setChecking(true);
+    try {
+      const credential = await signInWithPopup(auth, new GoogleAuthProvider());
+      attachDataListeners(credential.user);
+    } catch (loginError) {
+      const code = (loginError as { code?: string }).code || 'auth/unknown';
+      setChecking(false);
+      if (code !== 'auth/popup-closed-by-user') setError(`Autentificarea cu Google nu a reușit: ${code}`);
     }
   };
 
@@ -276,18 +284,18 @@ export default function AdminDashboard() {
     catch { setError('Produsul nu a putut fi șters.'); }
   };
 
-  if (checking) return <main className="grid min-h-screen place-items-center bg-[#f2f5ed] text-[#607269]"><div className="text-center"><img src="/valera-logo.svg?v=4" alt="Bunătăți împreună cu Valera" className="mx-auto mb-4 size-20 rounded-full" /><p>Se inițializează panoul…</p></div></main>;
+  if (checking) return <main className="grid min-h-screen place-items-center bg-[#f2f5ed] text-[#607269]"><div className="text-center"><img src="/valera-logo.svg?v=5" alt="Bunătăți împreună cu Valera" className="mx-auto mb-4 size-20 rounded-full" /><p>Se inițializează panoul…</p></div></main>;
 
   if (!authorized) return <main className="grid min-h-screen place-items-center bg-[#f2f5ed] p-5 text-[#173d2c]">
     <section className="w-full max-w-md rounded-[28px] border border-[#d9e3d7] bg-white p-7 shadow-[0_24px_70px_rgba(23,61,44,.12)] sm:p-9">
       <Link to="/" className="mb-7 flex items-center gap-2 text-sm font-medium text-[#607269]"><ArrowLeft className="size-4" /> Înapoi la catalog</Link>
-      <img src="/valera-logo.svg?v=4" alt="Bunătăți împreună cu Valera" className="mb-5 size-20 rounded-full border border-[#d9e3d7]" />
+      <img src="/valera-logo.svg?v=5" alt="Bunătăți împreună cu Valera" className="mb-5 size-20 rounded-full border border-[#d9e3d7]" />
       <h1 className="font-serif text-3xl font-semibold">Panoul managerului</h1>
       <p className="mt-2 text-sm leading-6 text-[#74837b]">Bunătăți împreună cu Valera</p>
       <form className="mt-7 space-y-3" onSubmit={login}>
         <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Email" className="h-12 rounded-xl" />
         <Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Parolă" className="h-12 rounded-xl" />
-        <Button disabled={!email || !password} className="h-12 w-full rounded-xl bg-[#173d2c] text-base">Intră în panou</Button>
+        <Button disabled={!email || !password || checking} className="h-12 w-full rounded-xl bg-[#173d2c] text-base">{checking ? 'Se conectează…' : 'Intră în panou'}</Button>
       </form>
       <div className="my-4 flex items-center gap-3 text-xs text-[#8a968f]"><span className="h-px flex-1 bg-[#dfe7df]" />sau<span className="h-px flex-1 bg-[#dfe7df]" /></div>
       <Button type="button" variant="outline" className="h-12 w-full rounded-xl" onClick={loginWithGoogle}>Continuă cu Google</Button>
@@ -296,7 +304,7 @@ export default function AdminDashboard() {
   </main>;
 
   return <main className="min-h-screen bg-[#f2f5ed] text-[#173d2c]">
-    <header className="border-b border-[#d9e3d7] bg-white"><div className="mx-auto flex max-w-[1400px] items-center justify-between gap-4 px-4 py-4 sm:px-8"><div className="flex items-center gap-3"><Link to="/"><img src="/valera-logo.svg?v=4" alt="Bunătăți împreună cu Valera" className="size-12 rounded-full border border-[#d6e0d5]" /></Link><div><h1 className="font-serif text-2xl font-semibold">Panoul managerului</h1><p className="text-xs text-[#74837b]">Bunătăți împreună cu Valera</p></div></div><div className="flex gap-2"><Button className="bg-[#173d2c]" onClick={exportCsv}><Download /> Descarcă CSV</Button><Button variant="outline" size="icon" aria-label="Ieși" onClick={() => signOut(auth)}><LogOut /></Button></div></div></header>
+    <header className="border-b border-[#d9e3d7] bg-white"><div className="mx-auto flex max-w-[1400px] items-center justify-between gap-4 px-4 py-4 sm:px-8"><div className="flex items-center gap-3"><Link to="/"><img src="/valera-logo.svg?v=5" alt="Bunătăți împreună cu Valera" className="size-12 rounded-full border border-[#d6e0d5]" /></Link><div><h1 className="font-serif text-2xl font-semibold">Panoul managerului</h1><p className="text-xs text-[#74837b]">Bunătăți împreună cu Valera</p></div></div><div className="flex gap-2"><Button className="bg-[#173d2c]" onClick={exportCsv}><Download /> Descarcă CSV</Button><Button variant="outline" size="icon" aria-label="Ieși" onClick={() => signOut(auth)}><LogOut /></Button></div></div></header>
     <div className="mx-auto max-w-[1400px] space-y-6 p-4 sm:p-8">
       {error && <p className="rounded-xl bg-red-50 p-3 text-sm text-red-700">{error}</p>}
       {notice && <p className="rounded-xl bg-[#e8f3df] p-3 text-sm text-[#315b32]">{notice}</p>}
