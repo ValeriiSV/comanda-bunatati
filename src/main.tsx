@@ -7,6 +7,7 @@ import MiaPaymentPage from './pages/MiaPaymentPage';
 import OrderStatusPage from './pages/OrderStatusPage';
 import AppErrorBoundary from './components/AppErrorBoundary';
 import './index.css';
+import './wow.css';
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
