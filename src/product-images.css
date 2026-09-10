@@ -1,0 +1,44 @@
+/* Product-specific generated photos — batch 1 */
+#product-migdale { --product-image: url('/products/migdale.jpg'); }
+#product-caju { --product-image: url('/products/caju.jpg'); }
+#product-caju-prajit { --product-image: url('/products/caju-prajit.jpg'); }
+#product-caju-fara-coaja-prajit { --product-image: url('/products/caju-fara-coaja-prajit.jpg'); }
+#product-fistic-american { --product-image: url('/products/fistic-american.jpg'); }
+#product-miez-fistic { --product-image: url('/products/miez-fistic.jpg'); }
+#product-nuci-grecesti { --product-image: url('/products/nuci-grecesti.jpg'); }
+#product-arahide-crude { --product-image: url('/products/arahide-crude.jpg'); }
+#product-macadamia-coaja { --product-image: url('/products/macadamia-coaja.jpg'); }
+#product-nuci-braziliene { --product-image: url('/products/nuci-braziliene.jpg'); }
+
+:is(
+  #product-migdale,
+  #product-caju,
+  #product-caju-prajit,
+  #product-caju-fara-coaja-prajit,
+  #product-fistic-american,
+  #product-miez-fistic,
+  #product-nuci-grecesti,
+  #product-arahide-crude,
+  #product-macadamia-coaja,
+  #product-nuci-braziliene
+) > div:first-child {
+  background-image: var(--product-image);
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: cover;
+}
+
+:is(
+  #product-migdale,
+  #product-caju,
+  #product-caju-prajit,
+  #product-caju-fara-coaja-prajit,
+  #product-fistic-american,
+  #product-miez-fistic,
+  #product-nuci-grecesti,
+  #product-arahide-crude,
+  #product-macadamia-coaja,
+  #product-nuci-braziliene
+) > div:first-child > img {
+  opacity: 0;
+}
