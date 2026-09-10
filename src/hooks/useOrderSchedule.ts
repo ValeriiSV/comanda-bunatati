@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 export type OrderSchedule = {
   dates: string[];
   message?: string;
+  closed?: boolean;
 };
 
 const SCHEDULE_URL = 'https://firestore.googleapis.com/v1/projects/comanda-bunatati/databases/(default)/documents/settings/orderSchedule';
@@ -11,6 +12,12 @@ function readString(value: unknown): string {
   if (!value || typeof value !== 'object') return '';
   const candidate = value as { stringValue?: unknown };
   return typeof candidate.stringValue === 'string' ? candidate.stringValue : '';
+}
+
+function readBoolean(value: unknown): boolean {
+  if (!value || typeof value !== 'object') return false;
+  const candidate = value as { booleanValue?: unknown };
+  return candidate.booleanValue === true;
 }
 
 function parseSchedule(data: unknown): OrderSchedule {
@@ -23,6 +30,7 @@ function parseSchedule(data: unknown): OrderSchedule {
   return {
     dates: values.map(readString).filter(Boolean).sort(),
     message: readString(fields.message),
+    closed: readBoolean(fields.closed),
   };
 }
 
