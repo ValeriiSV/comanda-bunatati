@@ -37,6 +37,7 @@ export async function submitPublicOrder(order: PublicOrderPayload) {
       phone: stringValue(order.phone),
       totalBani: integerValue(order.totalBani),
       paid: { booleanValue: false },
+      status: stringValue('Trimisă'),
       createdAt: { timestampValue: new Date().toISOString() },
       scheduledOrderDates: {
         arrayValue: {
