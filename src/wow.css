@@ -1,0 +1,104 @@
+.interactive-glass {
+  --glass-x: 50%;
+  --glass-y: 50%;
+  position: relative;
+  isolation: isolate;
+}
+
+.interactive-glass::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  pointer-events: none;
+  border-radius: inherit;
+  background: radial-gradient(circle at var(--glass-x) var(--glass-y), rgba(255,255,255,.52), rgba(255,255,255,.14) 18%, transparent 42%);
+  opacity: 0;
+  transition: opacity .24s ease;
+  mix-blend-mode: soft-light;
+}
+
+.interactive-glass:hover::after {
+  opacity: .95;
+}
+
+.hero-wow {
+  isolation: isolate;
+}
+
+.hero-parallax {
+  transform: scale(1.06);
+  animation: hero-drift 16s ease-in-out infinite alternate;
+  will-change: transform;
+}
+
+.hero-orb {
+  position: absolute;
+  z-index: 1;
+  display: block;
+  border-radius: 999px;
+  filter: blur(2px);
+  pointer-events: none;
+  background: rgba(255,255,255,.12);
+  border: 1px solid rgba(255,255,255,.18);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.24), 0 16px 42px rgba(0,0,0,.12);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  animation: orb-float 8s ease-in-out infinite alternate;
+}
+
+.hero-orb-one {
+  width: 104px;
+  height: 104px;
+  right: 6%;
+  top: 8%;
+}
+
+.hero-orb-two {
+  width: 58px;
+  height: 58px;
+  right: 31%;
+  bottom: 8%;
+  animation-delay: -2.4s;
+}
+
+.pulse-live {
+  box-shadow: 0 0 0 0 rgba(155,229,125,.55);
+  animation: live-pulse 1.8s ease-out infinite;
+}
+
+.category-dock {
+  box-shadow: 0 18px 40px rgba(23,61,44,.09), inset 0 1px 0 rgba(255,255,255,.8);
+}
+
+@keyframes hero-drift {
+  0% { transform: scale(1.06) translate3d(-0.6%, -0.6%, 0); }
+  100% { transform: scale(1.11) translate3d(1.2%, .8%, 0); }
+}
+
+@keyframes orb-float {
+  0% { transform: translate3d(0, 0, 0) rotate(0deg); }
+  100% { transform: translate3d(10px, -14px, 0) rotate(8deg); }
+}
+
+@keyframes live-pulse {
+  0% { box-shadow: 0 0 0 0 rgba(155,229,125,.52); }
+  70% { box-shadow: 0 0 0 9px rgba(155,229,125,0); }
+  100% { box-shadow: 0 0 0 0 rgba(155,229,125,0); }
+}
+
+@media (max-width: 639px) {
+  .hero-orb-one { width: 72px; height: 72px; right: -12px; top: 16px; }
+  .hero-orb-two { width: 42px; height: 42px; right: 18%; bottom: 5%; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-parallax,
+  .hero-orb,
+  .pulse-live {
+    animation: none !important;
+  }
+  .interactive-glass::after {
+    display: none;
+  }
+}
