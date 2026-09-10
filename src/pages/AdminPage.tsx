@@ -5,6 +5,7 @@ import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import { saveExternalAdminSession } from '@/lib/firebaseRest';
 import SellerExcelExport from '@/components/SellerExcelExport';
+import AdminWowDashboard from '@/components/AdminWowDashboard';
 import AdminStablePage from './AdminStablePage';
 
 export default function AdminPage() {
@@ -62,6 +63,7 @@ export default function AdminPage() {
         <ArrowLeft className="size-4" />
         Înapoi la catalog
       </Link>
+      <AdminWowDashboard />
       <AdminStablePage />
       <SellerExcelExport />
     </div>
