@@ -32,9 +32,9 @@ function money(value: number) {
 function ScheduleNotice({ schedule, compact = false }: { schedule: OrderSchedule; compact?: boolean }) {
   if (!schedule.dates.length) return null;
   return (
-    <div className={`rounded-2xl border border-[#e4d4b8] bg-[#fff7e9] ${compact ? 'p-3' : 'p-4 sm:p-5'}`}>
+    <div className={`glass glass-shine rounded-2xl ${compact ? 'p-3' : 'p-4 sm:p-5'}`}>
       <div className="flex items-start gap-3">
-        <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-[#f7dfb8] text-[#8b581c]"><CalendarDays className="size-4" /></span>
+        <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-[#f7dfb8]/75 text-[#8b581c] shadow-sm backdrop-blur-md"><CalendarDays className="size-4" /></span>
         <div>
           <p className="text-xs font-bold uppercase tracking-[.1em] text-[#9a6222]">Următoarea comandă</p>
           <div className="mt-1.5 flex flex-wrap gap-x-2 gap-y-1 text-sm font-semibold text-[#5d4527]">
@@ -49,10 +49,10 @@ function ScheduleNotice({ schedule, compact = false }: { schedule: OrderSchedule
 
 function MiaQrCard({ compact = false }: { compact?: boolean }) {
   return (
-    <div className={`rounded-2xl border border-[#d8e5d9] bg-white ${compact ? 'p-3' : 'p-4 sm:p-5'}`}>
+    <div className={`glass glass-shine rounded-2xl ${compact ? 'p-3' : 'p-4 sm:p-5'}`}>
       <div className={`flex ${compact ? 'items-center gap-3' : 'flex-col items-center gap-3 text-center sm:flex-row sm:text-left'}`}>
-        <a href={MIA_LINK} target="_blank" rel="noreferrer" aria-label="Deschide MIA">
-          <img src="/mia-qr.svg?v=5" alt="QR pentru transfer prin MIA" className={compact ? 'size-24 rounded-xl bg-white p-1' : 'size-32 rounded-2xl bg-white p-1 shadow-sm'} />
+        <a href={MIA_LINK} target="_blank" rel="noreferrer" aria-label="Deschide MIA" className="rounded-2xl bg-white/70 p-1 shadow-sm backdrop-blur-md">
+          <img src="/mia-qr.svg?v=5" alt="QR pentru transfer prin MIA" className={compact ? 'size-24 rounded-xl bg-white p-1' : 'size-32 rounded-2xl bg-white p-1'} />
         </a>
         <div>
           <p className="text-sm font-bold text-[#173d2c]">Transfer prin MIA</p>
@@ -118,19 +118,19 @@ function CartPanel({ cart, setCart, products, schedule }: {
   if (success) {
     return (
       <div className="flex min-h-[420px] flex-col items-center justify-center px-5 py-6 text-center">
-        <span className="mb-5 grid size-16 place-items-center rounded-full bg-[#e5f2d5] text-[#315b32]"><CheckCircle2 className="size-8" /></span>
+        <span className="glass mb-5 grid size-16 place-items-center rounded-full text-[#315b32]"><CheckCircle2 className="size-8" /></span>
         <h2 className="font-serif text-3xl font-semibold text-[#173d2c]">Comandă trimisă</h2>
         <p className="mt-3 max-w-xs text-[#607269]">Codul tău este <strong className="text-[#173d2c]">{success}</strong>. Managerul vede deja comanda.</p>
-        {schedule.dates.length > 0 && <p className="mt-3 max-w-xs rounded-xl bg-[#fff4df] px-4 py-2.5 text-sm text-[#7a5325]">Comanda comună este planificată pentru <strong>{schedule.dates.map(formatOrderDate).join(' / ')}</strong>.</p>}
+        {schedule.dates.length > 0 && <p className="glass mt-3 max-w-xs rounded-xl px-4 py-2.5 text-sm text-[#7a5325]">Comanda comună este planificată pentru <strong>{schedule.dates.map(formatOrderDate).join(' / ')}</strong>.</p>}
         <div className="mt-5 w-full max-w-sm"><MiaQrCard compact /></div>
-        <Button className="mt-6 h-11 rounded-full bg-[#173d2c] px-5" onClick={() => setSuccess(null)}>Comandă din nou</Button>
+        <Button className="mt-6 h-11 rounded-full bg-[#173d2c] px-5 shadow-lg" onClick={() => setSuccess(null)}>Comandă din nou</Button>
       </div>
     );
   }
 
   return (
     <div className="flex h-full flex-col">
-      <div className="flex-1 overflow-y-auto px-5 pb-5">
+      <div className="glass-scrollbar min-h-0 flex-1 overflow-y-auto px-5 pb-5 pt-1">
         {lines.length === 0 ? (
           <div className="flex min-h-[240px] flex-col items-center justify-center text-center text-[#74837b]">
             <ShoppingBag className="mb-4 size-11 stroke-1" />
@@ -140,10 +140,10 @@ function CartPanel({ cart, setCart, products, schedule }: {
         ) : (
           <div className="space-y-3">
             {lines.map((product) => (
-              <div key={product.id} className="rounded-2xl border border-[#dfe8df] bg-white p-4">
+              <div key={product.id} className="glass-chip rounded-2xl p-4">
                 <div className="flex items-start justify-between gap-4">
                   <div><p className="font-medium text-[#173d2c]">{product.name}</p><p className="mt-1 text-sm text-[#74837b]">{money(linePrice(product, cart[product.id]))} lei</p></div>
-                  <div className="flex items-center gap-1 rounded-full bg-[#f0f5eb] p-1">
+                  <div className="flex items-center gap-1 rounded-full bg-white/45 p-1 backdrop-blur-md">
                     <Button variant="ghost" size="icon-sm" className="rounded-full" onClick={() => change(product.id, -product.stepGrams)}><Minus /></Button>
                     <span className="min-w-14 text-center text-sm font-semibold text-[#315b32]">{quantityLabel(product, cart[product.id])}</span>
                     <Button variant="ghost" size="icon-sm" className="rounded-full" onClick={() => change(product.id, product.stepGrams)}><Plus /></Button>
@@ -155,14 +155,14 @@ function CartPanel({ cart, setCart, products, schedule }: {
         )}
       </div>
 
-      <div className="border-t border-[#dfe8df] bg-[#fbfcf8] p-5">
+      <div className="border-t border-white/60 bg-white/42 p-5 backdrop-blur-2xl">
         <div className="mb-4 flex items-end justify-between"><span className="text-sm text-[#607269]">Total de plată</span><strong className="font-serif text-3xl text-[#173d2c]">{money(total)} lei</strong></div>
         <div className="space-y-3">
-          <Input className="h-11 rounded-xl border-[#cedbce] bg-white px-3" placeholder="Numele și prenumele *" value={name} onChange={(event) => setName(event.target.value)} />
-          {schedule.dates.length > 0 ? <ScheduleNotice schedule={schedule} compact /> : <div className="rounded-xl border border-dashed border-[#d6e0d5] bg-white p-3 text-sm text-[#74837b]">Data următoarei comenzi nu este încă stabilită.</div>}
-          <Input type="tel" inputMode="tel" autoComplete="tel" className="h-11 rounded-xl border-[#cedbce] bg-white px-3" placeholder="Număr de telefon *" value={phone} onChange={(event) => setPhone(event.target.value)} />
-          {submitError && <p className="rounded-xl bg-red-50 p-3 text-sm text-red-700">{submitError}</p>}
-          <Button disabled={!name.trim() || !phone.trim() || !lines.length || sending} onClick={submit} className="h-12 w-full rounded-xl bg-[#f2a444] text-base font-semibold text-[#17301f] hover:bg-[#e89531]">
+          <Input className="glass-input h-11 rounded-xl px-3" placeholder="Numele și prenumele *" value={name} onChange={(event) => setName(event.target.value)} />
+          {schedule.dates.length > 0 ? <ScheduleNotice schedule={schedule} compact /> : <div className="glass rounded-xl border-dashed p-3 text-sm text-[#74837b]">Data următoarei comenzi nu este încă stabilită.</div>}
+          <Input type="tel" inputMode="tel" autoComplete="tel" className="glass-input h-11 rounded-xl px-3" placeholder="Număr de telefon *" value={phone} onChange={(event) => setPhone(event.target.value)} />
+          {submitError && <p className="rounded-xl bg-red-50/85 p-3 text-sm text-red-700 backdrop-blur-md">{submitError}</p>}
+          <Button disabled={!name.trim() || !phone.trim() || !lines.length || sending} onClick={submit} className="h-12 w-full rounded-xl bg-[#f2a444]/95 text-base font-semibold text-[#17301f] shadow-lg backdrop-blur-md hover:bg-[#e89531]">
             {sending ? 'Se trimite…' : 'Trimite comanda'} <ChevronRight />
           </Button>
         </div>
@@ -188,41 +188,52 @@ export default function OrderApp() {
   const change = (productId: string, delta: number) => setCart((current) => ({ ...current, [productId]: Math.max(0, (current[productId] || 0) + delta) }));
 
   return (
-    <main className="min-h-screen bg-[#f6f7f0] pb-28 text-[#173d2c] lg:pb-0">
-      <header className="sticky top-0 z-30 border-b border-[#d9e2d8]/80 bg-[#f6f7f0]/92 backdrop-blur-xl">
-        <div className="mx-auto flex h-20 max-w-[1440px] items-center justify-between px-4 sm:px-8">
-          <div className="flex items-center gap-3">
-            <img src="/valera-logo.svg?v=6" alt="Bunătăți împreună cu Valera" className="size-14 rounded-full border border-[#d7e0d6] bg-white object-cover" />
-            <div><p className="font-serif text-xl font-bold leading-none sm:text-2xl">Bunătăți împreună cu Valera</p><p className="mt-1 text-xs text-[#74837b]">Comanda echipei</p></div>
+    <main className="liquid-page min-h-screen pb-28 text-[#173d2c] lg:pb-0">
+      <header className="sticky top-0 z-30 bg-[#f3f5ed]/35 backdrop-blur-xl">
+        <div className="glass glass-shine mx-auto my-2 flex h-16 max-w-[1440px] items-center justify-between rounded-[24px] px-4 sm:px-8">
+          <div className="flex min-w-0 items-center gap-3">
+            <img src="/valera-logo.svg?v=6" alt="Bunătăți împreună cu Valera" className="size-12 shrink-0 rounded-full border border-white/70 bg-white/65 object-cover shadow-sm" />
+            <div className="min-w-0"><p className="truncate font-serif text-lg font-bold leading-none sm:text-2xl">Bunătăți împreună cu Valera</p><p className="mt-1 text-xs text-[#74837b]">Comanda echipei</p></div>
           </div>
-          <Link className="text-sm font-medium text-[#607269] transition hover:text-[#173d2c]" to="/admin">Manager</Link>
+          <Link className="glass-chip ml-3 shrink-0 rounded-full px-4 py-2 text-sm font-semibold text-[#315b32] transition hover:bg-white/75" to="/admin">Manager</Link>
         </div>
       </header>
 
       <div className="mx-auto max-w-[1440px] lg:grid lg:grid-cols-[minmax(0,1fr)_390px]">
         <section className="min-w-0 px-4 py-5 sm:px-8 lg:py-7">
-          <div className="relative mb-5 min-h-[250px] overflow-hidden rounded-[28px] bg-[#173d2c] text-white shadow-[0_22px_70px_rgba(23,61,44,.14)]">
+          <div className="relative mb-5 min-h-[250px] overflow-hidden rounded-[30px] bg-[#173d2c] text-white shadow-[0_24px_70px_rgba(23,61,44,.16)] ring-1 ring-white/35">
             <img src="/catalog-hero.png" alt="Nuci și fructe uscate" className="absolute inset-0 size-full object-cover object-center" />
-            <div className="absolute inset-0 bg-gradient-to-r from-[#173d2c] via-[#173d2c]/90 to-transparent" />
+            <div className="absolute inset-0 bg-gradient-to-r from-[#173d2c]/96 via-[#173d2c]/82 to-[#173d2c]/15" />
             <div className="relative flex min-h-[250px] max-w-xl flex-col justify-center p-7 sm:p-10">
-              <span className="mb-4 flex w-fit items-center gap-2 rounded-full bg-white/12 px-3 py-1.5 text-xs font-semibold uppercase tracking-[.12em] text-[#f8c982]"><Sparkles className="size-3.5" /> Comandă deschisă</span>
+              <span className="glass-dark mb-4 flex w-fit items-center gap-2 rounded-full px-3 py-1.5 text-xs font-semibold uppercase tracking-[.12em] text-[#f8c982]"><Sparkles className="size-3.5" /> Comandă deschisă</span>
               <h1 className="font-serif text-4xl font-semibold leading-[1.05] sm:text-5xl">Alege ce-ți place.<br />Noi comandăm împreună.</h1>
-              <p className="mt-4 max-w-md text-sm leading-6 text-white/75 sm:text-base">Alege cantitatea dorită, trimite comanda și achită prin MIA.</p>
+              <p className="mt-4 max-w-md text-sm leading-6 text-white/80 sm:text-base">Alege cantitatea dorită, trimite comanda și achită prin MIA.</p>
             </div>
           </div>
 
           <div className="mb-5 grid gap-3 lg:grid-cols-[minmax(0,1fr)_320px]">
-            {schedule.dates.length > 0 ? <ScheduleNotice schedule={schedule} /> : <div className="rounded-2xl border border-dashed border-[#d6e0d5] bg-white p-4 text-sm text-[#74837b]">Data următoarei comenzi nu este încă stabilită.</div>}
+            {schedule.dates.length > 0 ? <ScheduleNotice schedule={schedule} /> : <div className="glass rounded-2xl border-dashed p-4 text-sm text-[#74837b]">Data următoarei comenzi nu este încă stabilită.</div>}
             <MiaQrCard />
           </div>
 
-          {error && <p className="mb-4 rounded-xl bg-amber-50 p-3 text-sm text-amber-800">{error}</p>}
+          {error && <p className="mb-4 rounded-xl bg-amber-50/80 p-3 text-sm text-amber-800 backdrop-blur-lg">{error}</p>}
 
-          <div className="mb-6 flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
-            <div className="flex gap-2 overflow-x-auto pb-1">
-              {categories.map((category) => <button key={category} onClick={() => setActiveCategory(category)} className={`shrink-0 rounded-full px-4 py-2.5 text-sm font-semibold transition ${activeCategory === category ? 'bg-[#173d2c] text-white shadow-md' : 'border border-[#d6e0d5] bg-white text-[#607269]'}`}><span className="mr-1.5">{categoryMeta[category].icon}</span>{category}</button>)}
+          <div className="mb-6 flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+            <div className="glass-scrollbar flex gap-2 overflow-x-auto pb-2 sm:flex-wrap sm:overflow-visible sm:pb-0">
+              {categories.map((category) => (
+                <button
+                  key={category}
+                  onClick={() => setActiveCategory(category)}
+                  className={`glass-chip shrink-0 rounded-full px-4 py-2.5 text-sm font-semibold transition ${activeCategory === category ? 'bg-[#173d2c]/90 text-white shadow-lg ring-1 ring-white/35' : 'text-[#54685e] hover:bg-white/72'}`}
+                >
+                  <span className="mr-1.5">{categoryMeta[category].icon}</span>{category}
+                </button>
+              ))}
             </div>
-            <label className="relative block w-full xl:w-72"><Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[#839087]" /><Input value={search} onChange={(event) => setSearch(event.target.value)} className="h-11 rounded-full border-[#d6e0d5] bg-white pl-10" placeholder="Caută un produs" /></label>
+            <label className="glass relative block w-full shrink-0 rounded-full xl:w-72">
+              <Search className="absolute left-3 top-1/2 z-10 size-4 -translate-y-1/2 text-[#708078]" />
+              <Input value={search} onChange={(event) => setSearch(event.target.value)} className="h-11 rounded-full border-transparent bg-transparent pl-10 shadow-none focus-visible:ring-[#769277]/40" placeholder="Caută un produs" />
+            </label>
           </div>
 
           <div className="mb-4 flex items-baseline justify-between"><div><h2 className="font-serif text-3xl font-semibold">{activeCategory}</h2><p className="mt-1 text-sm text-[#74837b]">{categoryMeta[activeCategory].note}</p></div><span className="text-sm text-[#839087]">{loading ? 'Se încarcă…' : `${filtered.length} produse`}</span></div>
@@ -231,13 +242,27 @@ export default function OrderApp() {
             {filtered.map((product: ManagedProduct) => {
               const amount = cart[product.id] || 0;
               return (
-                <article key={product.id} className={`rounded-[22px] border bg-white p-5 transition ${amount ? 'border-[#7f9e76] shadow-[0_14px_34px_rgba(23,61,44,.09)]' : 'border-[#dfe7dc]'}`}>
-                  <div className="mb-7 flex items-start justify-between gap-3"><span className="grid size-11 place-items-center rounded-2xl bg-[#eef3e8] text-xl">{categoryMeta[product.category].icon}</span><div className="flex flex-wrap justify-end gap-1.5">{product.isNew && <span className="rounded-full bg-[#e3f2d7] px-2.5 py-1 text-xs font-semibold text-[#315b32]">Nou</span>}{product.promo && <span className="rounded-full bg-[#fff0d9] px-2.5 py-1 text-xs font-semibold text-[#a65d13]">Promo</span>}<span className="rounded-full bg-[#f5efe1] px-2.5 py-1 text-xs font-semibold text-[#9a6222]">{priceLabel(product)}</span></div></div>
+                <article key={product.id} className={`glass glass-shine glass-card-hover rounded-[24px] p-5 ${amount ? 'border-[#91ab88]/65 shadow-[0_18px_38px_rgba(23,61,44,.12)] ring-1 ring-[#8daa82]/25' : ''}`}>
+                  <div className="mb-7 flex items-start justify-between gap-3">
+                    <span className="grid size-11 place-items-center rounded-2xl bg-white/55 text-xl shadow-sm backdrop-blur-md">{categoryMeta[product.category].icon}</span>
+                    <div className="flex flex-wrap justify-end gap-1.5">
+                      {product.isNew && <span className="rounded-full bg-[#e3f2d7]/80 px-2.5 py-1 text-xs font-semibold text-[#315b32] backdrop-blur-md">Nou</span>}
+                      {product.promo && <span className="rounded-full bg-[#fff0d9]/85 px-2.5 py-1 text-xs font-semibold text-[#a65d13] backdrop-blur-md">Promo</span>}
+                      <span className="rounded-full bg-[#f5efe1]/75 px-2.5 py-1 text-xs font-semibold text-[#9a6222] backdrop-blur-md">{priceLabel(product)}</span>
+                    </div>
+                  </div>
                   <h3 className="min-h-12 text-[17px] font-semibold leading-6">{product.name}</h3>
                   {amount ? (
-                    <div className="mt-4 flex items-center justify-between"><div className="flex items-center gap-1 rounded-full bg-[#eef3e8] p-1"><Button variant="ghost" size="icon-sm" className="rounded-full" onClick={() => change(product.id, -product.stepGrams)}><Minus /></Button><strong className="min-w-14 text-center text-sm">{quantityLabel(product, amount)}</strong><Button variant="ghost" size="icon-sm" className="rounded-full" onClick={() => change(product.id, product.stepGrams)}><Plus /></Button></div><strong>{money(linePrice(product, amount))} lei</strong></div>
+                    <div className="mt-4 flex items-center justify-between">
+                      <div className="glass-chip flex items-center gap-1 rounded-full p-1">
+                        <Button variant="ghost" size="icon-sm" className="rounded-full" onClick={() => change(product.id, -product.stepGrams)}><Minus /></Button>
+                        <strong className="min-w-14 text-center text-sm">{quantityLabel(product, amount)}</strong>
+                        <Button variant="ghost" size="icon-sm" className="rounded-full" onClick={() => change(product.id, product.stepGrams)}><Plus /></Button>
+                      </div>
+                      <strong>{money(linePrice(product, amount))} lei</strong>
+                    </div>
                   ) : (
-                    <Button onClick={() => change(product.id, product.stepGrams)} variant="outline" className="mt-4 h-10 w-full rounded-xl border-[#c9d7c7] text-[#315b32]"><Plus /> Adaugă {quantityLabel(product, product.stepGrams)}</Button>
+                    <Button onClick={() => change(product.id, product.stepGrams)} variant="outline" className="glass-chip mt-4 h-10 w-full rounded-xl border-white/60 text-[#315b32] hover:bg-white/75"><Plus /> Adaugă {quantityLabel(product, product.stepGrams)}</Button>
                   )}
                 </article>
               );
@@ -245,16 +270,18 @@ export default function OrderApp() {
           </div>
         </section>
 
-        <aside className="sticky top-20 hidden h-[calc(100vh-5rem)] border-l border-[#d9e2d8] bg-[#fbfcf8] lg:block">
-          <div className="border-b border-[#dfe8df] px-5 py-5"><h2 className="font-serif text-2xl font-semibold">Comanda mea</h2><p className="mt-1 text-sm text-[#74837b]">{itemCount ? `${itemCount} produse alese` : 'Alege produsele din catalog'}</p></div>
-          <CartPanel cart={cart} setCart={setCart} products={products} schedule={schedule} />
+        <aside className="sticky top-20 hidden h-[calc(100vh-5rem)] p-3 pl-0 lg:block">
+          <div className="glass-strong glass-shine flex h-full min-h-0 flex-col overflow-hidden rounded-[28px]">
+            <div className="border-b border-white/60 px-5 py-5"><h2 className="font-serif text-2xl font-semibold">Comanda mea</h2><p className="mt-1 text-sm text-[#74837b]">{itemCount ? `${itemCount} produse alese` : 'Alege produsele din catalog'}</p></div>
+            <div className="min-h-0 flex-1"><CartPanel cart={cart} setCart={setCart} products={products} schedule={schedule} /></div>
+          </div>
         </aside>
       </div>
 
-      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-[#d5dfd4] bg-white/95 p-3 backdrop-blur-xl lg:hidden">
+      <div className="glass fixed inset-x-3 bottom-3 z-40 rounded-[24px] p-2 lg:hidden">
         <Sheet>
-          <SheetTrigger render={<Button className="h-13 w-full rounded-2xl bg-[#173d2c] px-5 text-base" />}><ShoppingBag /> Vezi comanda <span className="ml-auto">{money(total)} lei</span></SheetTrigger>
-          <SheetContent side="bottom" className="max-h-[88vh] rounded-t-[28px] bg-[#fbfcf8]"><SheetHeader className="border-b border-[#dfe8df] px-5 py-4"><SheetTitle className="font-serif text-2xl">Comanda mea</SheetTitle><SheetDescription>{itemCount ? `${itemCount} produse alese` : 'Coșul este gol'}</SheetDescription></SheetHeader><CartPanel cart={cart} setCart={setCart} products={products} schedule={schedule} /></SheetContent>
+          <SheetTrigger render={<Button className="glass-dark h-13 w-full rounded-[20px] px-5 text-base text-white" />}><ShoppingBag /> Vezi comanda <span className="ml-auto">{money(total)} lei</span></SheetTrigger>
+          <SheetContent side="bottom" className="glass-strong max-h-[88vh] rounded-t-[30px] border-white/70 bg-white/68"><SheetHeader className="border-b border-white/60 px-5 py-4"><SheetTitle className="font-serif text-2xl">Comanda mea</SheetTitle><SheetDescription>{itemCount ? `${itemCount} produse alese` : 'Coșul este gol'}</SheetDescription></SheetHeader><CartPanel cart={cart} setCart={setCart} products={products} schedule={schedule} /></SheetContent>
         </Sheet>
       </div>
     </main>
