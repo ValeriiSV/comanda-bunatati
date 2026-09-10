@@ -14,13 +14,15 @@ type Cart = Record<string, number>;
 const MIA_LINK = 'https://mia-qr.bnm.md/1/m/BNM/MCB983a07f55265457d90654eb9f97574fc';
 
 const categoryMeta: Record<Category, { icon: string; note: string }> = {
-  Nuci: { icon: '🥜', note: 'crude, prăjite și sortimente speciale' },
+  Nuci: { icon: '🥜', note: 'nuci crude, prăjite și sortimente speciale' },
+  Miere: { icon: '🍯', note: 'miere naturală de salcâm' },
   'Fructe uscate': { icon: '🍑', note: 'fructe uscate, aromate și gustoase' },
+  Conserve: { icon: '🍒', note: 'fructe conservate în suc propriu' },
   'Semințe': { icon: '🌱', note: 'semințe, chia, quinoa și mixuri' },
   Mix: { icon: '🥣', note: 'mix de nuci, fructe uscate și semințe' },
   'Cafea boabe': { icon: '☕', note: 'cafea boabe din Italia' },
-  'Olive conservate': { icon: '🫒', note: 'olive și măsline din Grecia' },
-  'Ulei de olive': { icon: '🫗', note: 'extra virgin, presare la rece' },
+  'Olive conservate': { icon: '🫒', note: 'olive și măsline · producător Grecia' },
+  'Ulei de olive': { icon: '🫗', note: 'extra virgin, prima presare, pentru salate' },
   Bomboane: { icon: '🍬', note: 'ambalaj de 0,5 kg · producător Ucraina' },
   Drajeuri: { icon: '🍫', note: 'porții de 250 g' },
 };
