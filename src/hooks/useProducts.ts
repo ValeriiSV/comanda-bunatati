@@ -8,15 +8,17 @@ export type ManagedProduct = Product & {
   isNew?: boolean;
   promo?: boolean;
   sortOrder?: number;
+  createdAt?: unknown;
   updatedAt?: unknown;
 };
 
-// Produsele din catalog au fost actualizate la 10.09.2026.
-// Valorile Firebase mai vechi decât această versiune nu trebuie să suprascrie
-// noile prețuri/cantități, dar păstrăm statusurile (activ/nou/promo).
-const CATALOG_REFRESH_AT = Date.parse('2026-09-10T04:45:00Z');
+// Lista finală a catalogului din 10.09.2026.
+// Datele Firebase mai vechi nu trebuie să readucă produse eliminate sau
+// să suprascrie prețurile/cantitățile finale. Produsele create ulterior
+// din panoul managerului rămân însă vizibile.
+const CATALOG_FINAL_AT = Date.parse('2026-09-10T04:58:00Z');
 
-function updatedAtMillis(value: unknown) {
+function timestampMillis(value: unknown) {
   if (!value) return 0;
   if (value instanceof Date) return value.getTime();
   if (typeof value === 'string' || typeof value === 'number') {
@@ -34,12 +36,12 @@ function mergeWithCatalog(remoteProducts: ManagedProduct[]) {
   const remoteById = new Map(remoteProducts.map((product) => [product.id, product]));
   const catalogIds = new Set(fallbackProducts.map((product) => product.id));
 
-  const refreshed = fallbackProducts.map<ManagedProduct>((catalogProduct, index) => {
+  const finalCatalog = fallbackProducts.map<ManagedProduct>((catalogProduct, index) => {
     const remote = remoteById.get(catalogProduct.id);
     if (!remote) return { ...catalogProduct, sortOrder: index };
 
-    const remoteWasEditedAfterRefresh = updatedAtMillis(remote.updatedAt) > CATALOG_REFRESH_AT;
-    if (remoteWasEditedAfterRefresh) {
+    const editedAfterFinalCatalog = timestampMillis(remote.updatedAt) > CATALOG_FINAL_AT;
+    if (editedAfterFinalCatalog) {
       return { ...catalogProduct, ...remote, id: catalogProduct.id };
     }
 
@@ -48,14 +50,16 @@ function mergeWithCatalog(remoteProducts: ManagedProduct[]) {
       active: remote.active,
       isNew: remote.isNew,
       promo: remote.promo,
-      sortOrder: remote.sortOrder ?? index,
+      sortOrder: index,
     };
   });
 
-  // Produsele create ulterior direct din panoul managerului rămân vizibile.
-  const customProducts = remoteProducts.filter((product) => !catalogIds.has(product.id));
+  const futureCustomProducts = remoteProducts.filter((product) => {
+    if (catalogIds.has(product.id)) return false;
+    return timestampMillis(product.createdAt) > CATALOG_FINAL_AT;
+  });
 
-  return [...refreshed, ...customProducts].sort(
+  return [...finalCatalog, ...futureCustomProducts].sort(
     (a, b) => (a.sortOrder ?? 9999) - (b.sortOrder ?? 9999),
   );
 }
