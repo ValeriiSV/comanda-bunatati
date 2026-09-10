@@ -20,6 +20,7 @@ export type Product = {
   stepGrams: number;
   priceUnitLabel?: string;
   quantityUnit?: 'g' | 'ml';
+  imageUrl?: string;
 };
 
 export const categories: Category[] = [
@@ -38,16 +39,16 @@ export const categories: Category[] = [
 
 export const products: Product[] = [
   // Nuci
-  { id: 'migdale', name: 'Migdale', category: 'Nuci', priceLei: 230, baseGrams: 1000, stepGrams: 250 },
-  { id: 'caju', name: 'Caju', category: 'Nuci', priceLei: 260, baseGrams: 1000, stepGrams: 250 },
-  { id: 'caju-prajit', name: 'Caju în coajă prăjit', category: 'Nuci', priceLei: 280, baseGrams: 1000, stepGrams: 250 },
-  { id: 'caju-fara-coaja-prajit', name: 'Caju fără coajă prăjit', category: 'Nuci', priceLei: 300, baseGrams: 1000, stepGrams: 250 },
-  { id: 'fistic-american', name: 'Fistic American', category: 'Nuci', priceLei: 370, baseGrams: 1000, stepGrams: 250 },
-  { id: 'miez-fistic', name: 'Miez de Fistic', category: 'Nuci', priceLei: 200, baseGrams: 250, stepGrams: 250 },
-  { id: 'nuci-grecesti', name: 'Nuci Grecești', category: 'Nuci', priceLei: 230, baseGrams: 1000, stepGrams: 250 },
-  { id: 'arahide-crude', name: 'Arahide crude', category: 'Nuci', priceLei: 90, baseGrams: 1000, stepGrams: 250 },
-  { id: 'macadamia-coaja', name: 'Macadamia în coajă', category: 'Nuci', priceLei: 400, baseGrams: 1000, stepGrams: 250 },
-  { id: 'nuci-braziliene', name: 'Nuci braziliene', category: 'Nuci', priceLei: 155, baseGrams: 250, stepGrams: 250 },
+  { id: 'migdale', name: 'Migdale', category: 'Nuci', priceLei: 230, baseGrams: 1000, stepGrams: 250, imageUrl: '/products/migdale.jpg' },
+  { id: 'caju', name: 'Caju', category: 'Nuci', priceLei: 260, baseGrams: 1000, stepGrams: 250, imageUrl: '/products/caju.jpg' },
+  { id: 'caju-prajit', name: 'Caju în coajă prăjit', category: 'Nuci', priceLei: 280, baseGrams: 1000, stepGrams: 250, imageUrl: '/products/caju-prajit.jpg' },
+  { id: 'caju-fara-coaja-prajit', name: 'Caju fără coajă prăjit', category: 'Nuci', priceLei: 300, baseGrams: 1000, stepGrams: 250, imageUrl: '/products/caju-fara-coaja-prajit.jpg' },
+  { id: 'fistic-american', name: 'Fistic American', category: 'Nuci', priceLei: 370, baseGrams: 1000, stepGrams: 250, imageUrl: '/products/fistic-american.jpg' },
+  { id: 'miez-fistic', name: 'Miez de Fistic', category: 'Nuci', priceLei: 200, baseGrams: 250, stepGrams: 250, imageUrl: '/products/miez-fistic.jpg' },
+  { id: 'nuci-grecesti', name: 'Nuci Grecești', category: 'Nuci', priceLei: 230, baseGrams: 1000, stepGrams: 250, imageUrl: '/products/nuci-grecesti.jpg' },
+  { id: 'arahide-crude', name: 'Arahide crude', category: 'Nuci', priceLei: 90, baseGrams: 1000, stepGrams: 250, imageUrl: '/products/arahide-crude.jpg' },
+  { id: 'macadamia-coaja', name: 'Macadamia în coajă', category: 'Nuci', priceLei: 400, baseGrams: 1000, stepGrams: 250, imageUrl: '/products/macadamia-coaja.jpg' },
+  { id: 'nuci-braziliene', name: 'Nuci braziliene', category: 'Nuci', priceLei: 155, baseGrams: 250, stepGrams: 250, imageUrl: '/products/nuci-braziliene.jpg' },
   { id: 'nuca-pecan', name: 'Nucă Pecan', category: 'Nuci', priceLei: 450, baseGrams: 1000, stepGrams: 250 },
   { id: 'nuci-cedru', name: 'Nuci de cedru', category: 'Nuci', priceLei: 215, baseGrams: 250, stepGrams: 250 },
 
