@@ -4,7 +4,7 @@ import { CalendarDays, CheckCircle2, ChevronRight, Minus, Plus, Search, Shopping
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
-import { categories, linePrice, priceLabel, type Category, type Product } from '@/lib/products';
+import { categories, linePrice, priceLabel, quantityLabel, type Category, type Product } from '@/lib/products';
 import { useProducts, type ManagedProduct } from '@/hooks/useProducts';
 import { formatOrderDate, useOrderSchedule, type OrderSchedule } from '@/hooks/useOrderSchedule';
 import { submitPublicOrder } from '@/lib/orderApi';
@@ -14,9 +14,14 @@ type Cart = Record<string, number>;
 const MIA_LINK = 'https://mia-qr.bnm.md/1/m/BNM/MCB983a07f55265457d90654eb9f97574fc';
 
 const categoryMeta: Record<Category, { icon: string; note: string }> = {
-  Nuci: { icon: '🥜', note: 'crude, coapte și speciale' },
-  'Fructe uscate': { icon: '🍑', note: 'dulci, moi și aromate' },
-  Bomboane: { icon: '🍬', note: 'pentru pauza de cafea' },
+  Nuci: { icon: '🥜', note: 'crude, prăjite și sortimente speciale' },
+  'Fructe uscate': { icon: '🍑', note: 'fructe uscate, aromate și gustoase' },
+  'Semințe': { icon: '🌱', note: 'semințe, chia, quinoa și mixuri' },
+  Mix: { icon: '🥣', note: 'mix de nuci, fructe uscate și semințe' },
+  'Cafea boabe': { icon: '☕', note: 'cafea boabe din Italia' },
+  'Olive conservate': { icon: '🫒', note: 'olive și măsline din Grecia' },
+  'Ulei de olive': { icon: '🫗', note: 'extra virgin, presare la rece' },
+  Bomboane: { icon: '🍬', note: 'ambalaj de 0,5 kg · producător Ucraina' },
   Drajeuri: { icon: '🍫', note: 'porții de 250 g' },
 };
 
@@ -140,7 +145,7 @@ function CartPanel({ cart, setCart, products, schedule }: {
                   <div><p className="font-medium text-[#173d2c]">{product.name}</p><p className="mt-1 text-sm text-[#74837b]">{money(linePrice(product, cart[product.id]))} lei</p></div>
                   <div className="flex items-center gap-1 rounded-full bg-[#f0f5eb] p-1">
                     <Button variant="ghost" size="icon-sm" className="rounded-full" onClick={() => change(product.id, -product.stepGrams)}><Minus /></Button>
-                    <span className="min-w-14 text-center text-sm font-semibold text-[#315b32]">{cart[product.id]} g</span>
+                    <span className="min-w-14 text-center text-sm font-semibold text-[#315b32]">{quantityLabel(product, cart[product.id])}</span>
                     <Button variant="ghost" size="icon-sm" className="rounded-full" onClick={() => change(product.id, product.stepGrams)}><Plus /></Button>
                   </div>
                 </div>
@@ -230,9 +235,9 @@ export default function OrderApp() {
                   <div className="mb-7 flex items-start justify-between gap-3"><span className="grid size-11 place-items-center rounded-2xl bg-[#eef3e8] text-xl">{categoryMeta[product.category].icon}</span><div className="flex flex-wrap justify-end gap-1.5">{product.isNew && <span className="rounded-full bg-[#e3f2d7] px-2.5 py-1 text-xs font-semibold text-[#315b32]">Nou</span>}{product.promo && <span className="rounded-full bg-[#fff0d9] px-2.5 py-1 text-xs font-semibold text-[#a65d13]">Promo</span>}<span className="rounded-full bg-[#f5efe1] px-2.5 py-1 text-xs font-semibold text-[#9a6222]">{priceLabel(product)}</span></div></div>
                   <h3 className="min-h-12 text-[17px] font-semibold leading-6">{product.name}</h3>
                   {amount ? (
-                    <div className="mt-4 flex items-center justify-between"><div className="flex items-center gap-1 rounded-full bg-[#eef3e8] p-1"><Button variant="ghost" size="icon-sm" className="rounded-full" onClick={() => change(product.id, -product.stepGrams)}><Minus /></Button><strong className="min-w-14 text-center text-sm">{amount} g</strong><Button variant="ghost" size="icon-sm" className="rounded-full" onClick={() => change(product.id, product.stepGrams)}><Plus /></Button></div><strong>{money(linePrice(product, amount))} lei</strong></div>
+                    <div className="mt-4 flex items-center justify-between"><div className="flex items-center gap-1 rounded-full bg-[#eef3e8] p-1"><Button variant="ghost" size="icon-sm" className="rounded-full" onClick={() => change(product.id, -product.stepGrams)}><Minus /></Button><strong className="min-w-14 text-center text-sm">{quantityLabel(product, amount)}</strong><Button variant="ghost" size="icon-sm" className="rounded-full" onClick={() => change(product.id, product.stepGrams)}><Plus /></Button></div><strong>{money(linePrice(product, amount))} lei</strong></div>
                   ) : (
-                    <Button onClick={() => change(product.id, product.stepGrams)} variant="outline" className="mt-4 h-10 w-full rounded-xl border-[#c9d7c7] text-[#315b32]"><Plus /> Adaugă {product.stepGrams} g</Button>
+                    <Button onClick={() => change(product.id, product.stepGrams)} variant="outline" className="mt-4 h-10 w-full rounded-xl border-[#c9d7c7] text-[#315b32]"><Plus /> Adaugă {quantityLabel(product, product.stepGrams)}</Button>
                   )}
                 </article>
               );
