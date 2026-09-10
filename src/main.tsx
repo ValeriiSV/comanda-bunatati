@@ -8,6 +8,7 @@ import OrderStatusPage from './pages/OrderStatusPage';
 import AppErrorBoundary from './components/AppErrorBoundary';
 import './index.css';
 import './wow.css';
+import './product-images.css';
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
