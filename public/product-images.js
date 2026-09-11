@@ -3,13 +3,16 @@
   const TILE_HEIGHT = 90;
   const COLUMNS = 8;
   const ATLAS_PARTS = [
-    '/product-atlas-hd/part-01.txt?v=5',
-    '/product-atlas-hd/part-02.txt?v=5',
-    '/product-atlas-hd/part-03.txt?v=5',
-    '/product-atlas-hd/part-04.txt?v=5',
-    '/product-atlas-hd/part-05.txt?v=5',
-    '/product-atlas-hd/part-06.txt?v=5',
-    '/product-atlas-hd/part-07.txt?v=5',
+    { url: '/product-atlas-hd/part-01.txt?v=6' },
+    { url: '/product-atlas-hd/part-02a.txt?v=6' },
+    { url: '/product-atlas-hd/part-02b.txt?v=6' },
+    { url: '/product-atlas-hd/part-03.txt?v=6' },
+    { url: '/product-atlas-hd/part-04.txt?v=6' },
+    { url: '/product-atlas-hd/part-05.txt?v=6' },
+    // part-06 a fost încărcat anterior cu date suplimentare la final.
+    // Primele 16000 caractere sunt segmentul corect al atlasului.
+    { url: '/product-atlas-hd/part-06.txt?v=6', take: 16000 },
+    { url: '/product-atlas-hd/part-07.txt?v=6' },
   ];
 
   const products = [
@@ -69,10 +72,11 @@
 
   async function loadAtlas() {
     const parts = await Promise.all(
-      ATLAS_PARTS.map(async (url) => {
+      ATLAS_PARTS.map(async ({ url, take }) => {
         const response = await fetch(url, { cache: 'force-cache' });
         if (!response.ok) throw new Error(`Nu s-a putut încărca ${url}`);
-        return (await response.text()).trim();
+        const text = (await response.text()).trim();
+        return typeof take === 'number' ? text.slice(0, take) : text;
       }),
     );
 
@@ -109,7 +113,7 @@
         canvas.width,
         canvas.height,
       );
-      photoUrls.set(item.id, canvas.toDataURL('image/jpeg', 0.94));
+      photoUrls.set(item.id, canvas.toDataURL('image/jpeg', 0.95));
     });
   }
 
