@@ -12,11 +12,11 @@ export type ManagedProduct = Product & {
   updatedAt?: unknown;
 };
 
-// Lista finală a catalogului din 10.09.2026.
-// Datele Firebase mai vechi nu trebuie să readucă produse eliminate sau
-// să suprascrie prețurile/cantitățile finale. Produsele create ulterior
-// din panoul managerului rămân însă vizibile.
-const CATALOG_FINAL_AT = Date.parse('2026-09-10T04:58:00Z');
+// Lista finală a catalogului actualizată la 11.09.2026.
+// Datele Firebase mai vechi nu trebuie să suprascrie prețurile sau
+// pașii de cantitate actuali. Produsele/editările făcute ulterior
+// din panoul managerului rămân însă active.
+const CATALOG_FINAL_AT = Date.parse('2026-09-11T05:35:00Z');
 
 function timestampMillis(value: unknown) {
   if (!value) return 0;
