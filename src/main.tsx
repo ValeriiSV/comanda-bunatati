@@ -9,7 +9,6 @@ import AppErrorBoundary from './components/AppErrorBoundary';
 import OrderDeadlinePublicEnhancer from './components/OrderDeadlinePublicEnhancer';
 import './index.css';
 import './wow.css';
-import './product-images.css';
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

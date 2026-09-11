@@ -439,10 +439,11 @@ export default function OrderApp() {
               const favorite = favorites.has(product.id);
               const fresh = isNewProduct(product);
               const visual = categoryExperience[product.category];
+              const productPhoto = `/products-ultra/${product.id}.jpg`;
               return (
                 <article id={`product-${product.id}`} key={product.id} onPointerMove={glassMove} className={`glass interactive-glass glass-card-hover overflow-hidden rounded-[26px] ${amount ? 'ring-2 ring-[#8daa82]/45' : ''}`}>
                   <div className="relative h-32 overflow-hidden bg-[#dfe9db]">
-                    <img src={visual.photoUrl} alt={visual.photoAlt} loading="lazy" className="size-full object-cover transition duration-500 hover:scale-105" onError={(event) => { event.currentTarget.style.display = 'none'; }} />
+                    <img src={productPhoto} alt={product.name} loading="lazy" decoding="async" className="size-full object-cover transition duration-500 hover:scale-105" onError={(event) => { event.currentTarget.src = visual.photoUrl; }} />
                     <div className="absolute inset-0 bg-gradient-to-t from-[#173d2c]/72 via-transparent to-black/10" />
                     <div className="absolute inset-x-3 top-3 flex items-start justify-between gap-2">
                       <span className="grid size-10 place-items-center rounded-2xl bg-white/72 text-lg shadow-sm backdrop-blur-xl">{visual.icon}</span>
