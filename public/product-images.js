@@ -2,17 +2,16 @@
   const TILE_WIDTH = 160;
   const TILE_HEIGHT = 90;
   const COLUMNS = 8;
+  const CACHE_VERSION = '20260911-2';
   const ATLAS_PARTS = [
-    { url: '/product-atlas-hd/part-01.txt?v=6' },
-    { url: '/product-atlas-hd/part-02a.txt?v=6' },
-    { url: '/product-atlas-hd/part-02b.txt?v=6' },
-    { url: '/product-atlas-hd/part-03.txt?v=6' },
-    { url: '/product-atlas-hd/part-04.txt?v=6' },
-    { url: '/product-atlas-hd/part-05.txt?v=6' },
-    // part-06 a fost încărcat anterior cu date suplimentare la final.
-    // Primele 16000 caractere sunt segmentul corect al atlasului.
-    { url: '/product-atlas-hd/part-06.txt?v=6', take: 16000 },
-    { url: '/product-atlas-hd/part-07.txt?v=6' },
+    { url: `/product-atlas-hd/part-01.txt?v=${CACHE_VERSION}` },
+    { url: `/product-atlas-hd/part-02a.txt?v=${CACHE_VERSION}` },
+    { url: `/product-atlas-hd/part-02b.txt?v=${CACHE_VERSION}` },
+    { url: `/product-atlas-hd/part-03.txt?v=${CACHE_VERSION}` },
+    { url: `/product-atlas-hd/part-04.txt?v=${CACHE_VERSION}` },
+    { url: `/product-atlas-hd/part-05.txt?v=${CACHE_VERSION}` },
+    { url: `/product-atlas-hd/part-06.txt?v=${CACHE_VERSION}`, take: 16000 },
+    { url: `/product-atlas-hd/part-07.txt?v=${CACHE_VERSION}` },
   ];
 
   const products = [
@@ -73,7 +72,7 @@
   async function loadAtlas() {
     const parts = await Promise.all(
       ATLAS_PARTS.map(async ({ url, take }) => {
-        const response = await fetch(url, { cache: 'force-cache' });
+        const response = await fetch(url, { cache: 'no-store' });
         if (!response.ok) throw new Error(`Nu s-a putut încărca ${url}`);
         const text = (await response.text()).trim();
         return typeof take === 'number' ? text.slice(0, take) : text;
@@ -118,11 +117,13 @@
   }
 
   function setPhoto(img, item) {
-    if (!img || img.dataset.productPhoto === item.id) return;
+    if (!img) return;
 
-    // Păstrăm imaginile individuale din /products/ la rezoluția lor reală.
     const currentSrc = img.getAttribute('src') || '';
     if (currentSrc.includes('/products/')) {
+      const baseSrc = currentSrc.split('?')[0];
+      const refreshedSrc = `${baseSrc}?v=${CACHE_VERSION}`;
+      if (currentSrc !== refreshedSrc) img.src = refreshedSrc;
       img.alt = item.name;
       img.dataset.productPhoto = item.id;
       img.style.display = '';
@@ -133,7 +134,7 @@
 
     const src = photoUrls.get(item.id);
     if (!src) return;
-    img.src = src;
+    if (img.src !== src) img.src = src;
     img.alt = item.name;
     img.dataset.productPhoto = item.id;
     img.style.display = '';
