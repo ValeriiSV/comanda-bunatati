@@ -1,8 +1,5 @@
 (() => {
-  const COLUMNS = 8;
-  const ROWS = 6;
-  const CACHE_VERSION = '20260911-4';
-  const SAFE_FALLBACK = `/catalog-hero.png?v=${CACHE_VERSION}`;
+  const CACHE_VERSION = '20260911-5';
 
   const DIRECT_IMAGES = {
     'migdale': '/products/migdale.jpg',
@@ -17,24 +14,6 @@
     'nuci-braziliene': '/products/nuci-braziliene.jpg',
   };
 
-  const HD_PARTS = [
-    { url: `/product-atlas-hd/part-01.txt?v=${CACHE_VERSION}` },
-    { url: `/product-atlas-hd/part-02a.txt?v=${CACHE_VERSION}` },
-    { url: `/product-atlas-hd/part-02b.txt?v=${CACHE_VERSION}` },
-    { url: `/product-atlas-hd/part-03.txt?v=${CACHE_VERSION}` },
-    { url: `/product-atlas-hd/part-04.txt?v=${CACHE_VERSION}` },
-    { url: `/product-atlas-hd/part-05.txt?v=${CACHE_VERSION}` },
-    { url: `/product-atlas-hd/part-06.txt?v=${CACHE_VERSION}`, take: 16000 },
-    { url: `/product-atlas-hd/part-07.txt?v=${CACHE_VERSION}` },
-  ];
-
-  const JPEG_PARTS = [
-    { url: `/product-atlas-v2/part-01.txt?v=${CACHE_VERSION}` },
-    { url: `/product-atlas-v2/part-02.txt?v=${CACHE_VERSION}` },
-    { url: `/product-atlas-v2/part-03a.txt?v=${CACHE_VERSION}` },
-    { url: `/product-atlas-v2/part-03b.txt?v=${CACHE_VERSION}` },
-  ];
-
   const products = [
     ['migdale', 'Migdale'],
     ['caju', 'Caju'],
@@ -46,141 +25,42 @@
     ['arahide-crude', 'Arahide crude'],
     ['macadamia-coaja', 'Macadamia în coajă'],
     ['nuci-braziliene', 'Nuci braziliene'],
-    ['nuca-pecan', 'Nucă Pecan'],
-    ['nuci-cedru', 'Nuci de cedru'],
-    ['miere-salcam', 'Miere de salcâm'],
-    ['cernosliv', 'Prune uscate (Cernosliv)'],
-    ['curmale-tunis', 'Curmale Tunis'],
-    ['curmale-regale', 'Curmale regale'],
-    ['mango-uscat', 'Mango uscat'],
-    ['stafide-negre', 'Stafide negre'],
-    ['rachitele', 'Răchițele uscate'],
-    ['visina-uscata', 'Vișină uscată'],
-    ['ananas-uscat', 'Ananas uscat'],
-    ['zamos-uscat', 'Zamos uscat'],
-    ['cuburi-cocos', 'Cuburi de cocos'],
-    ['cipsuri-banane', 'Cipsuri din banane'],
-    ['cipsuri-mere', 'Cipsuri din mere'],
-    ['visina-suc-propriu', 'Vișină în suc propriu'],
-    ['mix-4-seminte', 'Mix 4 semințe'],
-    ['seminte-dovleac', 'Semințe de dovleac'],
-    ['seminte-floarea-soarelui', 'Semințe de floarea-soarelui'],
-    ['seminte-chia', 'Semințe Chia'],
-    ['seminte-in-cafenii', 'Semințe de in cafenii'],
-    ['seminte-susan', 'Semințe de susan'],
-    ['quinoa', 'Quinoa albă'],
-    ['mix-nuci-fructe-seminte', 'Mix: migdale, caju, nuci grecești, macadamia, alune, stafide, vișină, răchițele și semințe de dovleac'],
-    ['marzotto-expresso-bar-grani', 'Marzotto Expresso Bar Grani'],
-    ['olive-cu-samburi', 'Olive cu sâmburi'],
-    ['masline-cu-samburi', 'Măsline cu sâmburi'],
-    ['ulei-olive-extra-virgin', 'Ulei de olive Extra Virgin · prima presare, pentru salate'],
-    ['mix-bomboane', 'Mix bomboane'],
-    ['prune-ciocolata', 'Prune în ciocolată'],
-    ['finic-nuci-ciocolata', 'Finic cu nuci în ciocolată'],
-    ['cocos-ciocolata', 'Cocos în ciocolată'],
-    ['banana-ciocolata', 'Banana în ciocolată'],
-    ['martipan', 'Marțipan'],
-    ['caramel-sarat', 'Caramel sărat'],
-    ['negresa-migdale', 'Negreasă cu migdale'],
-    ['alune-ciocolata-lapte', 'Alune în ciocolată cu lapte'],
-  ].map(([id, name], index) => ({ id, name, index }));
+  ].map(([id, name]) => ({ id, name }));
 
   const byName = new Map(products.map((item) => [item.name, item]));
-  const photoUrls = new Map();
-  let atlasReady = false;
   let scheduled = false;
 
-  async function loadAtlas(parts, mime) {
-    const chunks = await Promise.all(
-      parts.map(async ({ url, take }) => {
-        const response = await fetch(url, { cache: 'no-store' });
-        if (!response.ok) throw new Error(`Nu s-a putut încărca ${url}`);
-        const text = (await response.text()).trim();
-        return typeof take === 'number' ? text.slice(0, take) : text;
-      }),
-    );
+  function useDirectImage(img, item) {
+    if (!img) return;
+    const direct = DIRECT_IMAGES[item.id];
+    if (!direct) return;
 
-    const image = new Image();
-    image.decoding = 'async';
-    image.src = `data:${mime};base64,${chunks.join('')}`;
-    if (image.decode) await image.decode();
-    else await new Promise((resolve, reject) => {
-      image.onload = resolve;
-      image.onerror = reject;
-    });
-    if (!image.naturalWidth || !image.naturalHeight) throw new Error('Atlas invalid');
-    return image;
-  }
+    if (!img.dataset.originalSrc) {
+      img.dataset.originalSrc = img.getAttribute('src') || '';
+    }
 
-  function buildProductPhotos(atlas) {
-    const tileWidth = Math.floor(atlas.naturalWidth / COLUMNS);
-    const tileHeight = Math.floor(atlas.naturalHeight / ROWS);
-    if (!tileWidth || !tileHeight) throw new Error('Dimensiuni atlas invalide');
+    const wanted = `${direct}?v=${CACHE_VERSION}`;
+    if (img.getAttribute('src') !== wanted) img.src = wanted;
 
-    products.forEach((item) => {
-      const column = item.index % COLUMNS;
-      const row = Math.floor(item.index / COLUMNS);
-      const canvas = document.createElement('canvas');
-      canvas.width = 640;
-      canvas.height = 360;
-      const context = canvas.getContext('2d');
-      if (!context) return;
-      context.imageSmoothingEnabled = true;
-      context.imageSmoothingQuality = 'high';
-      context.drawImage(
-        atlas,
-        column * tileWidth,
-        row * tileHeight,
-        tileWidth,
-        tileHeight,
-        0,
-        0,
-        canvas.width,
-        canvas.height,
-      );
-      photoUrls.set(item.id, canvas.toDataURL('image/jpeg', 0.94));
-    });
-  }
-
-  function prepareImage(img, item) {
     img.alt = item.name;
     img.dataset.productPhoto = item.id;
     img.style.display = '';
     img.style.objectFit = 'cover';
     img.style.imageRendering = 'auto';
     img.loading = 'eager';
-  }
 
-  function setPhoto(img, item) {
-    if (!img) return;
-
-    const direct = DIRECT_IMAGES[item.id];
-    if (direct) {
-      const wanted = `${direct}?v=${CACHE_VERSION}`;
-      if (img.getAttribute('src') !== wanted) img.src = wanted;
-      prepareImage(img, item);
-      return;
-    }
-
-    const atlasPhoto = photoUrls.get(item.id);
-    if (atlasReady && atlasPhoto) {
-      if (img.src !== atlasPhoto) img.src = atlasPhoto;
-      prepareImage(img, item);
-      return;
-    }
-
-    const currentSrc = img.getAttribute('src') || '';
-    const failed = img.style.display === 'none' || (img.complete && img.naturalWidth === 0);
-    if (!currentSrc || failed) {
-      if (currentSrc !== SAFE_FALLBACK) img.src = SAFE_FALLBACK;
-      prepareImage(img, item);
-    }
+    img.onerror = () => {
+      const fallback = img.dataset.originalSrc;
+      img.onerror = null;
+      if (fallback) img.src = fallback;
+      img.style.display = '';
+    };
   }
 
   function applyProductPhotos() {
     products.forEach((item) => {
       const card = document.getElementById(`product-${item.id}`);
-      setPhoto(card?.querySelector('img'), item);
+      useDirectImage(card?.querySelector('img'), item);
     });
 
     document.querySelectorAll('button').forEach((button) => {
@@ -188,7 +68,7 @@
       const nameNode = button.querySelector('strong');
       if (!image || !nameNode) return;
       const item = byName.get(nameNode.textContent?.trim() || '');
-      if (item) setPhoto(image, item);
+      if (item) useDirectImage(image, item);
     });
   }
 
@@ -201,29 +81,12 @@
     });
   }
 
-  async function init() {
-    const observer = new MutationObserver(scheduleApply);
-    observer.observe(document.documentElement, { childList: true, subtree: true });
+  function init() {
     applyProductPhotos();
-
-    const safetyTimer = window.setInterval(applyProductPhotos, 1200);
-    window.setTimeout(() => window.clearInterval(safetyTimer), 20000);
-
-    try {
-      let atlas;
-      try {
-        atlas = await loadAtlas(HD_PARTS, 'image/avif');
-      } catch (hdError) {
-        console.warn('Atlasul AVIF nu este disponibil pe acest dispozitiv. Folosesc JPEG.', hdError);
-        atlas = await loadAtlas(JPEG_PARTS, 'image/jpeg');
-      }
-      buildProductPhotos(atlas);
-      atlasReady = true;
-      applyProductPhotos();
-    } catch (error) {
-      console.error('Fotografiile produselor nu au putut fi reconstruite. Se păstrează imaginile locale/fallback:', error);
-      applyProductPhotos();
-    }
+    new MutationObserver(scheduleApply).observe(document.documentElement, {
+      childList: true,
+      subtree: true,
+    });
   }
 
   if (document.readyState === 'loading') {
