@@ -1,10 +1,8 @@
 (() => {
-  const CACHE_VERSION = '20260911-12';
+  const CACHE_VERSION = '20260911-13';
   const COLUMNS = 8;
   const ROWS = 6;
 
-  // Atlas JPEG stabil, compatibil cu iPhone/Safari si desktop.
-  // part-03 este impartit in doua bucati valide: 03a + 03b.
   const ATLAS_PARTS = [
     `/product-atlas-v2/part-01.txt?v=${CACHE_VERSION}`,
     `/product-atlas-v2/part-02.txt?v=${CACHE_VERSION}`,
@@ -73,13 +71,14 @@
     style.textContent = `
       .premium-product-grid {
         grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
-        gap: 12px !important;
+        gap: 14px !important;
       }
       .premium-product-card {
         overflow: hidden !important;
         border-radius: 20px !important;
-        background: rgba(255,255,255,.68) !important;
-        box-shadow: 0 12px 30px rgba(32,65,46,.11), inset 0 1px 0 rgba(255,255,255,.75) !important;
+        background: rgba(255,255,255,.76) !important;
+        border: 1px solid rgba(255,255,255,.72) !important;
+        box-shadow: 0 10px 28px rgba(32,65,46,.09), inset 0 1px 0 rgba(255,255,255,.85) !important;
       }
       .premium-product-card > div:first-child {
         height: auto !important;
@@ -89,32 +88,10 @@
       .premium-product-card > div:first-child > img {
         display: block !important;
         visibility: visible !important;
-        filter: saturate(1.08) contrast(1.04) brightness(1.02) !important;
+        filter: saturate(1.06) contrast(1.035) brightness(1.01) !important;
       }
       .premium-product-card > div:first-child > div:first-of-type {
-        background: linear-gradient(to top, rgba(23,61,44,.18), transparent 55%, rgba(0,0,0,.015)) !important;
-      }
-      .premium-product-card > div:nth-child(2) { padding: 10px !important; }
-      .premium-product-card h3 {
-        min-height: 36px !important;
-        font-size: 14px !important;
-        line-height: 18px !important;
-        display: -webkit-box !important;
-        -webkit-line-clamp: 2 !important;
-        -webkit-box-orient: vertical !important;
-        overflow: hidden !important;
-      }
-      .premium-product-card > div:nth-child(2) > button {
-        height: 36px !important;
-        margin-top: 8px !important;
-        padding-inline: 6px !important;
-        border-radius: 12px !important;
-        font-size: 12px !important;
-      }
-      .premium-product-card > div:nth-child(2) > div {
-        margin-top: 8px !important;
-        gap: 6px !important;
-        flex-wrap: wrap !important;
+        background: linear-gradient(to top, rgba(23,61,44,.12), transparent 52%, rgba(0,0,0,.01)) !important;
       }
       .premium-product-card > div:first-child > div:nth-of-type(2) {
         inset-inline: 7px !important;
@@ -125,8 +102,11 @@
         width: 31px !important;
         height: 31px !important;
         min-width: 31px !important;
-        border-radius: 11px !important;
+        border-radius: 12px !important;
         font-size: 14px !important;
+        background: rgba(248,248,242,.88) !important;
+        color: #315b32 !important;
+        border-color: rgba(255,255,255,.75) !important;
       }
       .premium-product-card > div:first-child > div:nth-of-type(3) {
         left: 7px !important;
@@ -137,22 +117,121 @@
       .premium-product-card > div:first-child > div:nth-of-type(3) span {
         font-size: 10px !important;
         padding: 4px 7px !important;
+        box-shadow: 0 2px 8px rgba(52,42,25,.08) !important;
+      }
+      .premium-card-body {
+        display: grid !important;
+        grid-template-columns: minmax(0,.82fr) minmax(0,1.18fr) !important;
+        gap: 8px !important;
+        align-items: center !important;
+        padding: 10px !important;
+      }
+      .premium-card-body h3 {
+        grid-column: 1 / -1 !important;
+        min-height: 38px !important;
+        margin: 0 !important;
+        font-size: 14px !important;
+        font-weight: 700 !important;
+        line-height: 18px !important;
+        display: -webkit-box !important;
+        -webkit-line-clamp: 2 !important;
+        -webkit-box-orient: vertical !important;
+        overflow: hidden !important;
+        color: #173d2c !important;
+      }
+      .premium-zero-qty {
+        display: grid !important;
+        grid-template-columns: repeat(3, 1fr) !important;
+        height: 38px !important;
+        overflow: hidden !important;
+        border: 1px solid rgba(23,61,44,.10) !important;
+        border-radius: 12px !important;
+        background: rgba(255,255,255,.92) !important;
+        box-shadow: inset 0 1px 0 rgba(255,255,255,.8) !important;
+      }
+      .premium-zero-qty button,
+      .premium-zero-qty span {
+        display: grid !important;
+        place-items: center !important;
+        min-width: 0 !important;
+        border: 0 !important;
+        background: transparent !important;
+        color: #174a35 !important;
+        font-size: 16px !important;
+        font-weight: 700 !important;
+      }
+      .premium-zero-qty span {
+        border-inline: 1px solid rgba(23,61,44,.08) !important;
+        font-size: 12px !important;
+        color: #263f34 !important;
+      }
+      .premium-add-button {
+        height: 38px !important;
+        min-width: 0 !important;
+        margin: 0 !important;
+        padding: 4px 8px !important;
+        border: 0 !important;
+        border-radius: 12px !important;
+        background: linear-gradient(145deg, #1b6548, #0e5137) !important;
+        color: white !important;
+        box-shadow: 0 7px 16px rgba(19,80,55,.18) !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        gap: 6px !important;
+      }
+      .premium-cart-glyph { font-size: 14px !important; line-height: 1 !important; }
+      .premium-add-copy { display: flex !important; min-width: 0 !important; flex-direction: column !important; align-items: flex-start !important; line-height: 1 !important; }
+      .premium-add-copy strong { font-size: 12px !important; line-height: 13px !important; color: white !important; font-weight: 700 !important; }
+      .premium-add-copy small { margin-top: 2px !important; font-size: 9px !important; line-height: 9px !important; color: rgba(255,255,255,.82) !important; }
+      .premium-active-row {
+        grid-column: 1 / -1 !important;
+        margin-top: 0 !important;
+        gap: 7px !important;
+      }
+      .premium-filter-block { scroll-margin-top: 84px !important; }
+      .premium-count-row { margin-bottom: 12px !important; }
+      .premium-mobile-cart-shell {
+        border: 1px solid rgba(255,255,255,.72) !important;
+        background: rgba(242,246,239,.72) !important;
+        box-shadow: 0 12px 32px rgba(22,61,43,.18) !important;
+      }
+      .premium-mobile-cart-button {
+        background: linear-gradient(145deg,#1b6548,#0d5137) !important;
+        color: white !important;
+        border: 1px solid rgba(255,255,255,.20) !important;
+        box-shadow: 0 9px 24px rgba(19,80,55,.20) !important;
       }
       @media (max-width: 699px) {
-        .category-dock { position: static !important; top: auto !important; }
+        .category-dock {
+          position: static !important;
+          top: auto !important;
+          margin-bottom: 14px !important;
+        }
+        .premium-filter-block {
+          flex-direction: column-reverse !important;
+          gap: 12px !important;
+          margin-bottom: 6px !important;
+        }
+        .premium-filter-block > div:first-child > p { display: none !important; }
+        .premium-filter-block > div:first-child h2 {
+          font-size: 36px !important;
+          line-height: 40px !important;
+        }
+        .premium-count-row {
+          margin-top: -47px !important;
+          margin-bottom: 16px !important;
+          padding-right: 2px !important;
+          pointer-events: none !important;
+        }
       }
       @media (max-width: 380px) {
         .premium-product-grid { gap: 9px !important; }
-        .premium-product-card > div:nth-child(2) { padding: 9px !important; }
-        .premium-product-card h3 {
-          min-height: 34px !important;
-          font-size: 13px !important;
-          line-height: 17px !important;
-        }
-        .premium-product-card > div:nth-child(2) > button {
-          font-size: 11px !important;
-          padding-inline: 4px !important;
-        }
+        .premium-card-body { gap: 6px !important; padding: 8px !important; }
+        .premium-card-body h3 { min-height: 34px !important; font-size: 13px !important; line-height: 17px !important; }
+        .premium-zero-qty, .premium-add-button { height: 36px !important; }
+        .premium-add-button { padding-inline: 5px !important; }
+        .premium-add-copy strong { font-size: 11px !important; }
       }
       @media (min-width: 700px) {
         .premium-product-grid { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; }
@@ -162,7 +241,8 @@
           grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
           gap: 14px !important;
         }
-        .premium-product-card > div:nth-child(2) { padding: 13px !important; }
+        .premium-card-body { padding: 12px !important; }
+        .premium-card-body h3 { font-size: 15px !important; line-height: 19px !important; }
       }
     `;
     document.head.appendChild(style);
@@ -186,10 +266,7 @@
     const test = new Image();
     test.src = url;
     if (test.decode) await test.decode();
-    else await new Promise((resolve, reject) => {
-      test.onload = resolve;
-      test.onerror = reject;
-    });
+    else await new Promise((resolve, reject) => { test.onload = resolve; test.onerror = reject; });
     if (!test.naturalWidth || !test.naturalHeight) throw new Error('Atlas JPEG invalid');
     return url;
   }
@@ -198,20 +275,7 @@
     if (!img) return;
     const original = img.dataset.originalProductSrc;
     img.onerror = null;
-    img.style.position = '';
-    img.style.left = '';
-    img.style.top = '';
-    img.style.width = '';
-    img.style.height = '';
-    img.style.maxWidth = '';
-    img.style.objectFit = '';
-    img.style.opacity = '';
-    img.style.pointerEvents = '';
-    img.style.transform = '';
-    img.style.transition = '';
-    img.style.zIndex = '';
-    img.style.display = '';
-    img.style.visibility = '';
+    ['position','left','top','width','height','maxWidth','objectFit','opacity','pointerEvents','transform','transition','zIndex','display','visibility','filter'].forEach((prop) => { img.style[prop] = ''; });
     if (original) img.src = original;
   }
 
@@ -219,14 +283,10 @@
     if (!img || !atlasUrl) return;
     const frame = img.parentElement;
     if (!frame) return;
-
-    if (!img.dataset.originalProductSrc) {
-      img.dataset.originalProductSrc = img.getAttribute('src') || '';
-    }
+    if (!img.dataset.originalProductSrc) img.dataset.originalProductSrc = img.getAttribute('src') || '';
 
     const column = item.index % COLUMNS;
     const row = Math.floor(item.index / COLUMNS);
-
     frame.style.position = 'relative';
     frame.style.overflow = 'hidden';
     frame.style.backgroundImage = '';
@@ -254,19 +314,71 @@
     img.onerror = () => restorePhoto(img);
   }
 
-  function applyProductPhotos() {
-    if (!atlasUrl) return;
-    const parents = new Set();
+  function upgradeZeroState(body) {
+    const addButton = Array.from(body.children).find((node) => node.tagName === 'BUTTON' && /Adaugă/.test(node.textContent || ''));
+    if (!addButton) return;
+    addButton.classList.add('premium-add-button');
 
+    if (!addButton.dataset.premiumUpgraded) {
+      const originalText = (addButton.textContent || '').replace(/^\s*\+\s*/, '').trim();
+      const quantity = originalText.replace(/^Adaugă\s*/i, '') || '';
+      addButton.innerHTML = `<span class="premium-cart-glyph">🛒</span><span class="premium-add-copy"><strong>Adaugă</strong><small>${quantity}</small></span>`;
+      addButton.dataset.premiumUpgraded = '1';
+    }
+
+    if (!body.querySelector(':scope > .premium-zero-qty')) {
+      const qty = document.createElement('div');
+      qty.className = 'premium-zero-qty';
+      qty.innerHTML = '<button type="button" aria-label="Cantitate minimă">−</button><span>0</span><button type="button" aria-label="Adaugă o unitate">+</button>';
+      const buttons = qty.querySelectorAll('button');
+      buttons[0].addEventListener('click', (event) => event.preventDefault());
+      buttons[1].addEventListener('click', (event) => {
+        event.preventDefault();
+        addButton.click();
+      });
+      body.insertBefore(qty, addButton);
+    }
+  }
+
+  function applyLayout() {
+    const parents = new Set();
     products.forEach((item) => {
       const card = document.getElementById(`product-${item.id}`);
       if (!card) return;
       card.classList.add('premium-product-card');
       if (card.parentElement) parents.add(card.parentElement);
-      stylePhoto(card.querySelector('img'), item);
+
+      const body = card.children[1];
+      if (body) {
+        body.classList.add('premium-card-body');
+        upgradeZeroState(body);
+        const activeRow = Array.from(body.children).find((node) => node.tagName === 'DIV' && !node.classList.contains('premium-zero-qty'));
+        if (activeRow) activeRow.classList.add('premium-active-row');
+      }
+    });
+    parents.forEach((parent) => parent.classList.add('premium-product-grid'));
+
+    const searchInput = document.querySelector('input[placeholder="Caută un produs"]');
+    const filterBlock = searchInput?.closest('label')?.parentElement?.parentElement;
+    if (filterBlock) filterBlock.classList.add('premium-filter-block');
+
+    document.querySelectorAll('span').forEach((span) => {
+      if (/^\d+\s+produse$/.test((span.textContent || '').trim())) span.parentElement?.classList.add('premium-count-row');
     });
 
-    parents.forEach((parent) => parent.classList.add('premium-product-grid'));
+    const cartButton = Array.from(document.querySelectorAll('button')).find((button) => /Vezi comanda/.test(button.textContent || ''));
+    if (cartButton) {
+      cartButton.classList.add('premium-mobile-cart-button');
+      cartButton.closest('div.fixed')?.classList.add('premium-mobile-cart-shell');
+    }
+  }
+
+  function applyProductPhotos() {
+    if (!atlasUrl) return;
+    products.forEach((item) => {
+      const card = document.getElementById(`product-${item.id}`);
+      if (card) stylePhoto(card.querySelector('img'), item);
+    });
 
     document.querySelectorAll('button').forEach((button) => {
       const image = button.querySelector('img');
@@ -278,31 +390,28 @@
   }
 
   function scheduleApply() {
-    if (!atlasUrl || scheduled) return;
+    if (scheduled) return;
     scheduled = true;
     requestAnimationFrame(() => {
       scheduled = false;
-      applyProductPhotos();
+      applyLayout();
+      if (atlasUrl) applyProductPhotos();
     });
   }
 
   async function init() {
     injectPremiumStyles();
+    applyLayout();
+    new MutationObserver(scheduleApply).observe(document.documentElement, { childList: true, subtree: true });
+
     try {
       atlasUrl = await buildAtlasUrl();
       applyProductPhotos();
-      new MutationObserver(scheduleApply).observe(document.documentElement, {
-        childList: true,
-        subtree: true,
-      });
     } catch (error) {
       console.error('Atlasul JPEG nu a putut fi încărcat; păstrez imaginile standard.', error);
     }
   }
 
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', init, { once: true });
-  } else {
-    init();
-  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init, { once: true });
+  else init();
 })();
