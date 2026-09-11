@@ -1,17 +1,15 @@
 (() => {
-  const CACHE_VERSION = '20260911-11';
+  const CACHE_VERSION = '20260911-12';
   const COLUMNS = 8;
   const ROWS = 6;
 
-  // Atlas premium verificat: 47 imagini în aceeași ordine ca în catalog.
+  // Atlas JPEG stabil, compatibil cu iPhone/Safari si desktop.
+  // part-03 este impartit in doua bucati valide: 03a + 03b.
   const ATLAS_PARTS = [
-    `/product-atlas-hd/part-01.txt?v=${CACHE_VERSION}`,
-    `/product-atlas-hd/part-02.txt?v=${CACHE_VERSION}`,
-    `/product-atlas-hd/part-03.txt?v=${CACHE_VERSION}`,
-    `/product-atlas-hd/part-04.txt?v=${CACHE_VERSION}`,
-    `/product-atlas-hd/part-05.txt?v=${CACHE_VERSION}`,
-    `/product-atlas-hd/part-06.txt?v=${CACHE_VERSION}`,
-    `/product-atlas-hd/part-07.txt?v=${CACHE_VERSION}`,
+    `/product-atlas-v2/part-01.txt?v=${CACHE_VERSION}`,
+    `/product-atlas-v2/part-02.txt?v=${CACHE_VERSION}`,
+    `/product-atlas-v2/part-03a.txt?v=${CACHE_VERSION}`,
+    `/product-atlas-v2/part-03b.txt?v=${CACHE_VERSION}`,
   ];
 
   const products = [
@@ -91,7 +89,7 @@
       .premium-product-card > div:first-child > img {
         display: block !important;
         visibility: visible !important;
-        filter: saturate(1.06) contrast(1.035) brightness(1.015) !important;
+        filter: saturate(1.08) contrast(1.04) brightness(1.02) !important;
       }
       .premium-product-card > div:first-child > div:first-of-type {
         background: linear-gradient(to top, rgba(23,61,44,.18), transparent 55%, rgba(0,0,0,.015)) !important;
@@ -113,30 +111,57 @@
         border-radius: 12px !important;
         font-size: 12px !important;
       }
-      .premium-product-card > div:nth-child(2) > div { margin-top: 8px !important; gap: 6px !important; flex-wrap: wrap !important; }
-      .premium-product-card > div:first-child > div:nth-of-type(2) { inset-inline: 7px !important; top: 7px !important; }
+      .premium-product-card > div:nth-child(2) > div {
+        margin-top: 8px !important;
+        gap: 6px !important;
+        flex-wrap: wrap !important;
+      }
+      .premium-product-card > div:first-child > div:nth-of-type(2) {
+        inset-inline: 7px !important;
+        top: 7px !important;
+      }
       .premium-product-card > div:first-child > div:nth-of-type(2) > span,
       .premium-product-card > div:first-child > div:nth-of-type(2) > button {
-        width: 31px !important; height: 31px !important; min-width: 31px !important; border-radius: 11px !important; font-size: 14px !important;
+        width: 31px !important;
+        height: 31px !important;
+        min-width: 31px !important;
+        border-radius: 11px !important;
+        font-size: 14px !important;
       }
-      .premium-product-card > div:first-child > div:nth-of-type(3) { left: 7px !important; right: 7px !important; bottom: 7px !important; gap: 4px !important; }
-      .premium-product-card > div:first-child > div:nth-of-type(3) span { font-size: 10px !important; padding: 4px 7px !important; }
-
-      /* Pe telefon bara de categorii nu mai acoperă titlul categoriei. */
+      .premium-product-card > div:first-child > div:nth-of-type(3) {
+        left: 7px !important;
+        right: 7px !important;
+        bottom: 7px !important;
+        gap: 4px !important;
+      }
+      .premium-product-card > div:first-child > div:nth-of-type(3) span {
+        font-size: 10px !important;
+        padding: 4px 7px !important;
+      }
       @media (max-width: 699px) {
         .category-dock { position: static !important; top: auto !important; }
       }
       @media (max-width: 380px) {
         .premium-product-grid { gap: 9px !important; }
         .premium-product-card > div:nth-child(2) { padding: 9px !important; }
-        .premium-product-card h3 { min-height: 34px !important; font-size: 13px !important; line-height: 17px !important; }
-        .premium-product-card > div:nth-child(2) > button { font-size: 11px !important; padding-inline: 4px !important; }
+        .premium-product-card h3 {
+          min-height: 34px !important;
+          font-size: 13px !important;
+          line-height: 17px !important;
+        }
+        .premium-product-card > div:nth-child(2) > button {
+          font-size: 11px !important;
+          padding-inline: 4px !important;
+        }
       }
       @media (min-width: 700px) {
         .premium-product-grid { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; }
       }
       @media (min-width: 1180px) {
-        .premium-product-grid { grid-template-columns: repeat(4, minmax(0, 1fr)) !important; gap: 14px !important; }
+        .premium-product-grid {
+          grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+          gap: 14px !important;
+        }
         .premium-product-card > div:nth-child(2) { padding: 13px !important; }
       }
     `;
@@ -150,16 +175,22 @@
       return (await response.text()).trim();
     }));
 
-    const binary = atob(chunks.join(''));
+    const encoded = chunks.join('');
+    if (!encoded || encoded.length % 4 !== 0) throw new Error('Atlas JPEG Base64 incomplet');
+
+    const binary = atob(encoded);
     const bytes = new Uint8Array(binary.length);
     for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
-    const url = URL.createObjectURL(new Blob([bytes], { type: 'image/avif' }));
+    const url = URL.createObjectURL(new Blob([bytes], { type: 'image/jpeg' }));
 
     const test = new Image();
     test.src = url;
     if (test.decode) await test.decode();
-    else await new Promise((resolve, reject) => { test.onload = resolve; test.onerror = reject; });
-    if (!test.naturalWidth || !test.naturalHeight) throw new Error('Atlas premium invalid');
+    else await new Promise((resolve, reject) => {
+      test.onload = resolve;
+      test.onerror = reject;
+    });
+    if (!test.naturalWidth || !test.naturalHeight) throw new Error('Atlas JPEG invalid');
     return url;
   }
 
@@ -179,6 +210,8 @@
     img.style.transform = '';
     img.style.transition = '';
     img.style.zIndex = '';
+    img.style.display = '';
+    img.style.visibility = '';
     if (original) img.src = original;
   }
 
@@ -187,7 +220,9 @@
     const frame = img.parentElement;
     if (!frame) return;
 
-    if (!img.dataset.originalProductSrc) img.dataset.originalProductSrc = img.getAttribute('src') || '';
+    if (!img.dataset.originalProductSrc) {
+      img.dataset.originalProductSrc = img.getAttribute('src') || '';
+    }
 
     const column = item.index % COLUMNS;
     const row = Math.floor(item.index / COLUMNS);
@@ -256,12 +291,18 @@
     try {
       atlasUrl = await buildAtlasUrl();
       applyProductPhotos();
-      new MutationObserver(scheduleApply).observe(document.documentElement, { childList: true, subtree: true });
+      new MutationObserver(scheduleApply).observe(document.documentElement, {
+        childList: true,
+        subtree: true,
+      });
     } catch (error) {
-      console.error('Atlasul premium nu a putut fi încărcat; păstrez imaginile standard.', error);
+      console.error('Atlasul JPEG nu a putut fi încărcat; păstrez imaginile standard.', error);
     }
   }
 
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init, { once: true });
-  else init();
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init, { once: true });
+  } else {
+    init();
+  }
 })();
