@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, type Dispatch, type PointerEvent, type Se
 import { Link } from 'react-router-dom';
 import {
   CalendarDays,
+  BellRing,
   CheckCircle2,
   ChevronRight,
   Clock,
@@ -25,6 +26,7 @@ import { useProducts, type ManagedProduct } from '@/hooks/useProducts';
 import { formatOrderDate, useOrderSchedule, type OrderSchedule } from '@/hooks/useOrderSchedule';
 import { usePublicOrderMeta, type PublicOrderStats } from '@/hooks/usePublicOrderMeta';
 import { submitPublicOrder } from '@/lib/orderApi';
+import { downloadOrderReminder, orderDeadline, REMINDER_KEY, reminderId } from '@/lib/orderReminders';
 
 type Cart = Record<string, number>;
 type LastOrder = {
@@ -67,21 +69,14 @@ function readLastOrder(): LastOrder | null {
   }
 }
 
-function countdownTarget(value?: string) {
-  if (!value) return 0;
-  const [year, month, day] = value.split('-').map(Number);
-  if (!year || !month || !day) return 0;
-  return new Date(year, month - 1, day, 23, 59, 59).getTime();
-}
-
-function useCountdown(value?: string) {
+function useCountdown(value?: string, cutoffTime?: string) {
   const [now, setNow] = useState(Date.now());
   useEffect(() => {
     const timer = window.setInterval(() => setNow(Date.now()), 30000);
     return () => window.clearInterval(timer);
   }, []);
 
-  const target = countdownTarget(value);
+  const target = orderDeadline({ dates: value ? [value] : [], cutoffTime })?.getTime() || 0;
   if (!target) return 'Termenul va fi anunțat';
   const diff = target - now;
   if (diff <= 0) return 'Termen încheiat';
@@ -91,6 +86,63 @@ function useCountdown(value?: string) {
   if (days > 0) return `${days} zile ${hours} ore`;
   if (hours > 0) return `${hours} ore ${minutes} min`;
   return `${Math.max(1, minutes)} min`;
+}
+
+function ReminderButton({ schedule }: { schedule: OrderSchedule }) {
+  const id = reminderId(schedule);
+  const [active, setActive] = useState(() => Boolean(id && localStorage.getItem(REMINDER_KEY) === id));
+
+  useEffect(() => {
+    const sync = () => setActive(Boolean(id && localStorage.getItem(REMINDER_KEY) === id));
+    sync();
+    window.addEventListener('bunatati-reminder-changed', sync);
+    return () => window.removeEventListener('bunatati-reminder-changed', sync);
+  }, [id]);
+
+  const activate = async () => {
+    if (!id || !downloadOrderReminder(schedule)) return;
+    localStorage.setItem(REMINDER_KEY, id);
+    setActive(true);
+    window.dispatchEvent(new Event('bunatati-reminder-changed'));
+    if ('Notification' in window && Notification.permission === 'default') {
+      try { await Notification.requestPermission(); } catch { /* calendar reminder remains active */ }
+    }
+  };
+
+  return (
+    <button type="button" onClick={activate} className={`mt-3 inline-flex items-center gap-2 rounded-full px-3 py-2 text-xs font-bold transition ${active ? 'bg-[#dcefd2]/85 text-[#315b32]' : 'bg-[#173d2c]/8 text-[#315b32] hover:bg-[#173d2c]/13'}`}>
+      <BellRing className="size-3.5" /> {active ? 'Reminder activat ✓' : 'Amintește-mi'}
+    </button>
+  );
+}
+
+function useDeadlineNotifications(schedule: OrderSchedule) {
+  useEffect(() => {
+    const check = () => {
+      const id = reminderId(schedule);
+      const deadline = orderDeadline(schedule);
+      if (!id || !deadline || localStorage.getItem(REMINDER_KEY) !== id || !('Notification' in window) || Notification.permission !== 'granted') return;
+      const remaining = deadline.getTime() - Date.now();
+      if (remaining <= 0) return;
+      const thresholds = [
+        { key: '2h', ms: 2 * 60 * 60 * 1000, title: 'Ultimele 2 ore pentru comandă', body: 'Verifică rapid coșul și trimite comanda.' },
+        { key: '24h', ms: 24 * 60 * 60 * 1000, title: 'Comanda se închide mâine', body: 'Nu uita să alegi bunătățile preferate.' },
+      ];
+      const due = thresholds.find(({ key, ms }) => remaining <= ms && localStorage.getItem(`${REMINDER_KEY}_${id}_${key}`) !== 'sent');
+      if (!due) return;
+      try {
+        new Notification(due.title, { body: due.body, icon: '/valera-logo.svg?v=6', tag: `bunatati-${id}-${due.key}` });
+        thresholds.filter(({ ms }) => remaining <= ms).forEach(({ key }) => localStorage.setItem(`${REMINDER_KEY}_${id}_${key}`, 'sent'));
+      } catch { /* calendar alerts still work when browser notifications are unavailable */ }
+    };
+    check();
+    const timer = window.setInterval(check, 30000);
+    window.addEventListener('bunatati-reminder-changed', check);
+    return () => {
+      window.clearInterval(timer);
+      window.removeEventListener('bunatati-reminder-changed', check);
+    };
+  }, [schedule]);
 }
 
 function currentRoundLabel(schedule: OrderSchedule, publicLabel: string) {
@@ -114,7 +166,7 @@ function glassMove(event: PointerEvent<HTMLElement>) {
 }
 
 function ScheduleNotice({ schedule, compact = false }: { schedule: OrderSchedule; compact?: boolean }) {
-  const countdown = useCountdown(schedule.dates[0]);
+  const countdown = useCountdown(schedule.dates[0], schedule.cutoffTime);
   return (
     <div className={`glass glass-shine rounded-2xl ${compact ? 'p-3' : 'p-4 sm:p-5'}`}>
       <div className="flex items-start gap-3">
@@ -132,6 +184,7 @@ function ScheduleNotice({ schedule, compact = false }: { schedule: OrderSchedule
             <p className="mt-1.5 text-sm text-[#6f796f]">{schedule.message || 'Data următoarei comenzi va fi anunțată în curând.'}</p>
           )}
           {schedule.message && schedule.dates.length > 0 && <p className="mt-2 text-xs leading-5 text-[#7d674d]">{schedule.message}</p>}
+          {!schedule.closed && schedule.dates.length > 0 && <ReminderButton schedule={schedule} />}
         </div>
       </div>
     </div>
@@ -311,6 +364,7 @@ function CartPanel({ cart, setCart, products, schedule, lastOrder, onSubmitted }
 export default function OrderApp() {
   const { products: firestoreProducts, loading, error } = useProducts();
   const { schedule } = useOrderSchedule();
+  useDeadlineNotifications(schedule);
   const { stats } = usePublicOrderMeta();
   const products = useMemo(() => firestoreProducts.filter((product) => product.active !== false), [firestoreProducts]);
   const [activeCategory, setActiveCategory] = useState<Category>('Nuci');
@@ -333,7 +387,7 @@ export default function OrderApp() {
   const itemCount = Object.values(cart).filter(Boolean).length;
   const total = products.reduce((sum, product) => sum + linePrice(product, cart[product.id] || 0), 0);
   const round = currentRoundLabel(schedule, stats.roundLabel);
-  const countdown = useCountdown(schedule.dates[0]);
+  const countdown = useCountdown(schedule.dates[0], schedule.cutoffTime);
 
   const change = (productId: string, delta: number) => {
     const product = products.find((candidate) => candidate.id === productId);
