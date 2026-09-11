@@ -12,3 +12,6 @@
 
 /product-atlas-hd/*
   Cache-Control: no-cache, no-store, must-revalidate
+
+/product-atlas-v2/*
+  Cache-Control: no-cache, no-store, must-revalidate
