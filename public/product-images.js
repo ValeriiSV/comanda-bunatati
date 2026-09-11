@@ -1,19 +1,9 @@
 (() => {
-  const CACHE_VERSION = '20260911-6';
+  const CACHE_VERSION = '20260911-7';
   const COLUMNS = 8;
   const ROWS = 6;
 
-  const HD_PARTS = [
-    { url: `/product-atlas-hd/part-01.txt?v=${CACHE_VERSION}` },
-    { url: `/product-atlas-hd/part-02a.txt?v=${CACHE_VERSION}` },
-    { url: `/product-atlas-hd/part-02b.txt?v=${CACHE_VERSION}` },
-    { url: `/product-atlas-hd/part-03.txt?v=${CACHE_VERSION}` },
-    { url: `/product-atlas-hd/part-04.txt?v=${CACHE_VERSION}` },
-    { url: `/product-atlas-hd/part-05.txt?v=${CACHE_VERSION}` },
-    { url: `/product-atlas-hd/part-06.txt?v=${CACHE_VERSION}`, take: 16000 },
-    { url: `/product-atlas-hd/part-07.txt?v=${CACHE_VERSION}` },
-  ];
-
+  // Folosim doar atlasul JPEG: compatibil stabil cu Safari/iPhone si desktop.
   const JPEG_PARTS = [
     { url: `/product-atlas-v2/part-01.txt?v=${CACHE_VERSION}` },
     { url: `/product-atlas-v2/part-02.txt?v=${CACHE_VERSION}` },
@@ -75,19 +65,18 @@
   let atlasUrl = '';
   let scheduled = false;
 
-  async function buildAtlasUrl(parts, mime) {
-    const chunks = await Promise.all(parts.map(async ({ url, take }) => {
+  async function buildAtlasUrl() {
+    const chunks = await Promise.all(JPEG_PARTS.map(async ({ url }) => {
       const response = await fetch(url, { cache: 'no-store' });
       if (!response.ok) throw new Error(`HTTP ${response.status}: ${url}`);
-      const text = (await response.text()).trim();
-      return typeof take === 'number' ? text.slice(0, take) : text;
+      return (await response.text()).trim();
     }));
 
     const binary = atob(chunks.join(''));
     const bytes = new Uint8Array(binary.length);
     for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
-    const url = URL.createObjectURL(new Blob([bytes], { type: mime }));
 
+    const url = URL.createObjectURL(new Blob([bytes], { type: 'image/jpeg' }));
     const test = new Image();
     test.src = url;
     if (test.decode) await test.decode();
@@ -95,7 +84,29 @@
       test.onload = resolve;
       test.onerror = reject;
     });
+
+    if (!test.naturalWidth || !test.naturalHeight) throw new Error('Atlas JPEG invalid');
     return url;
+  }
+
+  function restorePhoto(img) {
+    if (!img) return;
+    const original = img.dataset.originalProductSrc;
+    img.onerror = null;
+    img.style.position = '';
+    img.style.inset = '';
+    img.style.left = '';
+    img.style.top = '';
+    img.style.width = '';
+    img.style.height = '';
+    img.style.maxWidth = '';
+    img.style.objectFit = '';
+    img.style.opacity = '';
+    img.style.pointerEvents = '';
+    img.style.transform = '';
+    img.style.transformOrigin = '';
+    img.style.transition = '';
+    if (original) img.src = original;
   }
 
   function stylePhoto(img, item) {
@@ -103,23 +114,43 @@
     const frame = img.parentElement;
     if (!frame) return;
 
+    if (!img.dataset.originalProductSrc) {
+      img.dataset.originalProductSrc = img.getAttribute('src') || '';
+    }
+
+    // Anulam stilurile lasate de vechiul loader cu background/aspect-ratio.
+    frame.style.backgroundImage = '';
+    frame.style.backgroundSize = '';
+    frame.style.backgroundPosition = '';
+    frame.style.backgroundRepeat = '';
+    frame.style.backgroundColor = '';
+    frame.style.aspectRatio = '';
+    frame.style.height = '';
+
     const column = item.index % COLUMNS;
     const row = Math.floor(item.index / COLUMNS);
-    const x = COLUMNS === 1 ? 0 : (column / (COLUMNS - 1)) * 100;
-    const y = ROWS === 1 ? 0 : (row / (ROWS - 1)) * 100;
 
-    frame.style.backgroundImage = `url("${atlasUrl}")`;
-    frame.style.backgroundSize = `${COLUMNS * 100}% ${ROWS * 100}%`;
-    frame.style.backgroundPosition = `${x}% ${y}%`;
-    frame.style.backgroundRepeat = 'no-repeat';
-    frame.style.backgroundColor = '#ead9bd';
-    frame.style.aspectRatio = '16 / 9';
-    frame.style.height = 'auto';
-
+    img.src = atlasUrl;
     img.alt = item.name;
     img.dataset.productPhoto = item.id;
-    img.style.opacity = '0';
+    img.loading = 'eager';
+
+    // Atlas 8 x 6. Imaginea devine 8 ori mai lata si 6 ori mai inalta
+    // decat fereastra cardului; deplasarea selecteaza exact produsul dorit.
+    img.style.position = 'absolute';
+    img.style.left = `${-column * 100}%`;
+    img.style.top = `${-row * 100}%`;
+    img.style.width = `${COLUMNS * 100}%`;
+    img.style.height = `${ROWS * 100}%`;
+    img.style.maxWidth = 'none';
+    img.style.objectFit = 'fill';
+    img.style.opacity = '1';
     img.style.pointerEvents = 'none';
+    img.style.transform = 'none';
+    img.style.transformOrigin = 'top left';
+    img.style.transition = 'none';
+
+    img.onerror = () => restorePhoto(img);
   }
 
   function applyProductPhotos() {
@@ -150,20 +181,14 @@
 
   async function init() {
     try {
-      try {
-        atlasUrl = await buildAtlasUrl(HD_PARTS, 'image/avif');
-      } catch (hdError) {
-        console.warn('Atlas AVIF indisponibil, folosesc JPEG.', hdError);
-        atlasUrl = await buildAtlasUrl(JPEG_PARTS, 'image/jpeg');
-      }
-
+      atlasUrl = await buildAtlasUrl();
       applyProductPhotos();
       new MutationObserver(scheduleApply).observe(document.documentElement, {
         childList: true,
         subtree: true,
       });
     } catch (error) {
-      console.error('Catalogul vizual nu a putut fi încărcat. Se păstrează imaginile standard.', error);
+      console.error('Catalogul JPEG nu a putut fi încărcat; păstrez imaginile standard.', error);
     }
   }
 
