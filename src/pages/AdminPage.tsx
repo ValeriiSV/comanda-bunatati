@@ -6,6 +6,7 @@ import { auth } from '@/lib/firebase';
 import { saveExternalAdminSession } from '@/lib/firebaseRest';
 import SellerExcelExport from '@/components/SellerExcelExport';
 import AdminWowDashboard from '@/components/AdminWowDashboard';
+import OrderDeadlineTimeEditor from '@/components/OrderDeadlineTimeEditor';
 import AdminStablePage from './AdminStablePage';
 
 export default function AdminPage() {
@@ -64,6 +65,7 @@ export default function AdminPage() {
         Înapoi la catalog
       </Link>
       <AdminWowDashboard />
+      <OrderDeadlineTimeEditor />
       <AdminStablePage />
       <SellerExcelExport />
     </div>
