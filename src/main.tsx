@@ -6,6 +6,7 @@ import AdminPage from './pages/AdminPage';
 import MiaPaymentPage from './pages/MiaPaymentPage';
 import OrderStatusPage from './pages/OrderStatusPage';
 import AppErrorBoundary from './components/AppErrorBoundary';
+import OrderDeadlinePublicEnhancer from './components/OrderDeadlinePublicEnhancer';
 import './index.css';
 import './wow.css';
 import './product-images.css';
@@ -15,7 +16,7 @@ createRoot(document.getElementById('root')!).render(
     <AppErrorBoundary>
       <BrowserRouter>
         <Routes>
-          <Route path="/" element={<OrderPage />} />
+          <Route path="/" element={<><OrderDeadlinePublicEnhancer /><OrderPage /></>} />
           <Route path="/status" element={<OrderStatusPage />} />
           <Route path="/admin" element={<AdminPage />} />
           <Route path="/admin/mia" element={<MiaPaymentPage />} />
