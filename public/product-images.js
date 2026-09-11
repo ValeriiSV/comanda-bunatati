@@ -1,12 +1,17 @@
 (() => {
-  const CACHE_VERSION = '20260911-10';
+  const CACHE_VERSION = '20260911-11';
   const COLUMNS = 8;
   const ROWS = 6;
 
-  const JPEG_PARTS = [
-    `/product-atlas-v2/part-01.txt?v=${CACHE_VERSION}`,
-    `/product-atlas-v2/part-02.txt?v=${CACHE_VERSION}`,
-    `/product-atlas-v2/part-03.txt?v=${CACHE_VERSION}`,
+  // Atlas premium verificat: 47 imagini în aceeași ordine ca în catalog.
+  const ATLAS_PARTS = [
+    `/product-atlas-hd/part-01.txt?v=${CACHE_VERSION}`,
+    `/product-atlas-hd/part-02.txt?v=${CACHE_VERSION}`,
+    `/product-atlas-hd/part-03.txt?v=${CACHE_VERSION}`,
+    `/product-atlas-hd/part-04.txt?v=${CACHE_VERSION}`,
+    `/product-atlas-hd/part-05.txt?v=${CACHE_VERSION}`,
+    `/product-atlas-hd/part-06.txt?v=${CACHE_VERSION}`,
+    `/product-atlas-hd/part-07.txt?v=${CACHE_VERSION}`,
   ];
 
   const products = [
@@ -75,23 +80,23 @@
       .premium-product-card {
         overflow: hidden !important;
         border-radius: 20px !important;
-        background: rgba(255,255,255,.62) !important;
-        box-shadow: 0 10px 28px rgba(32,65,46,.10), inset 0 1px 0 rgba(255,255,255,.72) !important;
+        background: rgba(255,255,255,.68) !important;
+        box-shadow: 0 12px 30px rgba(32,65,46,.11), inset 0 1px 0 rgba(255,255,255,.75) !important;
       }
       .premium-product-card > div:first-child {
         height: auto !important;
         aspect-ratio: 16 / 9 !important;
-        background: #e8dcc6 !important;
+        background: #e9ddc8 !important;
       }
       .premium-product-card > div:first-child > img {
         display: block !important;
         visibility: visible !important;
-        filter: saturate(1.08) contrast(1.04) brightness(1.02) !important;
+        filter: saturate(1.06) contrast(1.035) brightness(1.015) !important;
       }
       .premium-product-card > div:first-child > div:first-of-type {
-        background: linear-gradient(to top, rgba(23,61,44,.24), transparent 58%, rgba(0,0,0,.02)) !important;
+        background: linear-gradient(to top, rgba(23,61,44,.18), transparent 55%, rgba(0,0,0,.015)) !important;
       }
-      .premium-product-card > div:nth-child(2) { padding: 11px !important; }
+      .premium-product-card > div:nth-child(2) { padding: 10px !important; }
       .premium-product-card h3 {
         min-height: 36px !important;
         font-size: 14px !important;
@@ -103,19 +108,24 @@
       }
       .premium-product-card > div:nth-child(2) > button {
         height: 36px !important;
-        margin-top: 9px !important;
-        padding-inline: 7px !important;
+        margin-top: 8px !important;
+        padding-inline: 6px !important;
         border-radius: 12px !important;
         font-size: 12px !important;
       }
-      .premium-product-card > div:nth-child(2) > div { margin-top: 9px !important; gap: 6px !important; flex-wrap: wrap !important; }
-      .premium-product-card > div:first-child > div:nth-of-type(2) { inset-inline: 8px !important; top: 8px !important; }
+      .premium-product-card > div:nth-child(2) > div { margin-top: 8px !important; gap: 6px !important; flex-wrap: wrap !important; }
+      .premium-product-card > div:first-child > div:nth-of-type(2) { inset-inline: 7px !important; top: 7px !important; }
       .premium-product-card > div:first-child > div:nth-of-type(2) > span,
       .premium-product-card > div:first-child > div:nth-of-type(2) > button {
-        width: 32px !important; height: 32px !important; min-width: 32px !important; border-radius: 12px !important; font-size: 14px !important;
+        width: 31px !important; height: 31px !important; min-width: 31px !important; border-radius: 11px !important; font-size: 14px !important;
       }
-      .premium-product-card > div:first-child > div:nth-of-type(3) { left: 8px !important; right: 8px !important; bottom: 8px !important; gap: 5px !important; }
+      .premium-product-card > div:first-child > div:nth-of-type(3) { left: 7px !important; right: 7px !important; bottom: 7px !important; gap: 4px !important; }
       .premium-product-card > div:first-child > div:nth-of-type(3) span { font-size: 10px !important; padding: 4px 7px !important; }
+
+      /* Pe telefon bara de categorii nu mai acoperă titlul categoriei. */
+      @media (max-width: 699px) {
+        .category-dock { position: static !important; top: auto !important; }
+      }
       @media (max-width: 380px) {
         .premium-product-grid { gap: 9px !important; }
         .premium-product-card > div:nth-child(2) { padding: 9px !important; }
@@ -127,13 +137,14 @@
       }
       @media (min-width: 1180px) {
         .premium-product-grid { grid-template-columns: repeat(4, minmax(0, 1fr)) !important; gap: 14px !important; }
+        .premium-product-card > div:nth-child(2) { padding: 13px !important; }
       }
     `;
     document.head.appendChild(style);
   }
 
   async function buildAtlasUrl() {
-    const chunks = await Promise.all(JPEG_PARTS.map(async (url) => {
+    const chunks = await Promise.all(ATLAS_PARTS.map(async (url) => {
       const response = await fetch(url, { cache: 'no-store' });
       if (!response.ok) throw new Error(`HTTP ${response.status}: ${url}`);
       return (await response.text()).trim();
@@ -142,14 +153,33 @@
     const binary = atob(chunks.join(''));
     const bytes = new Uint8Array(binary.length);
     for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
-    const url = URL.createObjectURL(new Blob([bytes], { type: 'image/jpeg' }));
+    const url = URL.createObjectURL(new Blob([bytes], { type: 'image/avif' }));
 
     const test = new Image();
     test.src = url;
     if (test.decode) await test.decode();
     else await new Promise((resolve, reject) => { test.onload = resolve; test.onerror = reject; });
-    if (!test.naturalWidth || !test.naturalHeight) throw new Error('Atlas JPEG invalid');
+    if (!test.naturalWidth || !test.naturalHeight) throw new Error('Atlas premium invalid');
     return url;
+  }
+
+  function restorePhoto(img) {
+    if (!img) return;
+    const original = img.dataset.originalProductSrc;
+    img.onerror = null;
+    img.style.position = '';
+    img.style.left = '';
+    img.style.top = '';
+    img.style.width = '';
+    img.style.height = '';
+    img.style.maxWidth = '';
+    img.style.objectFit = '';
+    img.style.opacity = '';
+    img.style.pointerEvents = '';
+    img.style.transform = '';
+    img.style.transition = '';
+    img.style.zIndex = '';
+    if (original) img.src = original;
   }
 
   function stylePhoto(img, item) {
@@ -165,7 +195,7 @@
     frame.style.position = 'relative';
     frame.style.overflow = 'hidden';
     frame.style.backgroundImage = '';
-    frame.style.backgroundColor = '#e8dcc6';
+    frame.style.backgroundColor = '#e9ddc8';
 
     img.removeAttribute('srcset');
     img.src = atlasUrl;
@@ -186,6 +216,7 @@
     img.style.transform = 'none';
     img.style.transition = 'none';
     img.style.zIndex = '0';
+    img.onerror = () => restorePhoto(img);
   }
 
   function applyProductPhotos() {
@@ -227,7 +258,7 @@
       applyProductPhotos();
       new MutationObserver(scheduleApply).observe(document.documentElement, { childList: true, subtree: true });
     } catch (error) {
-      console.error('Atlasul JPEG nu a putut fi încărcat.', error);
+      console.error('Atlasul premium nu a putut fi încărcat; păstrez imaginile standard.', error);
     }
   }
 
