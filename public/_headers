@@ -1,0 +1,14 @@
+/
+  Cache-Control: no-cache, no-store, must-revalidate
+
+/index.html
+  Cache-Control: no-cache, no-store, must-revalidate
+
+/product-images.js
+  Cache-Control: no-cache, no-store, must-revalidate
+
+/products/*
+  Cache-Control: no-cache, no-store, must-revalidate
+
+/product-atlas-hd/*
+  Cache-Control: no-cache, no-store, must-revalidate
