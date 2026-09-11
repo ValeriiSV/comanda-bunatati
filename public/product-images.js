@@ -1,8 +1,7 @@
 (() => {
-  const TILE_WIDTH = 160;
-  const TILE_HEIGHT = 90;
   const COLUMNS = 8;
-  const CACHE_VERSION = '20260911-3';
+  const ROWS = 6;
+  const CACHE_VERSION = '20260911-4';
   const SAFE_FALLBACK = `/catalog-hero.png?v=${CACHE_VERSION}`;
 
   const DIRECT_IMAGES = {
@@ -18,7 +17,7 @@
     'nuci-braziliene': '/products/nuci-braziliene.jpg',
   };
 
-  const ATLAS_PARTS = [
+  const HD_PARTS = [
     { url: `/product-atlas-hd/part-01.txt?v=${CACHE_VERSION}` },
     { url: `/product-atlas-hd/part-02a.txt?v=${CACHE_VERSION}` },
     { url: `/product-atlas-hd/part-02b.txt?v=${CACHE_VERSION}` },
@@ -27,6 +26,13 @@
     { url: `/product-atlas-hd/part-05.txt?v=${CACHE_VERSION}` },
     { url: `/product-atlas-hd/part-06.txt?v=${CACHE_VERSION}`, take: 16000 },
     { url: `/product-atlas-hd/part-07.txt?v=${CACHE_VERSION}` },
+  ];
+
+  const JPEG_PARTS = [
+    { url: `/product-atlas-v2/part-01.txt?v=${CACHE_VERSION}` },
+    { url: `/product-atlas-v2/part-02.txt?v=${CACHE_VERSION}` },
+    { url: `/product-atlas-v2/part-03a.txt?v=${CACHE_VERSION}` },
+    { url: `/product-atlas-v2/part-03b.txt?v=${CACHE_VERSION}` },
   ];
 
   const products = [
@@ -84,9 +90,9 @@
   let atlasReady = false;
   let scheduled = false;
 
-  async function loadAtlas() {
-    const parts = await Promise.all(
-      ATLAS_PARTS.map(async ({ url, take }) => {
+  async function loadAtlas(parts, mime) {
+    const chunks = await Promise.all(
+      parts.map(async ({ url, take }) => {
         const response = await fetch(url, { cache: 'no-store' });
         if (!response.ok) throw new Error(`Nu s-a putut încărca ${url}`);
         const text = (await response.text()).trim();
@@ -96,16 +102,21 @@
 
     const image = new Image();
     image.decoding = 'async';
-    image.src = `data:image/avif;base64,${parts.join('')}`;
+    image.src = `data:${mime};base64,${chunks.join('')}`;
     if (image.decode) await image.decode();
     else await new Promise((resolve, reject) => {
       image.onload = resolve;
       image.onerror = reject;
     });
+    if (!image.naturalWidth || !image.naturalHeight) throw new Error('Atlas invalid');
     return image;
   }
 
   function buildProductPhotos(atlas) {
+    const tileWidth = Math.floor(atlas.naturalWidth / COLUMNS);
+    const tileHeight = Math.floor(atlas.naturalHeight / ROWS);
+    if (!tileWidth || !tileHeight) throw new Error('Dimensiuni atlas invalide');
+
     products.forEach((item) => {
       const column = item.index % COLUMNS;
       const row = Math.floor(item.index / COLUMNS);
@@ -118,16 +129,16 @@
       context.imageSmoothingQuality = 'high';
       context.drawImage(
         atlas,
-        column * TILE_WIDTH,
-        row * TILE_HEIGHT,
-        TILE_WIDTH,
-        TILE_HEIGHT,
+        column * tileWidth,
+        row * tileHeight,
+        tileWidth,
+        tileHeight,
         0,
         0,
         canvas.width,
         canvas.height,
       );
-      photoUrls.set(item.id, canvas.toDataURL('image/jpeg', 0.95));
+      photoUrls.set(item.id, canvas.toDataURL('image/jpeg', 0.94));
     });
   }
 
@@ -195,18 +206,22 @@
     observer.observe(document.documentElement, { childList: true, subtree: true });
     applyProductPhotos();
 
-    // Safari/iPhone poate raporta eroarea pozei după ce React a randat cardul.
-    // Reîncercăm câteva secunde, astfel încât poza să nu rămână ascunsă.
     const safetyTimer = window.setInterval(applyProductPhotos, 1200);
     window.setTimeout(() => window.clearInterval(safetyTimer), 20000);
 
     try {
-      const atlas = await loadAtlas();
+      let atlas;
+      try {
+        atlas = await loadAtlas(HD_PARTS, 'image/avif');
+      } catch (hdError) {
+        console.warn('Atlasul AVIF nu este disponibil pe acest dispozitiv. Folosesc JPEG.', hdError);
+        atlas = await loadAtlas(JPEG_PARTS, 'image/jpeg');
+      }
       buildProductPhotos(atlas);
       atlasReady = true;
       applyProductPhotos();
     } catch (error) {
-      console.error('Atlasul HD nu a putut fi încărcat. Se păstrează imaginile locale/fallback:', error);
+      console.error('Fotografiile produselor nu au putut fi reconstruite. Se păstrează imaginile locale/fallback:', error);
       applyProductPhotos();
     }
   }
