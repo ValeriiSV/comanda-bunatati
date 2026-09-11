@@ -3,9 +3,10 @@
   const TILE_HEIGHT = 45;
   const COLUMNS = 8;
   const ATLAS_PARTS = [
-    '/product-atlas-v2/part-01.txt?v=3',
-    '/product-atlas-v2/part-02.txt?v=3',
-    '/product-atlas-v2/part-03.txt?v=3',
+    '/product-atlas-v2/part-01.txt?v=4',
+    '/product-atlas-v2/part-02.txt?v=4',
+    '/product-atlas-v2/part-03a.txt?v=4',
+    '/product-atlas-v2/part-03b.txt?v=4',
   ];
 
   const products = [
@@ -128,7 +129,6 @@
       setPhoto(card?.querySelector('img'), item);
     });
 
-    // Cardurile din „Nou în catalog” sunt identificate după denumire.
     document.querySelectorAll('button').forEach((button) => {
       const image = button.querySelector('img');
       const nameNode = button.querySelector('strong');
