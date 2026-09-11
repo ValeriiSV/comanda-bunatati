@@ -2,7 +2,22 @@
   const TILE_WIDTH = 160;
   const TILE_HEIGHT = 90;
   const COLUMNS = 8;
-  const CACHE_VERSION = '20260911-2';
+  const CACHE_VERSION = '20260911-3';
+  const SAFE_FALLBACK = `/catalog-hero.png?v=${CACHE_VERSION}`;
+
+  const DIRECT_IMAGES = {
+    'migdale': '/products/migdale.jpg',
+    'caju': '/products/caju.jpg',
+    'caju-prajit': '/products/caju-prajit.jpg',
+    'caju-fara-coaja-prajit': '/products/caju-fara-coaja-prajit.jpg',
+    'fistic-american': '/products/fistic-american.jpg',
+    'miez-fistic': '/products/miez-fistic.jpg',
+    'nuci-grecesti': '/products/nuci-grecesti.jpg',
+    'arahide-crude': '/products/arahide-crude.jpg',
+    'macadamia-coaja': '/products/macadamia-coaja.jpg',
+    'nuci-braziliene': '/products/nuci-braziliene.jpg',
+  };
+
   const ATLAS_PARTS = [
     { url: `/product-atlas-hd/part-01.txt?v=${CACHE_VERSION}` },
     { url: `/product-atlas-hd/part-02a.txt?v=${CACHE_VERSION}` },
@@ -66,7 +81,7 @@
 
   const byName = new Map(products.map((item) => [item.name, item]));
   const photoUrls = new Map();
-  let ready = false;
+  let atlasReady = false;
   let scheduled = false;
 
   async function loadAtlas() {
@@ -116,35 +131,42 @@
     });
   }
 
-  function setPhoto(img, item) {
-    if (!img) return;
-
-    const currentSrc = img.getAttribute('src') || '';
-    if (currentSrc.includes('/products/')) {
-      const baseSrc = currentSrc.split('?')[0];
-      const refreshedSrc = `${baseSrc}?v=${CACHE_VERSION}`;
-      if (currentSrc !== refreshedSrc) img.src = refreshedSrc;
-      img.alt = item.name;
-      img.dataset.productPhoto = item.id;
-      img.style.display = '';
-      img.style.objectFit = 'cover';
-      img.style.imageRendering = 'auto';
-      return;
-    }
-
-    const src = photoUrls.get(item.id);
-    if (!src) return;
-    if (img.src !== src) img.src = src;
+  function prepareImage(img, item) {
     img.alt = item.name;
     img.dataset.productPhoto = item.id;
     img.style.display = '';
     img.style.objectFit = 'cover';
     img.style.imageRendering = 'auto';
+    img.loading = 'eager';
+  }
+
+  function setPhoto(img, item) {
+    if (!img) return;
+
+    const direct = DIRECT_IMAGES[item.id];
+    if (direct) {
+      const wanted = `${direct}?v=${CACHE_VERSION}`;
+      if (img.getAttribute('src') !== wanted) img.src = wanted;
+      prepareImage(img, item);
+      return;
+    }
+
+    const atlasPhoto = photoUrls.get(item.id);
+    if (atlasReady && atlasPhoto) {
+      if (img.src !== atlasPhoto) img.src = atlasPhoto;
+      prepareImage(img, item);
+      return;
+    }
+
+    const currentSrc = img.getAttribute('src') || '';
+    const failed = img.style.display === 'none' || (img.complete && img.naturalWidth === 0);
+    if (!currentSrc || failed) {
+      if (currentSrc !== SAFE_FALLBACK) img.src = SAFE_FALLBACK;
+      prepareImage(img, item);
+    }
   }
 
   function applyProductPhotos() {
-    if (!ready) return;
-
     products.forEach((item) => {
       const card = document.getElementById(`product-${item.id}`);
       setPhoto(card?.querySelector('img'), item);
@@ -160,7 +182,7 @@
   }
 
   function scheduleApply() {
-    if (!ready || scheduled) return;
+    if (scheduled) return;
     scheduled = true;
     requestAnimationFrame(() => {
       scheduled = false;
@@ -169,17 +191,23 @@
   }
 
   async function init() {
+    const observer = new MutationObserver(scheduleApply);
+    observer.observe(document.documentElement, { childList: true, subtree: true });
+    applyProductPhotos();
+
+    // Safari/iPhone poate raporta eroarea pozei după ce React a randat cardul.
+    // Reîncercăm câteva secunde, astfel încât poza să nu rămână ascunsă.
+    const safetyTimer = window.setInterval(applyProductPhotos, 1200);
+    window.setTimeout(() => window.clearInterval(safetyTimer), 20000);
+
     try {
       const atlas = await loadAtlas();
       buildProductPhotos(atlas);
-      ready = true;
+      atlasReady = true;
       applyProductPhotos();
-      new MutationObserver(scheduleApply).observe(document.documentElement, {
-        childList: true,
-        subtree: true,
-      });
     } catch (error) {
-      console.error('Fotografiile HD ale produselor nu au putut fi încărcate:', error);
+      console.error('Atlasul HD nu a putut fi încărcat. Se păstrează imaginile locale/fallback:', error);
+      applyProductPhotos();
     }
   }
 
