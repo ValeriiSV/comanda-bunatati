@@ -18,6 +18,15 @@ export type ManagedProduct = Product & {
 // din panoul managerului rămân însă active.
 const CATALOG_FINAL_AT = Date.parse('2026-09-11T05:35:00Z');
 
+function normalizeKgStep<T extends ManagedProduct>(product: T): T {
+  if (product.baseGrams === 1000 && !product.priceUnitLabel) {
+    return { ...product, stepGrams: 500 };
+  }
+  return product;
+}
+
+const normalizedFallbackProducts = fallbackProducts.map((product) => normalizeKgStep({ ...product }));
+
 function timestampMillis(value: unknown) {
   if (!value) return 0;
   if (value instanceof Date) return value.getTime();
@@ -59,13 +68,13 @@ function mergeWithCatalog(remoteProducts: ManagedProduct[]) {
     return timestampMillis(product.createdAt) > CATALOG_FINAL_AT;
   });
 
-  return [...finalCatalog, ...futureCustomProducts].sort(
-    (a, b) => (a.sortOrder ?? 9999) - (b.sortOrder ?? 9999),
-  );
+  return [...finalCatalog, ...futureCustomProducts]
+    .map((product) => normalizeKgStep(product))
+    .sort((a, b) => (a.sortOrder ?? 9999) - (b.sortOrder ?? 9999));
 }
 
 export function useProducts() {
-  const [products, setProducts] = useState<ManagedProduct[]>(fallbackProducts);
+  const [products, setProducts] = useState<ManagedProduct[]>(normalizedFallbackProducts);
   const [loading, setLoading] = useState(true);
   const [usingFallback, setUsingFallback] = useState(true);
   const [error, setError] = useState('');
@@ -74,7 +83,7 @@ export function useProducts() {
     const productsQuery = query(collection(db, 'products'), orderBy('sortOrder', 'asc'));
     return onSnapshot(productsQuery, (snapshot) => {
       if (snapshot.empty) {
-        setProducts(fallbackProducts);
+        setProducts(normalizedFallbackProducts);
         setUsingFallback(true);
       } else {
         const remoteProducts = snapshot.docs.map((entry) => ({
@@ -87,7 +96,7 @@ export function useProducts() {
       setError('');
       setLoading(false);
     }, () => {
-      setProducts(fallbackProducts);
+      setProducts(normalizedFallbackProducts);
       setUsingFallback(true);
       setError('Catalogul Firebase nu a putut fi încărcat. Se afișează catalogul local.');
       setLoading(false);
