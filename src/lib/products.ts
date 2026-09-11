@@ -38,7 +38,8 @@ export const categories: Category[] = [
 ];
 
 export const products: Product[] = [
-  // Nuci — toate se comandă în pași de 500 g
+  // Toate produsele afișate în lei/kg se comandă în pași de 500 g.
+  // Nuci
   { id: 'migdale', name: 'Migdale', category: 'Nuci', priceLei: 230, baseGrams: 1000, stepGrams: 500, imageUrl: '/products/migdale.jpg' },
   { id: 'caju', name: 'Caju', category: 'Nuci', priceLei: 260, baseGrams: 1000, stepGrams: 500, imageUrl: '/products/caju.jpg' },
   { id: 'caju-prajit', name: 'Caju în coajă prăjit', category: 'Nuci', priceLei: 280, baseGrams: 1000, stepGrams: 500, imageUrl: '/products/caju-prajit.jpg' },
@@ -53,19 +54,19 @@ export const products: Product[] = [
   { id: 'nuci-cedru', name: 'Nuci de cedru', category: 'Nuci', priceLei: 215, baseGrams: 250, stepGrams: 500 },
 
   // Miere
-  { id: 'miere-salcam', name: 'Miere de salcâm', category: 'Miere', priceLei: 170, baseGrams: 1000, stepGrams: 250 },
+  { id: 'miere-salcam', name: 'Miere de salcâm', category: 'Miere', priceLei: 170, baseGrams: 1000, stepGrams: 500 },
 
   // Fructe uscate
-  { id: 'cernosliv', name: 'Prune uscate (Cernosliv)', category: 'Fructe uscate', priceLei: 90, baseGrams: 1000, stepGrams: 250 },
-  { id: 'curmale-tunis', name: 'Curmale Tunis', category: 'Fructe uscate', priceLei: 130, baseGrams: 1000, stepGrams: 250 },
-  { id: 'curmale-regale', name: 'Curmale regale', category: 'Fructe uscate', priceLei: 320, baseGrams: 1000, stepGrams: 250 },
-  { id: 'mango-uscat', name: 'Mango uscat', category: 'Fructe uscate', priceLei: 320, baseGrams: 1000, stepGrams: 250 },
-  { id: 'stafide-negre', name: 'Stafide negre', category: 'Fructe uscate', priceLei: 180, baseGrams: 1000, stepGrams: 250 },
-  { id: 'rachitele', name: 'Răchițele uscate', category: 'Fructe uscate', priceLei: 200, baseGrams: 1000, stepGrams: 250 },
-  { id: 'visina-uscata', name: 'Vișină uscată', category: 'Fructe uscate', priceLei: 350, baseGrams: 1000, stepGrams: 250 },
-  { id: 'ananas-uscat', name: 'Ananas uscat', category: 'Fructe uscate', priceLei: 270, baseGrams: 1000, stepGrams: 250 },
-  { id: 'zamos-uscat', name: 'Zamos uscat', category: 'Fructe uscate', priceLei: 320, baseGrams: 1000, stepGrams: 250 },
-  { id: 'cuburi-cocos', name: 'Cuburi de cocos', category: 'Fructe uscate', priceLei: 200, baseGrams: 1000, stepGrams: 250 },
+  { id: 'cernosliv', name: 'Prune uscate (Cernosliv)', category: 'Fructe uscate', priceLei: 90, baseGrams: 1000, stepGrams: 500 },
+  { id: 'curmale-tunis', name: 'Curmale Tunis', category: 'Fructe uscate', priceLei: 130, baseGrams: 1000, stepGrams: 500 },
+  { id: 'curmale-regale', name: 'Curmale regale', category: 'Fructe uscate', priceLei: 320, baseGrams: 1000, stepGrams: 500 },
+  { id: 'mango-uscat', name: 'Mango uscat', category: 'Fructe uscate', priceLei: 320, baseGrams: 1000, stepGrams: 500 },
+  { id: 'stafide-negre', name: 'Stafide negre', category: 'Fructe uscate', priceLei: 180, baseGrams: 1000, stepGrams: 500 },
+  { id: 'rachitele', name: 'Răchițele uscate', category: 'Fructe uscate', priceLei: 200, baseGrams: 1000, stepGrams: 500 },
+  { id: 'visina-uscata', name: 'Vișină uscată', category: 'Fructe uscate', priceLei: 350, baseGrams: 1000, stepGrams: 500 },
+  { id: 'ananas-uscat', name: 'Ananas uscat', category: 'Fructe uscate', priceLei: 270, baseGrams: 1000, stepGrams: 500 },
+  { id: 'zamos-uscat', name: 'Zamos uscat', category: 'Fructe uscate', priceLei: 320, baseGrams: 1000, stepGrams: 500 },
+  { id: 'cuburi-cocos', name: 'Cuburi de cocos', category: 'Fructe uscate', priceLei: 200, baseGrams: 1000, stepGrams: 500 },
   { id: 'cipsuri-banane', name: 'Cipsuri din banane', category: 'Fructe uscate', priceLei: 60, baseGrams: 300, stepGrams: 300 },
   { id: 'cipsuri-mere', name: 'Cipsuri din mere', category: 'Fructe uscate', priceLei: 60, baseGrams: 150, stepGrams: 150 },
 
@@ -74,18 +75,18 @@ export const products: Product[] = [
 
   // Semințe
   { id: 'mix-4-seminte', name: 'Mix 4 semințe', category: 'Semințe', priceLei: 30, baseGrams: 200, stepGrams: 200 },
-  { id: 'seminte-dovleac', name: 'Semințe de dovleac', category: 'Semințe', priceLei: 180, baseGrams: 1000, stepGrams: 250 },
-  { id: 'seminte-floarea-soarelui', name: 'Semințe de floarea-soarelui', category: 'Semințe', priceLei: 60, baseGrams: 1000, stepGrams: 250 },
-  { id: 'seminte-chia', name: 'Semințe Chia', category: 'Semințe', priceLei: 200, baseGrams: 1000, stepGrams: 250 },
-  { id: 'seminte-in-cafenii', name: 'Semințe de in cafenii', category: 'Semințe', priceLei: 100, baseGrams: 1000, stepGrams: 250 },
-  { id: 'seminte-susan', name: 'Semințe de susan', category: 'Semințe', priceLei: 160, baseGrams: 1000, stepGrams: 250 },
-  { id: 'quinoa', name: 'Quinoa albă', category: 'Semințe', priceLei: 150, baseGrams: 1000, stepGrams: 250 },
+  { id: 'seminte-dovleac', name: 'Semințe de dovleac', category: 'Semințe', priceLei: 180, baseGrams: 1000, stepGrams: 500 },
+  { id: 'seminte-floarea-soarelui', name: 'Semințe de floarea-soarelui', category: 'Semințe', priceLei: 60, baseGrams: 1000, stepGrams: 500 },
+  { id: 'seminte-chia', name: 'Semințe Chia', category: 'Semințe', priceLei: 200, baseGrams: 1000, stepGrams: 500 },
+  { id: 'seminte-in-cafenii', name: 'Semințe de in cafenii', category: 'Semințe', priceLei: 100, baseGrams: 1000, stepGrams: 500 },
+  { id: 'seminte-susan', name: 'Semințe de susan', category: 'Semințe', priceLei: 160, baseGrams: 1000, stepGrams: 500 },
+  { id: 'quinoa', name: 'Quinoa albă', category: 'Semințe', priceLei: 150, baseGrams: 1000, stepGrams: 500 },
 
   // Mix
   { id: 'mix-nuci-fructe-seminte', name: 'Mix: migdale, caju, nuci grecești, macadamia, alune, stafide, vișină, răchițele și semințe de dovleac', category: 'Mix', priceLei: 70, baseGrams: 250, stepGrams: 250 },
 
   // Cafea boabe
-  { id: 'marzotto-expresso-bar-grani', name: 'Marzotto Expresso Bar Grani', category: 'Cafea boabe', priceLei: 350, baseGrams: 1000, stepGrams: 250 },
+  { id: 'marzotto-expresso-bar-grani', name: 'Marzotto Expresso Bar Grani', category: 'Cafea boabe', priceLei: 350, baseGrams: 1000, stepGrams: 500 },
 
   // Olive conservate — producător Grecia
   { id: 'olive-cu-samburi', name: 'Olive cu sâmburi', category: 'Olive conservate', priceLei: 100, baseGrams: 720, stepGrams: 720, priceUnitLabel: 'borcan 720 g' },
