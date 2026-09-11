@@ -37,21 +37,28 @@ function enhanceScheduleNotices(date: string | undefined, cutoffTime: string | u
       const spans = Array.from(dateRow.children).filter((child): child is HTMLElement => child instanceof HTMLElement && child.tagName === 'SPAN');
       const first = spans[0];
       if (first) {
-        const current = first.dataset.deadlineBase || first.textContent || '';
-        if (!first.dataset.deadlineBase) first.dataset.deadlineBase = current.replace(/ · ora \d{2}:\d{2}/, '');
-        first.textContent = `${first.dataset.deadlineBase} · ora ${cutoffTime}`;
+        const original = first.dataset.deadlineBase || first.textContent || '';
+        if (!first.dataset.deadlineBase) first.dataset.deadlineBase = original.replace(/ · ora \d{2}:\d{2}/, '');
+        const base = first.dataset.deadlineBase || '';
+        const hasSeparator = base.endsWith(' •');
+        const cleanBase = hasSeparator ? base.slice(0, -2) : base;
+        const expected = `${cleanBase} · ora ${cutoffTime}${hasSeparator ? ' •' : ''}`;
+        if (first.textContent !== expected) first.textContent = expected;
       }
     }
 
     const clockLine = Array.from(container.querySelectorAll('p')).find((node) => node !== label && node.querySelector('svg'));
     if (clockLine) {
-      const svg = clockLine.querySelector('svg');
       const value = countdownLabel(date, cutoffTime);
-      if (svg) {
-        const clone = svg.cloneNode(true);
-        clockLine.replaceChildren(clone, document.createTextNode(` ${value}`));
-      } else {
-        clockLine.textContent = value;
+      const current = clockLine.textContent?.trim() || '';
+      if (current !== value) {
+        const svg = clockLine.querySelector('svg');
+        if (svg) {
+          const clone = svg.cloneNode(true);
+          clockLine.replaceChildren(clone, document.createTextNode(` ${value}`));
+        } else {
+          clockLine.textContent = value;
+        }
       }
       clockLine.setAttribute('title', `Ora limită: ${cutoffTime}`);
     }
