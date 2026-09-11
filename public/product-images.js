@@ -1,12 +1,15 @@
 (() => {
-  const TILE_WIDTH = 80;
-  const TILE_HEIGHT = 45;
+  const TILE_WIDTH = 160;
+  const TILE_HEIGHT = 90;
   const COLUMNS = 8;
   const ATLAS_PARTS = [
-    '/product-atlas-v2/part-01.txt?v=4',
-    '/product-atlas-v2/part-02.txt?v=4',
-    '/product-atlas-v2/part-03a.txt?v=4',
-    '/product-atlas-v2/part-03b.txt?v=4',
+    '/product-atlas-hd/part-01.txt?v=5',
+    '/product-atlas-hd/part-02.txt?v=5',
+    '/product-atlas-hd/part-03.txt?v=5',
+    '/product-atlas-hd/part-04.txt?v=5',
+    '/product-atlas-hd/part-05.txt?v=5',
+    '/product-atlas-hd/part-06.txt?v=5',
+    '/product-atlas-hd/part-07.txt?v=5',
   ];
 
   const products = [
@@ -75,7 +78,7 @@
 
     const image = new Image();
     image.decoding = 'async';
-    image.src = `data:image/jpeg;base64,${parts.join('')}`;
+    image.src = `data:image/avif;base64,${parts.join('')}`;
     if (image.decode) await image.decode();
     else await new Promise((resolve, reject) => {
       image.onload = resolve;
@@ -89,8 +92,8 @@
       const column = item.index % COLUMNS;
       const row = Math.floor(item.index / COLUMNS);
       const canvas = document.createElement('canvas');
-      canvas.width = 400;
-      canvas.height = 225;
+      canvas.width = 640;
+      canvas.height = 360;
       const context = canvas.getContext('2d');
       if (!context) return;
       context.imageSmoothingEnabled = true;
@@ -106,12 +109,24 @@
         canvas.width,
         canvas.height,
       );
-      photoUrls.set(item.id, canvas.toDataURL('image/jpeg', 0.9));
+      photoUrls.set(item.id, canvas.toDataURL('image/jpeg', 0.94));
     });
   }
 
   function setPhoto(img, item) {
     if (!img || img.dataset.productPhoto === item.id) return;
+
+    // Păstrăm imaginile individuale din /products/ la rezoluția lor reală.
+    const currentSrc = img.getAttribute('src') || '';
+    if (currentSrc.includes('/products/')) {
+      img.alt = item.name;
+      img.dataset.productPhoto = item.id;
+      img.style.display = '';
+      img.style.objectFit = 'cover';
+      img.style.imageRendering = 'auto';
+      return;
+    }
+
     const src = photoUrls.get(item.id);
     if (!src) return;
     img.src = src;
@@ -119,6 +134,7 @@
     img.dataset.productPhoto = item.id;
     img.style.display = '';
     img.style.objectFit = 'cover';
+    img.style.imageRendering = 'auto';
   }
 
   function applyProductPhotos() {
@@ -158,7 +174,7 @@
         subtree: true,
       });
     } catch (error) {
-      console.error('Fotografiile produselor nu au putut fi încărcate:', error);
+      console.error('Fotografiile HD ale produselor nu au putut fi încărcate:', error);
     }
   }
 
