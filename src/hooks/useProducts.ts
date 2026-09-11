@@ -19,7 +19,8 @@ export type ManagedProduct = Product & {
 const CATALOG_FINAL_AT = Date.parse('2026-09-11T05:35:00Z');
 
 function normalizeKgStep<T extends ManagedProduct>(product: T): T {
-  if (product.baseGrams === 1000 && !product.priceUnitLabel) {
+  const isBuiltInProduct = fallbackProducts.some((catalogProduct) => catalogProduct.id === product.id);
+  if (isBuiltInProduct && (!product.quantityUnit || product.quantityUnit === 'g') && product.baseGrams === 1000 && !product.priceUnitLabel) {
     return { ...product, stepGrams: 500 };
   }
   return product;

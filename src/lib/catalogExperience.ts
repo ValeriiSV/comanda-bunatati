@@ -9,7 +9,7 @@ export type CategoryExperience = {
 
 const photo = (id: string) => `https://unsplash.com/photos/${id}/download?force=true&w=900`;
 
-export const categoryExperience: Record<Category, CategoryExperience> = {
+export const categoryExperience: Record<string, CategoryExperience> = {
   Nuci: {
     icon: '🥜',
     note: 'nuci crude, prăjite și sortimente speciale',
@@ -76,7 +76,24 @@ export const categoryExperience: Record<Category, CategoryExperience> = {
     photoUrl: photo('H22N-9s8AUw'),
     photoAlt: 'Ciocolată și cacao',
   },
+  'Produse de casă': {
+    icon: '🧺',
+    note: 'produse locale, direct de la gospodărie',
+    photoUrl: photo('PYBmNk304G4'),
+    photoAlt: 'Produse de casă',
+  },
 };
+
+const fallbackExperience: CategoryExperience = {
+  icon: '🛍️',
+  note: 'produse speciale adăugate în catalog',
+  photoUrl: photo('PYBmNk304G4'),
+  photoAlt: 'Produs din catalog',
+};
+
+export function getCategoryExperience(category: Category) {
+  return categoryExperience[category] || fallbackExperience;
+}
 
 export const newestProductIds = new Set([
   'caju-fara-coaja-prajit',

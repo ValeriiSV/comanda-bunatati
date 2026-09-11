@@ -1,15 +1,5 @@
-export type Category =
-  | 'Nuci'
-  | 'Miere'
-  | 'Fructe uscate'
-  | 'Conserve'
-  | 'Semințe'
-  | 'Mix'
-  | 'Cafea boabe'
-  | 'Olive conservate'
-  | 'Ulei de olive'
-  | 'Bomboane'
-  | 'Drajeuri';
+export type Category = string;
+export type QuantityUnit = 'g' | 'ml' | 'buc' | 'pachet' | 'borcan' | 'cofraj';
 
 export type Product = {
   id: string;
@@ -19,8 +9,9 @@ export type Product = {
   baseGrams: number;
   stepGrams: number;
   priceUnitLabel?: string;
-  quantityUnit?: 'g' | 'ml';
+  quantityUnit?: QuantityUnit;
   imageUrl?: string;
+  stockLimit?: number;
 };
 
 export const categories: Category[] = [
@@ -35,6 +26,7 @@ export const categories: Category[] = [
   'Ulei de olive',
   'Bomboane',
   'Drajeuri',
+  'Produse de casă',
 ];
 
 export const products: Product[] = [
@@ -115,13 +107,25 @@ export function linePrice(product: Product, amount: number) {
 
 export function priceLabel(product: Product) {
   if (product.priceUnitLabel) return `${product.priceLei} lei/${product.priceUnitLabel}`;
-  return `${product.priceLei} lei/${product.baseGrams === 1000 ? 'kg' : `${product.baseGrams} g`}`;
+  const unit = product.quantityUnit || 'g';
+  if (unit === 'g' && product.baseGrams === 1000) return `${product.priceLei} lei/kg`;
+  if (unit === 'ml' && product.baseGrams === 1000) return `${product.priceLei} lei/L`;
+  return `${product.priceLei} lei/${quantityLabel(product, product.baseGrams)}`;
 }
 
 export function quantityLabel(product: Product, amount: number) {
-  if (product.quantityUnit === 'ml') {
+  const unit = product.quantityUnit || 'g';
+  if (unit === 'ml') {
     const liters = amount / 1000;
-    return `${new Intl.NumberFormat('ro-MD', { maximumFractionDigits: 2 }).format(liters)} L`;
+    return amount >= 1000 ? `${new Intl.NumberFormat('ro-MD', { maximumFractionDigits: 2 }).format(liters)} L` : `${amount} ml`;
   }
-  return `${amount} g`;
+  if (unit === 'g') return amount >= 1000 && amount % 1000 === 0 ? `${amount / 1000} kg` : `${amount} g`;
+  if (unit === 'buc') return `${amount} buc.`;
+  const labels: Record<Exclude<QuantityUnit, 'g' | 'ml' | 'buc'>, [string, string]> = {
+    pachet: ['pachet', 'pachete'],
+    borcan: ['borcan', 'borcane'],
+    cofraj: ['cofraj', 'cofraje'],
+  };
+  const [singular, plural] = labels[unit];
+  return `${amount} ${amount === 1 ? singular : plural}`;
 }

@@ -7,6 +7,7 @@ type OrderItem = {
   productId?: string;
   productName?: string;
   grams?: number;
+  quantityUnit?: string;
   lineTotalBani?: number;
 };
 
@@ -30,6 +31,13 @@ function escapeHtml(value: unknown) {
     .replaceAll('<', '&lt;')
     .replaceAll('>', '&gt;')
     .replaceAll('"', '&quot;');
+}
+
+function amountLabel(amount: number, unit = 'g') {
+  if (unit === 'g') return amount >= 1000 && amount % 1000 === 0 ? `${amount / 1000} kg` : `${amount} g`;
+  if (unit === 'ml') return amount >= 1000 ? `${amount / 1000} L` : `${amount} ml`;
+  if (unit === 'buc') return `${amount} buc.`;
+  return `${amount} ${unit}`;
 }
 
 function findSelectedMonth() {
@@ -81,13 +89,14 @@ export default function SellerExcelExport() {
       const orders = (await listCollection('groupOrders')) as Order[];
       const monthOrders = orders.filter((order) => monthKey(orderDate(order)) === selectedMonth);
 
-      const grouped = new Map<string, { name: string; grams: number; sumBani: number }>();
+      const grouped = new Map<string, { name: string; grams: number; unit: string; sumBani: number }>();
       monthOrders.forEach((order) => {
         (order.items || []).forEach((item) => {
           const key = item.productId || item.productName || 'produs';
           const current = grouped.get(key) || {
             name: item.productName || 'Produs',
             grams: 0,
+            unit: item.quantityUnit || 'g',
             sumBani: 0,
           };
           current.grams += Number(item.grams) || 0;
@@ -97,24 +106,22 @@ export default function SellerExcelExport() {
       });
 
       const rows = [...grouped.values()].sort((a, b) => a.name.localeCompare(b.name, 'ro'));
-      const totalGrams = rows.reduce((sum, row) => sum + row.grams, 0);
       const totalBani = rows.reduce((sum, row) => sum + row.sumBani, 0);
 
       const tableRows = rows.map((row) => `
         <tr>
           <td>${escapeHtml(row.name)}</td>
-          <td>${row.grams}</td>
-          <td>${(row.grams / 1000).toFixed(3)}</td>
+          <td>${escapeHtml(amountLabel(row.grams, row.unit))}</td>
           <td>${(row.sumBani / 100).toFixed(2)}</td>
         </tr>`).join('');
 
       const html = `<!doctype html>
 <html><head><meta charset="UTF-8"></head><body>
 <table border="1">
-  <tr><th colspan="4">Lista pentru vânzător — ${escapeHtml(selectedMonth)}</th></tr>
-  <tr><th>Produs</th><th>Cantitate (g)</th><th>Cantitate (kg)</th><th>Sumă (lei)</th></tr>
+  <tr><th colspan="3">Lista pentru vânzător — ${escapeHtml(selectedMonth)}</th></tr>
+  <tr><th>Produs</th><th>Cantitate</th><th>Sumă (lei)</th></tr>
   ${tableRows}
-  <tr><th>TOTAL GENERAL</th><th>${totalGrams}</th><th>${(totalGrams / 1000).toFixed(3)}</th><th>${(totalBani / 100).toFixed(2)}</th></tr>
+  <tr><th>TOTAL GENERAL</th><th></th><th>${(totalBani / 100).toFixed(2)}</th></tr>
 </table>
 </body></html>`;
 

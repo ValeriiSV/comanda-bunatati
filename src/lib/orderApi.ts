@@ -3,6 +3,7 @@ export type PublicOrderItem = {
   productName: string;
   category: string;
   grams: number;
+  quantityUnit: string;
   lineTotalBani: number;
 };
 
@@ -53,6 +54,7 @@ export async function submitPublicOrder(order: PublicOrderPayload) {
                 productName: stringValue(item.productName),
                 category: stringValue(item.category),
                 grams: integerValue(item.grams),
+                quantityUnit: stringValue(item.quantityUnit),
                 lineTotalBani: integerValue(item.lineTotalBani),
               },
             },

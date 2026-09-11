@@ -10,6 +10,7 @@ type OrderItem = {
   productId?: string;
   productName?: string;
   grams?: number;
+  quantityUnit?: string;
   lineTotalBani?: number;
 };
 
@@ -47,6 +48,13 @@ function roundLabel() {
 
 function lei(bani = 0) {
   return new Intl.NumberFormat('ro-MD', { maximumFractionDigits: 0 }).format(bani / 100);
+}
+
+function amountLabel(amount: number, unit = 'g') {
+  if (unit === 'g') return amount >= 1000 && amount % 1000 === 0 ? `${amount / 1000} kg` : `${amount} g`;
+  if (unit === 'ml') return amount >= 1000 ? `${amount / 1000} L` : `${amount} ml`;
+  if (unit === 'buc') return `${amount} buc.`;
+  return `${amount} ${unit}`;
 }
 
 export default function AdminWowDashboard() {
@@ -169,16 +177,16 @@ export default function AdminWowDashboard() {
   };
 
   const downloadSellerList = () => {
-    const byProduct = new Map<string, { name: string; grams: number }>();
+    const byProduct = new Map<string, { name: string; grams: number; unit: string }>();
     monthOrders.forEach((order) => (order.items || []).forEach((item) => {
       const key = item.productId || item.productName || 'produs';
-      const current = byProduct.get(key) || { name: item.productName || 'Produs', grams: 0 };
+      const current = byProduct.get(key) || { name: item.productName || 'Produs', grams: 0, unit: item.quantityUnit || 'g' };
       current.grams += Number(item.grams) || 0;
       byProduct.set(key, current);
     }));
     const rows = [['Produs', 'Cantitate totală']];
     [...byProduct.values()].sort((a, b) => a.name.localeCompare(b.name, 'ro')).forEach((item) => {
-      rows.push([item.name, item.grams >= 1000 ? `${item.grams / 1000} kg` : `${item.grams} g`]);
+      rows.push([item.name, amountLabel(item.grams, item.unit)]);
     });
     const csv = '\uFEFF' + rows.map((row) => row.map((cell) => `"${String(cell).replaceAll('"', '""')}"`).join(';')).join('\n');
     const link = document.createElement('a');

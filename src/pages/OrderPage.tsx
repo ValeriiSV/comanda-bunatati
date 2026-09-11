@@ -20,7 +20,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { categories, linePrice, priceLabel, quantityLabel, type Category, type Product } from '@/lib/products';
-import { categoryExperience, isNewProduct, recommendProducts } from '@/lib/catalogExperience';
+import { getCategoryExperience, isNewProduct, recommendProducts } from '@/lib/catalogExperience';
 import { useProducts, type ManagedProduct } from '@/hooks/useProducts';
 import { formatOrderDate, useOrderSchedule, type OrderSchedule } from '@/hooks/useOrderSchedule';
 import { usePublicOrderMeta, type PublicOrderStats } from '@/hooks/usePublicOrderMeta';
@@ -39,6 +39,11 @@ type LastOrder = {
 const MIA_LINK = 'https://mia-qr.bnm.md/1/m/BNM/MCB983a07f55265457d90654eb9f97574fc';
 const FAVORITES_KEY = 'bunatati_favorites_v1';
 const LAST_ORDER_KEY = 'bunatati_last_order_v2';
+
+function productImage(product: Product) {
+  if (product.imageUrl && !product.imageUrl.startsWith('/products/')) return product.imageUrl;
+  return `/products-ultra/${product.id}.jpg`;
+}
 
 function money(value: number) {
   return new Intl.NumberFormat('ro-MD', { maximumFractionDigits: 2 }).format(value);
@@ -184,7 +189,8 @@ function CartPanel({ cart, setCart, products, schedule, lastOrder, onSubmitted }
   const recommendations = useMemo(() => recommendProducts(products, cart, 2), [products, cart]);
 
   const change = (id: string, delta: number) => {
-    setCart((current) => ({ ...current, [id]: Math.max(0, (current[id] || 0) + delta) }));
+    const product = products.find((candidate) => candidate.id === id);
+    setCart((current) => ({ ...current, [id]: Math.min(product?.stockLimit || Number.MAX_SAFE_INTEGER, Math.max(0, (current[id] || 0) + delta)) }));
   };
 
   const submit = async () => {
@@ -207,6 +213,7 @@ function CartPanel({ cart, setCart, products, schedule, lastOrder, onSubmitted }
           productName: product.name,
           category: product.category,
           grams: cart[product.id],
+          quantityUnit: product.quantityUnit || 'g',
           lineTotalBani: Math.round(linePrice(product, cart[product.id]) * 100),
         })),
       });
@@ -276,7 +283,7 @@ function CartPanel({ cart, setCart, products, schedule, lastOrder, onSubmitted }
                 <p className="text-xs font-bold uppercase tracking-[.1em] text-[#9a6222]">Se potrivesc cu alegerea ta</p>
                 <div className="mt-2 space-y-2">{recommendations.map((product) => (
                   <button key={product.id} onClick={() => change(product.id, product.stepGrams)} className="flex w-full items-center justify-between gap-3 rounded-xl bg-white/60 px-3 py-2 text-left text-sm transition hover:bg-white/85">
-                    <span className="truncate">{categoryExperience[product.category].icon} {product.name}</span><span className="shrink-0 font-semibold text-[#315b32]">+ {quantityLabel(product, product.stepGrams)}</span>
+                    <span className="truncate">{getCategoryExperience(product.category).icon} {product.name}</span><span className="shrink-0 font-semibold text-[#315b32]">+ {quantityLabel(product, product.stepGrams)}</span>
                   </button>
                 ))}</div>
               </div>
@@ -313,7 +320,8 @@ export default function OrderApp() {
   const [favoritesOnly, setFavoritesOnly] = useState(false);
   const [lastOrder, setLastOrder] = useState<LastOrder | null>(() => readLastOrder());
 
-  const categoryCounts = useMemo(() => Object.fromEntries(categories.map((category) => [category, products.filter((product) => product.category === category).length])) as Record<Category, number>, [products]);
+  const displayCategories = useMemo(() => [...new Set([...categories, ...products.map((product) => product.category)])].filter((category) => products.some((product) => product.category === category)), [products]);
+  const categoryCounts = useMemo(() => Object.fromEntries(displayCategories.map((category) => [category, products.filter((product) => product.category === category).length])) as Record<Category, number>, [displayCategories, products]);
 
   const filtered = useMemo(() => products
     .filter((product) => product.category === activeCategory)
@@ -327,7 +335,10 @@ export default function OrderApp() {
   const round = currentRoundLabel(schedule, stats.roundLabel);
   const countdown = useCountdown(schedule.dates[0]);
 
-  const change = (productId: string, delta: number) => setCart((current) => ({ ...current, [productId]: Math.max(0, (current[productId] || 0) + delta) }));
+  const change = (productId: string, delta: number) => {
+    const product = products.find((candidate) => candidate.id === productId);
+    setCart((current) => ({ ...current, [productId]: Math.min(product?.stockLimit || Number.MAX_SAFE_INTEGER, Math.max(0, (current[productId] || 0) + delta)) }));
+  };
 
   const toggleFavorite = (id: string) => {
     setFavorites((current) => {
@@ -398,7 +409,7 @@ export default function OrderApp() {
               <div className="glass-scrollbar flex gap-3 overflow-x-auto pb-2">
                 {freshProducts.map((product) => (
                   <button key={product.id} onClick={() => { setActiveCategory(product.category); window.setTimeout(() => document.getElementById(`product-${product.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 80); }} className="glass interactive-glass group relative w-56 shrink-0 overflow-hidden rounded-[22px] text-left" onPointerMove={glassMove}>
-                    <div className="relative h-28 overflow-hidden bg-[#dce7d7]"><img src={categoryExperience[product.category].photoUrl} alt={categoryExperience[product.category].photoAlt} className="size-full object-cover transition duration-500 group-hover:scale-105" loading="lazy" /><div className="absolute inset-0 bg-gradient-to-t from-[#173d2c]/70 to-transparent" /><span className="absolute bottom-2 left-2 rounded-full bg-[#f5dcae]/90 px-2.5 py-1 text-[11px] font-bold text-[#714b20] backdrop-blur-md">NOU</span></div>
+                    <div className="relative h-28 overflow-hidden bg-[#dce7d7]"><img src={productImage(product)} alt={product.name} className="size-full object-cover transition duration-500 group-hover:scale-105" loading="lazy" onError={(event) => { event.currentTarget.src = getCategoryExperience(product.category).photoUrl; }} /><div className="absolute inset-0 bg-gradient-to-t from-[#173d2c]/70 to-transparent" /><span className="absolute bottom-2 left-2 rounded-full bg-[#f5dcae]/90 px-2.5 py-1 text-[11px] font-bold text-[#714b20] backdrop-blur-md">NOU</span></div>
                     <div className="p-3"><strong className="line-clamp-2 block text-sm">{product.name}</strong><span className="mt-1 block text-xs text-[#7a8880]">{priceLabel(product)}</span></div>
                   </button>
                 ))}
@@ -408,20 +419,20 @@ export default function OrderApp() {
 
           <div className="category-dock glass-strong sticky top-[76px] z-30 mb-6 rounded-[26px] p-2.5">
             <div className="glass-scrollbar flex gap-2 overflow-x-auto pb-1 sm:flex-wrap sm:overflow-visible sm:pb-0">
-              {categories.map((category) => (
+              {displayCategories.map((category) => (
                 <button
                   key={category}
                   onClick={() => setActiveCategory(category)}
                   className={`shrink-0 rounded-full px-3.5 py-2.5 text-sm font-semibold transition ${activeCategory === category ? 'bg-[#173d2c] text-white shadow-lg' : 'glass-chip text-[#54685e] hover:bg-white/78'}`}
                 >
-                  <span className="mr-1.5">{categoryExperience[category].icon}</span>{category}<span className={`ml-1.5 rounded-full px-1.5 py-0.5 text-[10px] ${activeCategory === category ? 'bg-white/15' : 'bg-[#173d2c]/7'}`}>{categoryCounts[category]}</span>
+                  <span className="mr-1.5">{getCategoryExperience(category).icon}</span>{category}<span className={`ml-1.5 rounded-full px-1.5 py-0.5 text-[10px] ${activeCategory === category ? 'bg-white/15' : 'bg-[#173d2c]/7'}`}>{categoryCounts[category]}</span>
                 </button>
               ))}
             </div>
           </div>
 
           <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div><h2 className="font-serif text-3xl font-semibold">{activeCategory}</h2><p className="mt-1 text-sm text-[#74837b]">{categoryExperience[activeCategory].note}</p></div>
+            <div><h2 className="font-serif text-3xl font-semibold">{activeCategory}</h2><p className="mt-1 text-sm text-[#74837b]">{getCategoryExperience(activeCategory).note}</p></div>
             <div className="flex w-full gap-2 sm:w-auto">
               <button onClick={() => setFavoritesOnly((value) => !value)} className={`glass-chip inline-flex h-11 shrink-0 items-center gap-2 rounded-full px-3.5 text-sm font-semibold ${favoritesOnly ? 'bg-[#173d2c] text-white' : 'text-[#53665c]'}`}><Heart className={`size-4 ${favoritesOnly ? 'fill-current' : ''}`} /> {favorites.size}</button>
               <label className="glass relative block min-w-0 flex-1 rounded-full sm:w-72">
@@ -438,8 +449,8 @@ export default function OrderApp() {
               const amount = cart[product.id] || 0;
               const favorite = favorites.has(product.id);
               const fresh = isNewProduct(product);
-              const visual = categoryExperience[product.category];
-              const productPhoto = `/products-ultra/${product.id}.jpg`;
+              const visual = getCategoryExperience(product.category);
+              const productPhoto = productImage(product);
               return (
                 <article id={`product-${product.id}`} key={product.id} onPointerMove={glassMove} className={`glass interactive-glass glass-card-hover overflow-hidden rounded-[26px] ${amount ? 'ring-2 ring-[#8daa82]/45' : ''}`}>
                   <div className="relative h-32 overflow-hidden bg-[#dfe9db]">
