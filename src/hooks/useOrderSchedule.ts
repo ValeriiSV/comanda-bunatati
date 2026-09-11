@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 
 export type OrderSchedule = {
   dates: string[];
+  cutoffTime?: string;
   message?: string;
   closed?: boolean;
 };
@@ -29,6 +30,7 @@ function parseSchedule(data: unknown): OrderSchedule {
 
   return {
     dates: values.map(readString).filter(Boolean).sort(),
+    cutoffTime: readString(fields.cutoffTime),
     message: readString(fields.message),
     closed: readBoolean(fields.closed),
   };
