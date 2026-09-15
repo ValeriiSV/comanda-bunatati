@@ -4,6 +4,7 @@ import { onAuthStateChanged, type User } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
 import { ArrowLeft, UserCircle2 } from 'lucide-react';
 import { auth, db } from '@/lib/firebase';
+import '@/pages/profile.css';
 
 type MiniProfile = { displayName?: string; avatarUrl?: string };
 
