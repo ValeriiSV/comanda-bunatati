@@ -22,7 +22,6 @@ import {
   where,
   type Unsubscribe,
 } from 'firebase/firestore';
-import { getDownloadURL, ref, uploadBytes } from 'firebase/storage';
 import {
   CheckCircle2,
   Clock3,
@@ -40,7 +39,7 @@ import {
   UserX,
   X,
 } from 'lucide-react';
-import { auth, db, storage } from '@/lib/firebase';
+import { auth, db } from '@/lib/firebase';
 import './marketplace.css';
 
 type Profile = {
@@ -93,12 +92,63 @@ type MarketOrder = {
 const ADMIN_EMAIL = 'valerkasvetlicenco@icloud.com';
 const categories = ['Toate', 'Ouă', 'Miere', 'Nuci', 'Fructe uscate', 'Legume & fructe', 'Conserve', 'Patiserie', 'Lactate', 'Altele'];
 const units = ['buc', 'kg', 'g', 'litru', 'borcan', 'pachet', 'cofraj'];
-const emptyListing = { title: '', description: '', category: 'Altele', price: '', unit: 'buc', stock: '', image: null as File | null };
-const lei = (value: number) => new Intl.NumberFormat('ro-MD', { style: 'currency', currency: 'MDL', maximumFractionDigits: 2 }).format(value || 0);
+const MAX_IMAGE_DATA_URL = 380_000;
+const emptyListing = {
+  title: '',
+  description: '',
+  category: 'Altele',
+  price: '',
+  unit: 'buc',
+  stock: '',
+  image: null as File | null,
+};
+
+const lei = (value: number) => new Intl.NumberFormat('ro-MD', {
+  style: 'currency',
+  currency: 'MDL',
+  maximumFractionDigits: 2,
+}).format(value || 0);
 
 function orderTime(order: MarketOrder) {
   const value = order.createdAt?.toMillis?.() ?? 0;
   return Number(value) || 0;
+}
+
+async function compressListingImage(file: File): Promise<string> {
+  if (!file.type.startsWith('image/')) throw new Error('Alege o fotografie validă.');
+  if (file.size > 12 * 1024 * 1024) throw new Error('Fotografia originală este prea mare. Limita este 12 MB.');
+
+  const objectUrl = URL.createObjectURL(file);
+  try {
+    const image = await new Promise<HTMLImageElement>((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => resolve(img);
+      img.onerror = () => reject(new Error('Fotografia nu poate fi citită.'));
+      img.src = objectUrl;
+    });
+
+    let maxSide = 1100;
+    for (let pass = 0; pass < 4; pass += 1) {
+      const ratio = Math.min(1, maxSide / Math.max(image.naturalWidth, image.naturalHeight));
+      const width = Math.max(1, Math.round(image.naturalWidth * ratio));
+      const height = Math.max(1, Math.round(image.naturalHeight * ratio));
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      const context = canvas.getContext('2d');
+      if (!context) throw new Error('Browserul nu poate procesa fotografia.');
+      context.drawImage(image, 0, 0, width, height);
+
+      for (const quality of [0.78, 0.68, 0.58, 0.48, 0.4]) {
+        const dataUrl = canvas.toDataURL('image/jpeg', quality);
+        if (dataUrl.length <= MAX_IMAGE_DATA_URL) return dataUrl;
+      }
+      maxSide = Math.round(maxSide * 0.78);
+    }
+    throw new Error('Fotografia rămâne prea mare după compresie. Alege o imagine mai simplă.');
+  } finally {
+    URL.revokeObjectURL(objectUrl);
+  }
 }
 
 async function ensureProfile(user: User, preferredName = '') {
@@ -146,9 +196,8 @@ export default function MarketplacePage() {
     if (!nextUser) return;
     try {
       await ensureProfile(nextUser);
-      const refProfile = doc(db, 'marketUsers', nextUser.uid);
-      const snap = await getDoc(refProfile);
-      if (snap.exists()) setProfile(snap.data() as Profile);
+      const profileSnap = await getDoc(doc(db, 'marketUsers', nextUser.uid));
+      if (profileSnap.exists()) setProfile(profileSnap.data() as Profile);
     } catch (error) {
       setMessage(`Profilul nu poate fi încărcat: ${(error as Error).message}`);
     }
@@ -166,8 +215,8 @@ export default function MarketplacePage() {
       setListings([]);
       return;
     }
-    const q = query(collection(db, 'marketListings'), where('active', '==', true));
-    return onSnapshot(q, (snapshot) => {
+    const listingsQuery = query(collection(db, 'marketListings'), where('active', '==', true));
+    return onSnapshot(listingsQuery, (snapshot) => {
       setListings(snapshot.docs.map((item) => ({ id: item.id, ...item.data() } as Listing)));
     }, (error) => setMessage(`Anunțurile nu pot fi încărcate: ${error.message}`));
   }, [user, allowed]);
@@ -192,7 +241,6 @@ export default function MarketplacePage() {
       [...bought, ...sold].forEach((item) => map.set(item.id, item));
       setOrders([...map.values()].sort((a, b) => orderTime(b) - orderTime(a)));
     };
-
     const unsubscribers: Unsubscribe[] = [
       onSnapshot(query(collection(db, 'marketOrders'), where('buyerId', '==', user.uid)), (snapshot) => {
         bought = snapshot.docs.map((item) => ({ id: item.id, ...item.data() } as MarketOrder));
@@ -249,18 +297,9 @@ export default function MarketplacePage() {
   };
 
   const requireAccess = (action: () => void) => {
-    if (!user) {
-      setAuthOpen(true);
-      return;
-    }
-    if (profile?.blocked) {
-      setMessage('Contul tău este blocat. Contactează administratorul.');
-      return;
-    }
-    if (!profile?.approved) {
-      setMessage('Contul tău așteaptă aprobarea administratorului.');
-      return;
-    }
+    if (!user) return setAuthOpen(true);
+    if (profile?.blocked) return setMessage('Contul tău este blocat. Contactează administratorul.');
+    if (!profile?.approved) return setMessage('Contul tău așteaptă aprobarea administratorului.');
     action();
   };
 
@@ -273,15 +312,11 @@ export default function MarketplacePage() {
       setMessage('Completează titlul, prețul și stocul cu valori valide.');
       return;
     }
+
     setBusy(true);
     setMessage('');
     try {
-      let imageUrl = '';
-      if (listingForm.image) {
-        const imageRef = ref(storage, `marketplace/${user.uid}/${Date.now()}-${listingForm.image.name}`);
-        await uploadBytes(imageRef, listingForm.image);
-        imageUrl = await getDownloadURL(imageRef);
-      }
+      const imageUrl = listingForm.image ? await compressListingImage(listingForm.image) : '';
       await setDoc(doc(collection(db, 'marketListings')), {
         sellerId: user.uid,
         sellerName: profile.displayName,
@@ -299,7 +334,7 @@ export default function MarketplacePage() {
       setListingForm(emptyListing);
       setSellOpen(false);
       setTab('my-listings');
-      setMessage('Anunțul a fost publicat.');
+      setMessage('Anunțul a fost publicat. Fotografia a fost comprimată și salvată fără Firebase Storage.');
     } catch (error) {
       setMessage(`Nu am putut publica anunțul: ${(error as Error).message}`);
     } finally {
@@ -311,10 +346,8 @@ export default function MarketplacePage() {
     event.preventDefault();
     if (!user || !profile || !orderListing || !allowed) return;
     const quantity = Number(orderForm.quantity);
-    if (!quantity || quantity <= 0) {
-      setMessage('Alege o cantitate validă.');
-      return;
-    }
+    if (!quantity || quantity <= 0) return setMessage('Alege o cantitate validă.');
+
     setBusy(true);
     setMessage('');
     try {
@@ -419,7 +452,6 @@ export default function MarketplacePage() {
     </header>
 
     {message && <div className="market-message" onClick={() => setMessage('')}>{message}<X size={16}/></div>}
-
     {user && profile && !profile.approved && !profile.blocked && <div className="approval-banner"><Clock3 size={20}/><div><strong>Cont în așteptarea aprobării</strong><span>Administratorul trebuie să accepte contul înainte să poți vedea produsele, publica sau comanda.</span></div></div>}
     {profile?.blocked && <div className="approval-banner blocked"><UserX size={20}/><div><strong>Cont blocat</strong><span>Contactează administratorul pentru reactivare.</span></div></div>}
 
@@ -465,7 +497,7 @@ export default function MarketplacePage() {
 
     {authOpen && <div className="market-modal-backdrop" onMouseDown={() => setAuthOpen(false)}><div className="market-modal" onMouseDown={(e) => e.stopPropagation()}><button className="modal-close" onClick={() => setAuthOpen(false)}><X/></button><div className="modal-icon"><UserCircle2/></div><h2>{authMode === 'login' ? 'Intră în cont' : 'Creează profil de coleg'}</h2><p>{authMode === 'login' ? 'Folosește emailul și parola ta.' : 'După înregistrare, administratorul trebuie să aprobe contul.'}</p><form onSubmit={authenticate}>{authMode === 'register' && <label>Nume și prenume<input required value={authForm.name} onChange={(e) => setAuthForm({ ...authForm, name: e.target.value })}/></label>}<label>Email<input type="email" required value={authForm.email} onChange={(e) => setAuthForm({ ...authForm, email: e.target.value })}/></label><label>Parolă<input type="password" minLength={6} required value={authForm.password} onChange={(e) => setAuthForm({ ...authForm, password: e.target.value })}/></label><button className="primary-wide" disabled={busy}>{busy ? 'Se procesează...' : authMode === 'login' ? 'Intră în cont' : 'Creează cont'}</button></form><button className="switch-auth" onClick={() => setAuthMode(authMode === 'login' ? 'register' : 'login')}>{authMode === 'login' ? 'Nu ai cont? Creează unul' : 'Ai deja cont? Intră în cont'}</button></div></div>}
 
-    {sellOpen && allowed && <div className="market-modal-backdrop" onMouseDown={() => setSellOpen(false)}><div className="market-modal wide" onMouseDown={(e) => e.stopPropagation()}><button className="modal-close" onClick={() => setSellOpen(false)}><X/></button><div className="modal-icon"><Plus/></div><h2>Publică un anunț</h2><form onSubmit={publishListing} className="listing-form"><label className="full">Titlu<input required value={listingForm.title} onChange={(e) => setListingForm({ ...listingForm, title: e.target.value })} placeholder="Ex: Miere de salcâm"/></label><label className="full">Descriere<textarea required value={listingForm.description} onChange={(e) => setListingForm({ ...listingForm, description: e.target.value })} placeholder="Spune colegilor mai multe despre produs..."/></label><label>Categorie<select value={listingForm.category} onChange={(e) => setListingForm({ ...listingForm, category: e.target.value })}>{categories.filter(c => c !== 'Toate').map(c => <option key={c}>{c}</option>)}</select></label><label>Unitate<select value={listingForm.unit} onChange={(e) => setListingForm({ ...listingForm, unit: e.target.value })}>{units.map(u => <option key={u}>{u}</option>)}</select></label><label>Preț (MDL)<input type="number" min="0.01" step="0.01" required value={listingForm.price} onChange={(e) => setListingForm({ ...listingForm, price: e.target.value })}/></label><label>Stoc disponibil<input type="number" min="0.01" step="0.01" required value={listingForm.stock} onChange={(e) => setListingForm({ ...listingForm, stock: e.target.value })}/></label><label className="full">Fotografie<input type="file" accept="image/*" onChange={(e) => setListingForm({ ...listingForm, image: e.target.files?.[0] || null })}/></label><button className="primary-wide full" disabled={busy}>{busy ? 'Se publică...' : 'Publică anunțul'}</button></form></div></div>}
+    {sellOpen && allowed && <div className="market-modal-backdrop" onMouseDown={() => setSellOpen(false)}><div className="market-modal wide" onMouseDown={(e) => e.stopPropagation()}><button className="modal-close" onClick={() => setSellOpen(false)}><X/></button><div className="modal-icon"><Plus/></div><h2>Publică un anunț</h2><form onSubmit={publishListing} className="listing-form"><label className="full">Titlu<input required value={listingForm.title} onChange={(e) => setListingForm({ ...listingForm, title: e.target.value })} placeholder="Ex: Miere de salcâm"/></label><label className="full">Descriere<textarea required value={listingForm.description} onChange={(e) => setListingForm({ ...listingForm, description: e.target.value })} placeholder="Spune colegilor mai multe despre produs..."/></label><label>Categorie<select value={listingForm.category} onChange={(e) => setListingForm({ ...listingForm, category: e.target.value })}>{categories.filter(c => c !== 'Toate').map(c => <option key={c}>{c}</option>)}</select></label><label>Unitate<select value={listingForm.unit} onChange={(e) => setListingForm({ ...listingForm, unit: e.target.value })}>{units.map(u => <option key={u}>{u}</option>)}</select></label><label>Preț (MDL)<input type="number" min="0.01" step="0.01" required value={listingForm.price} onChange={(e) => setListingForm({ ...listingForm, price: e.target.value })}/></label><label>Stoc disponibil<input type="number" min="0.01" step="0.01" required value={listingForm.stock} onChange={(e) => setListingForm({ ...listingForm, stock: e.target.value })}/></label><label className="full">Fotografie<input type="file" accept="image/*" onChange={(e) => setListingForm({ ...listingForm, image: e.target.files?.[0] || null })}/><small>Imaginea se comprimă automat și se salvează direct în Firestore.</small></label><button className="primary-wide full" disabled={busy}>{busy ? 'Se comprimă și se publică...' : 'Publică anunțul'}</button></form></div></div>}
 
     {orderListing && allowed && <div className="market-modal-backdrop" onMouseDown={() => setOrderListing(null)}><div className="market-modal" onMouseDown={(e) => e.stopPropagation()}><button className="modal-close" onClick={() => setOrderListing(null)}><X/></button><div className="modal-icon"><ShoppingBag/></div><h2>Comandă {orderListing.title}</h2><p>Vânzător: <b>{orderListing.sellerName}</b> • {lei(orderListing.price)} / {orderListing.unit}</p><form onSubmit={placeOrder}><label>Cantitate ({orderListing.unit})<input type="number" min="0.01" step="0.01" max={orderListing.stock} required value={orderForm.quantity} onChange={(e) => setOrderForm({ ...orderForm, quantity: e.target.value })}/></label><label>Mesaj pentru vânzător<textarea value={orderForm.note} onChange={(e) => setOrderForm({ ...orderForm, note: e.target.value })} placeholder="Ex: adu-mi-o vineri la birou"/></label><div className="order-total"><span>Total</span><strong>{lei(Number(orderForm.quantity || 0) * orderListing.price)}</strong></div><button className="primary-wide" disabled={busy}>{busy ? 'Se trimite...' : 'Trimite comanda'}</button></form></div></div>}
   </div>;
