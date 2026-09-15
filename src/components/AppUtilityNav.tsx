@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { onAuthStateChanged, type User } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
-import { ArrowLeft, UserCircle2 } from 'lucide-react';
+import { ArrowLeft, CalendarDays, UserCircle2 } from 'lucide-react';
 import { auth, db } from '@/lib/firebase';
 import '@/pages/profile.css';
 
@@ -33,14 +33,21 @@ export default function AppUtilityNav() {
     );
   }
 
-  if (location.pathname === '/' && user) {
+  if (location.pathname === '/') {
     return (
-      <Link to="/profil" className="app-utility app-utility-profile" aria-label="Deschide profilul meu">
-        {profile?.avatarUrl
-          ? <img src={profile.avatarUrl} alt="" />
-          : <UserCircle2 size={21} />}
-        <span>{profile?.displayName || 'Profilul meu'}</span>
-      </Link>
+      <>
+        <Link to="/comanda" className="app-utility app-utility-monthly" aria-label="Deschide Comanda lunii">
+          <CalendarDays size={18} /> <span>Comanda lunii</span>
+        </Link>
+        {user && (
+          <Link to="/profil" className="app-utility app-utility-profile" aria-label="Deschide profilul meu">
+            {profile?.avatarUrl
+              ? <img src={profile.avatarUrl} alt="" />
+              : <UserCircle2 size={21} />}
+            <span>{profile?.displayName || 'Profilul meu'}</span>
+          </Link>
+        )}
+      </>
     );
   }
 
