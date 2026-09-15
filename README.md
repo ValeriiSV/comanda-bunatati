@@ -1,17 +1,36 @@
-# Bunătăți împreună
+# Comanda Bunătăți / Bunătăți Market
 
-Mini-magazin intern pentru comenzile comune de nuci, fructe uscate și dulciuri.
+Aplicație React + Vite publicată pe Cloudflare Pages.
 
-**Versiune statică pentru Cloudflare Pages** (fără Workers).
+## Module
 
-## Funcționalități
+- `/` — Bunătăți Market, marketplace intern pentru colegi.
+- `/comanda` — fluxul existent pentru comanda comună/lunară.
+- `/admin` — administrarea fluxului vechi.
 
-- catalog cu filtrare și căutare
-- coș cu calcul automat în lei
-- comenzi salvate în Cloud Firestore
-- panou de manager (`/admin`) protejat prin Firebase Authentication
-- totaluri pe persoană și pe produs
-- evidența plăților și export CSV
+## Firebase
+
+Proiectul folosește Firebase Authentication, Firestore și Storage.
+
+Fișierele canonice pentru reguli sunt:
+
+- `firestore.rules`
+- `storage.rules`
+- `firebase.json`
+
+Înainte de publicarea marketplace-ului pe `main`, regulile trebuie publicate în proiectul Firebase `comanda-bunatati`:
+
+```bash
+npx firebase-tools deploy --only firestore:rules,storage --project comanda-bunatati
+```
+
+Regulile păstrează compatibilitatea cu vechiul catalog și cu `groupOrders`, dar adaugă colecțiile marketplace:
+
+- `marketUsers`
+- `marketListings`
+- `marketOrders`
+
+Conturile noi sunt create cu `approved: false`; administratorul principal le aprobă din panoul marketplace. Contul administratorului este determinat de emailul configurat în aplicație și în regulile Firestore.
 
 ## Dezvoltare
 
@@ -20,31 +39,14 @@ npm install
 npm run dev
 ```
 
-## Build
+Build:
 
 ```bash
 npm run build
 ```
 
-Output: folderul `dist/`.
-
-## Cloudflare Pages (GitHub)
-
-În Dashboard → Settings → Builds & deployments:
-
-| Setare | Valoare |
-|--------|---------|
-| Framework preset | None / Vite |
-| Build command | `npm run build` |
-| Build output directory | `dist` |
-| Root directory | (gol) |
-| Node.js version | `22` |
-
-Sau din terminal:
+Deploy Cloudflare Pages:
 
 ```bash
 npm run deploy
 ```
-
-Site: `https://comanda-bunatati.pages.dev`  
-Admin: `https://comanda-bunatati.pages.dev/admin`
