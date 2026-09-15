@@ -20,7 +20,18 @@ service cloud.firestore {
         && get(marketUserPath(request.auth.uid)).data.blocked != true;
     }
 
-    // Legacy public catalog and monthly group-order flow.
+    function validInlineImage() {
+      return !('imageUrl' in request.resource.data)
+        || (
+          request.resource.data.imageUrl is string
+          && request.resource.data.imageUrl.size() <= 400000
+          && (
+            request.resource.data.imageUrl == ''
+            || request.resource.data.imageUrl.matches('data:image/jpeg;base64,.*')
+          )
+        );
+    }
+
     match /products/{productId} {
       allow read: if true;
       allow create, update, delete: if isAdmin();
@@ -32,7 +43,6 @@ service cloud.firestore {
     }
 
     match /groupOrders/{orderId} {
-      // The existing /comanda flow creates orders without authentication.
       allow create: if request.resource.data.orderCode is string
         && request.resource.data.customerName is string
         && request.resource.data.phone is string
@@ -41,7 +51,6 @@ service cloud.firestore {
       allow read, update, delete: if isAdmin();
     }
 
-    // Internal marketplace users.
     match /marketUsers/{userId} {
       allow read: if signedIn() && (request.auth.uid == userId || isAdmin());
 
@@ -61,7 +70,6 @@ service cloud.firestore {
             && request.resource.data.blocked == false)
         );
 
-      // A normal user may edit only profile fields, never permissions.
       allow update: if isAdmin()
         || (
           signedIn()
@@ -74,7 +82,6 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
-    // Marketplace listings.
     match /marketListings/{listingId} {
       allow read: if isApproved() || isAdmin();
 
@@ -84,12 +91,16 @@ service cloud.firestore {
         && request.resource.data.price is number
         && request.resource.data.price >= 0
         && request.resource.data.stock is number
-        && request.resource.data.stock >= 0;
+        && request.resource.data.stock >= 0
+        && validInlineImage();
 
-      // Seller/admin may manage the listing. An approved buyer may only reduce stock,
-      // which is required by the atomic order transaction in the client.
       allow update: if isAdmin()
-        || (isApproved() && resource.data.sellerId == request.auth.uid)
+        || (
+          isApproved()
+          && resource.data.sellerId == request.auth.uid
+          && request.resource.data.sellerId == request.auth.uid
+          && validInlineImage()
+        )
         || (
           isApproved()
           && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['stock', 'updatedAt'])
@@ -102,7 +113,6 @@ service cloud.firestore {
         || (isApproved() && resource.data.sellerId == request.auth.uid);
     }
 
-    // Marketplace orders.
     match /marketOrders/{orderId} {
       allow create: if isApproved()
         && request.resource.data.buyerId == request.auth.uid
@@ -132,7 +142,6 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
-    // Deny everything not explicitly covered above.
     match /{document=**} {
       allow read, write: if false;
     }
