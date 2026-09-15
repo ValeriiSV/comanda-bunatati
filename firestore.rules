@@ -1,0 +1,149 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return signedIn() && request.auth.token.email == 'valerkasvetlicenco@icloud.com';
+    }
+
+    function marketUserPath(uid) {
+      return /databases/$(database)/documents/marketUsers/$(uid);
+    }
+
+    function isApproved() {
+      return signedIn()
+        && exists(marketUserPath(request.auth.uid))
+        && get(marketUserPath(request.auth.uid)).data.approved == true
+        && get(marketUserPath(request.auth.uid)).data.blocked != true;
+    }
+
+    function validInlineImage() {
+      return !('imageUrl' in request.resource.data)
+        || (
+          request.resource.data.imageUrl is string
+          && request.resource.data.imageUrl.size() <= 400000
+          && (
+            request.resource.data.imageUrl == ''
+            || request.resource.data.imageUrl.matches('data:image/jpeg;base64,.*')
+          )
+        );
+    }
+
+    match /products/{productId} {
+      allow read: if true;
+      allow create, update, delete: if isAdmin();
+    }
+
+    match /settings/{settingId} {
+      allow read: if true;
+      allow create, update, delete: if isAdmin();
+    }
+
+    match /groupOrders/{orderId} {
+      allow create: if request.resource.data.orderCode is string
+        && request.resource.data.customerName is string
+        && request.resource.data.phone is string
+        && request.resource.data.totalBani is number
+        && request.resource.data.items is list;
+      allow read, update, delete: if isAdmin();
+    }
+
+    match /marketUsers/{userId} {
+      allow read: if signedIn() && (request.auth.uid == userId || isAdmin());
+
+      allow create: if signedIn()
+        && request.auth.uid == userId
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.email == request.auth.token.email
+        && (
+          (isAdmin()
+            && request.resource.data.role == 'admin'
+            && request.resource.data.approved == true
+            && request.resource.data.blocked == false)
+          ||
+          (!isAdmin()
+            && request.resource.data.role == 'user'
+            && request.resource.data.approved == false
+            && request.resource.data.blocked == false)
+        );
+
+      allow update: if isAdmin()
+        || (
+          signedIn()
+          && request.auth.uid == userId
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            'displayName', 'phone', 'department', 'updatedAt'
+          ])
+        );
+
+      allow delete: if isAdmin();
+    }
+
+    match /marketListings/{listingId} {
+      allow read: if isApproved() || isAdmin();
+
+      allow create: if isApproved()
+        && request.resource.data.sellerId == request.auth.uid
+        && request.resource.data.active == true
+        && request.resource.data.price is number
+        && request.resource.data.price >= 0
+        && request.resource.data.stock is number
+        && request.resource.data.stock >= 0
+        && validInlineImage();
+
+      allow update: if isAdmin()
+        || (
+          isApproved()
+          && resource.data.sellerId == request.auth.uid
+          && request.resource.data.sellerId == request.auth.uid
+          && validInlineImage()
+        )
+        || (
+          isApproved()
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['stock', 'updatedAt'])
+          && request.resource.data.stock is number
+          && request.resource.data.stock >= 0
+          && request.resource.data.stock < resource.data.stock
+        );
+
+      allow delete: if isAdmin()
+        || (isApproved() && resource.data.sellerId == request.auth.uid);
+    }
+
+    match /marketOrders/{orderId} {
+      allow create: if isApproved()
+        && request.resource.data.buyerId == request.auth.uid
+        && request.resource.data.sellerId != request.auth.uid
+        && request.resource.data.status == 'noua'
+        && request.resource.data.quantity is number
+        && request.resource.data.quantity > 0
+        && request.resource.data.unitPrice is number
+        && request.resource.data.unitPrice >= 0
+        && request.resource.data.total is number
+        && request.resource.data.total >= 0;
+
+      allow read: if isAdmin()
+        || (isApproved() && (
+          resource.data.buyerId == request.auth.uid
+          || resource.data.sellerId == request.auth.uid
+        ));
+
+      allow update: if isAdmin()
+        || (
+          isApproved()
+          && resource.data.sellerId == request.auth.uid
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'updatedAt'])
+          && request.resource.data.status in ['noua', 'acceptata', 'pregatita', 'predata', 'respinsa']
+        );
+
+      allow delete: if isAdmin();
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
