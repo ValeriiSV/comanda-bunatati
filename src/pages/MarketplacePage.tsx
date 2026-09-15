@@ -45,6 +45,7 @@ import {
 } from 'lucide-react';
 import { auth, db } from '@/lib/firebase';
 import './marketplace.css';
+import './marketplace-global.css';
 
 type Profile = {
   uid: string;
