@@ -1,0 +1,23 @@
+@media(max-width:760px){
+  .market-header{grid-template-columns:1fr auto!important;grid-template-areas:"brand actions" "nav nav";gap:10px 8px!important;padding:10px 12px!important;align-items:center}
+  .market-brand{grid-area:brand;min-width:0;gap:8px!important}
+  .market-brand img{width:64px!important;height:44px!important;object-fit:contain!important;border-radius:12px!important;background:rgba(255,255,255,.7)}
+  .market-brand strong{font-size:16px!important;white-space:nowrap}
+  .market-brand span{display:none!important}
+  .market-actions{grid-area:actions;gap:4px!important}
+  .market-actions .legacy-link{display:none!important}
+  .sell-button{padding:10px 12px!important;white-space:nowrap;font-size:13px!important}
+  .profile-button{width:40px;height:40px;padding:0!important;justify-content:center!important;border-radius:12px!important}
+  .profile-button span,.profile-button svg:last-child{display:none!important}
+  .market-nav{grid-area:nav;justify-content:flex-start!important;overflow-x:auto;gap:4px!important;padding-bottom:2px;scrollbar-width:none}
+  .market-nav::-webkit-scrollbar{display:none}
+  .market-nav button{flex:0 0 auto;padding:9px 10px!important;font-size:12px!important}
+  .market-main{padding:14px 12px 90px!important}
+  .market-hero{min-height:0!important;padding:28px 22px!important;border-radius:24px!important}
+  .market-hero h1{font-size:38px!important;line-height:1.02!important}
+  .market-hero p{font-size:16px!important}
+  .category-showcase{gap:10px!important}
+  .category-showcase button{min-height:132px!important;padding:14px 10px!important}
+  .category-showcase button b{font-size:12px!important}
+  .app-utility-profile{right:14px!important;bottom:82px!important}
+}
