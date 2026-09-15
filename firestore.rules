@@ -32,6 +32,18 @@ service cloud.firestore {
         );
     }
 
+    function validAvatar() {
+      return !('avatarUrl' in request.resource.data)
+        || (
+          request.resource.data.avatarUrl is string
+          && request.resource.data.avatarUrl.size() <= 180000
+          && (
+            request.resource.data.avatarUrl == ''
+            || request.resource.data.avatarUrl.matches('data:image/jpeg;base64,.*')
+          )
+        );
+    }
+
     match /products/{productId} {
       allow read: if true;
       allow create, update, delete: if isAdmin();
@@ -58,6 +70,7 @@ service cloud.firestore {
         && request.auth.uid == userId
         && request.resource.data.uid == request.auth.uid
         && request.resource.data.email == request.auth.token.email
+        && validAvatar()
         && (
           (isAdmin()
             && request.resource.data.role == 'admin'
@@ -75,8 +88,9 @@ service cloud.firestore {
           signedIn()
           && request.auth.uid == userId
           && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-            'displayName', 'phone', 'department', 'updatedAt'
+            'displayName', 'phone', 'department', 'avatarUrl', 'updatedAt'
           ])
+          && validAvatar()
         );
 
       allow delete: if isAdmin();
