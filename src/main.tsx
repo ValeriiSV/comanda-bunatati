@@ -6,8 +6,10 @@ import OrderPage from './pages/OrderPage';
 import AdminPage from './pages/AdminPage';
 import MiaPaymentPage from './pages/MiaPaymentPage';
 import OrderStatusPage from './pages/OrderStatusPage';
+import ProfilePage from './pages/ProfilePage';
 import AppErrorBoundary from './components/AppErrorBoundary';
 import OrderDeadlinePublicEnhancer from './components/OrderDeadlinePublicEnhancer';
+import AppUtilityNav from './components/AppUtilityNav';
 import './index.css';
 import './wow.css';
 
@@ -15,9 +17,11 @@ createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <AppErrorBoundary>
       <BrowserRouter>
+        <AppUtilityNav />
         <Routes>
           <Route path="/" element={<MarketplacePage />} />
           <Route path="/comanda" element={<><OrderDeadlinePublicEnhancer /><OrderPage /></>} />
+          <Route path="/profil" element={<ProfilePage />} />
           <Route path="/status" element={<OrderStatusPage />} />
           <Route path="/admin" element={<AdminPage />} />
           <Route path="/admin/mia" element={<MiaPaymentPage />} />
