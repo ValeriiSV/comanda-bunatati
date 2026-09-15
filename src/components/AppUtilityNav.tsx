@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Link, useLocation } from 'react-router-dom';
 import { onAuthStateChanged, type User } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
@@ -12,6 +13,7 @@ export default function AppUtilityNav() {
   const location = useLocation();
   const [user, setUser] = useState<User | null>(auth.currentUser);
   const [profile, setProfile] = useState<MiniProfile | null>(null);
+  const [marketNav, setMarketNav] = useState<Element | null>(null);
 
   useEffect(() => onAuthStateChanged(auth, async (next) => {
     setUser(next);
@@ -25,6 +27,17 @@ export default function AppUtilityNav() {
     }
   }), []);
 
+  useEffect(() => {
+    if (location.pathname !== '/') {
+      setMarketNav(null);
+      return;
+    }
+    const frame = window.requestAnimationFrame(() => {
+      setMarketNav(document.querySelector('.market-nav'));
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [location.pathname]);
+
   if (location.pathname === '/comanda') {
     return (
       <Link to="/" className="app-utility app-utility-back" aria-label="Înapoi la Orbico Market">
@@ -36,9 +49,12 @@ export default function AppUtilityNav() {
   if (location.pathname === '/') {
     return (
       <>
-        <Link to="/comanda" className="app-utility app-utility-monthly" aria-label="Deschide Comanda lunii">
-          <CalendarDays size={18} /> <span>Comanda lunii</span>
-        </Link>
+        {marketNav && createPortal(
+          <Link to="/comanda" className="mobile-monthly-nav" aria-label="Deschide Comanda lunii">
+            <CalendarDays size={18} /> <span>Comanda lunii</span>
+          </Link>,
+          marketNav,
+        )}
         {user && (
           <Link to="/profil" className="app-utility app-utility-profile" aria-label="Deschide profilul meu">
             {profile?.avatarUrl
