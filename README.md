@@ -10,18 +10,19 @@ Aplicație React + Vite publicată pe Cloudflare Pages.
 
 ## Firebase
 
-Proiectul folosește Firebase Authentication, Firestore și Storage.
+Proiectul folosește Firebase Authentication și Firestore și rămâne compatibil cu planul gratuit Spark.
+
+Marketplace-ul NU folosește Firebase Storage. Fotografiile anunțurilor sunt redimensionate și comprimate în browser, apoi sunt salvate ca Data URL JPEG direct în documentul `marketListings` din Firestore. Aplicația limitează imaginea rezultată la aproximativ 380 KB, iar regulile Firestore permit maximum 400.000 de caractere pentru câmpul `imageUrl`.
 
 Fișierele canonice pentru reguli sunt:
 
 - `firestore.rules`
-- `storage.rules`
 - `firebase.json`
 
-Înainte de publicarea marketplace-ului pe `main`, regulile trebuie publicate în proiectul Firebase `comanda-bunatati`:
+Pentru publicarea regulilor în proiectul Firebase `comanda-bunatati`:
 
 ```bash
-npx firebase-tools deploy --only firestore:rules,storage --project comanda-bunatati
+npx firebase-tools deploy --only firestore:rules --project comanda-bunatati
 ```
 
 Regulile păstrează compatibilitatea cu vechiul catalog și cu `groupOrders`, dar adaugă colecțiile marketplace:
