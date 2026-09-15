@@ -1,6 +1,7 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import MarketplacePage from './pages/MarketplacePage';
 import OrderPage from './pages/OrderPage';
 import AdminPage from './pages/AdminPage';
 import MiaPaymentPage from './pages/MiaPaymentPage';
@@ -15,7 +16,8 @@ createRoot(document.getElementById('root')!).render(
     <AppErrorBoundary>
       <BrowserRouter>
         <Routes>
-          <Route path="/" element={<><OrderDeadlinePublicEnhancer /><OrderPage /></>} />
+          <Route path="/" element={<MarketplacePage />} />
+          <Route path="/comanda" element={<><OrderDeadlinePublicEnhancer /><OrderPage /></>} />
           <Route path="/status" element={<OrderStatusPage />} />
           <Route path="/admin" element={<AdminPage />} />
           <Route path="/admin/mia" element={<MiaPaymentPage />} />
