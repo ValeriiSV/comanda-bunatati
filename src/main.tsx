@@ -10,6 +10,7 @@ import ProfilePage from './pages/ProfilePage';
 import AppErrorBoundary from './components/AppErrorBoundary';
 import OrderDeadlinePublicEnhancer from './components/OrderDeadlinePublicEnhancer';
 import AppUtilityNav from './components/AppUtilityNav';
+import MarketplaceSellerPhoneEnhancer from './components/MarketplaceSellerPhoneEnhancer';
 import './index.css';
 import './wow.css';
 
@@ -19,7 +20,7 @@ createRoot(document.getElementById('root')!).render(
       <BrowserRouter>
         <AppUtilityNav />
         <Routes>
-          <Route path="/" element={<MarketplacePage />} />
+          <Route path="/" element={<><MarketplaceSellerPhoneEnhancer /><MarketplacePage /></>} />
           <Route path="/comanda" element={<><OrderDeadlinePublicEnhancer /><OrderPage /></>} />
           <Route path="/profil" element={<ProfilePage />} />
           <Route path="/status" element={<OrderStatusPage />} />
