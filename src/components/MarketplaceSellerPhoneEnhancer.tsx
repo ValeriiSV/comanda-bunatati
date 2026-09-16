@@ -22,7 +22,6 @@ function normalizePhoneForTel(phone: string) {
 
 export default function MarketplaceSellerPhoneEnhancer() {
   const [profiles, setProfiles] = useState<DirectoryProfile[]>([]);
-  const [domVersion, setDomVersion] = useState(0);
 
   useEffect(() => {
     let stopDirectory: (() => void) | undefined;
@@ -44,11 +43,15 @@ export default function MarketplaceSellerPhoneEnhancer() {
           where('blocked', '==', false),
         );
 
-        stopDirectory = onSnapshot(directoryQuery, (snapshot) => {
-          setProfiles(snapshot.docs.map((item) => ({ uid: item.id, ...item.data() } as DirectoryProfile)));
-        }, () => {
-          setProfiles([]);
-        });
+        stopDirectory = onSnapshot(
+          directoryQuery,
+          (snapshot) => {
+            setProfiles(
+              snapshot.docs.map((item) => ({ uid: item.id, ...item.data() } as DirectoryProfile)),
+            );
+          },
+          () => setProfiles([]),
+        );
       } catch {
         setProfiles([]);
       }
@@ -71,37 +74,84 @@ export default function MarketplaceSellerPhoneEnhancer() {
   }, [profiles]);
 
   useEffect(() => {
-    const observer = new MutationObserver(() => {
-      setDomVersion((value) => value + 1);
+    let scheduled = false;
+
+    const applyPhones = () => {
+      scheduled = false;
+      const cards = Array.from(document.querySelectorAll<HTMLElement>('.listing-card'));
+
+      cards.forEach((card) => {
+        const sellerLine = card.querySelector<HTMLElement>('.seller-line');
+        if (!sellerLine) return;
+
+        const sellerName = sellerLine.querySelector('span')?.textContent?.trim() || '';
+        const phone = phoneByName.get(sellerName) || '';
+        const existing = card.querySelector<HTMLAnchorElement>('.seller-phone-inline');
+
+        if (!phone) {
+          existing?.remove();
+          return;
+        }
+
+        const href = `tel:${normalizePhoneForTel(phone)}`;
+
+        if (existing) {
+          if (existing.dataset.phone !== phone) {
+            existing.dataset.phone = phone;
+            existing.href = href;
+            const strong = existing.querySelector('strong');
+            if (strong) strong.textContent = phone;
+            existing.setAttribute('aria-label', `Sună ${sellerName} la ${phone}`);
+          }
+          return;
+        }
+
+        const anchor = document.createElement('a');
+        anchor.className = 'seller-phone-inline';
+        anchor.href = href;
+        anchor.dataset.phone = phone;
+        anchor.setAttribute('aria-label', `Sună ${sellerName} la ${phone}`);
+
+        const icon = document.createElement('span');
+        icon.setAttribute('aria-hidden', 'true');
+        icon.textContent = '☎';
+
+        const strong = document.createElement('strong');
+        strong.textContent = phone;
+
+        const small = document.createElement('small');
+        small.textContent = 'Sună';
+
+        anchor.append(icon, strong, small);
+        sellerLine.insertAdjacentElement('afterend', anchor);
+      });
+    };
+
+    const scheduleApply = () => {
+      if (scheduled) return;
+      scheduled = true;
+      window.requestAnimationFrame(applyPhones);
+    };
+
+    applyPhones();
+
+    const observer = new MutationObserver((mutations) => {
+      const hasRelevantChange = mutations.some((mutation) =>
+        Array.from(mutation.addedNodes).some((node) => {
+          if (!(node instanceof HTMLElement)) return false;
+          return node.matches?.('.listing-card') || Boolean(node.querySelector?.('.listing-card'));
+        }),
+      );
+
+      if (hasRelevantChange) scheduleApply();
     });
+
     observer.observe(document.body, { childList: true, subtree: true });
-    return () => observer.disconnect();
-  }, []);
-
-  useEffect(() => {
-    const cards = Array.from(document.querySelectorAll<HTMLElement>('.listing-card'));
-
-    cards.forEach((card) => {
-      const sellerLine = card.querySelector<HTMLElement>('.seller-line');
-      const sellerName = sellerLine?.querySelector('span')?.textContent?.trim() || '';
-      const existing = card.querySelector<HTMLElement>('.seller-phone-inline');
-      existing?.remove();
-
-      const phone = phoneByName.get(sellerName);
-      if (!sellerLine || !phone) return;
-
-      const anchor = document.createElement('a');
-      anchor.className = 'seller-phone-inline';
-      anchor.href = `tel:${normalizePhoneForTel(phone)}`;
-      anchor.setAttribute('aria-label', `Sună ${sellerName} la ${phone}`);
-      anchor.innerHTML = `<span aria-hidden="true">☎</span><strong>${phone}</strong><small>Sună</small>`;
-      sellerLine.insertAdjacentElement('afterend', anchor);
-    });
 
     return () => {
-      document.querySelectorAll('.seller-phone-inline').forEach((item) => item.remove());
+      observer.disconnect();
     };
-  }, [phoneByName, domVersion]);
+  }, [phoneByName]);
 
   return null;
 }
