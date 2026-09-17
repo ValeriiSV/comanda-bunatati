@@ -6,6 +6,7 @@ import { doc, getDoc } from 'firebase/firestore';
 import { ArrowLeft, ShoppingBasket, UserCircle2 } from 'lucide-react';
 import { auth, db } from '@/lib/firebase';
 import '@/pages/profile.css';
+import '@/pages/common-nav.css';
 
 type MiniProfile = { displayName?: string; avatarUrl?: string };
 
