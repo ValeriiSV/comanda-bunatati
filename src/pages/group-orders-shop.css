@@ -1,0 +1,34 @@
+/* Bucuria ordering UX – same simple add-to-cart logic as the monthly nuts order */
+.market-actions .legacy-link{display:none!important}
+.provisional-chip{background:#fff1cf!important;color:#835f1e!important}
+.photo-seed-row{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:0 0 16px;padding:12px;border-radius:16px;background:rgba(247,223,184,.32);border:1px solid rgba(154,98,34,.12)}
+.photo-seed-row span{font-size:12px;color:#806b50;line-height:1.4}
+.catalog-shop{overflow:visible!important}
+.bucuria-categories{display:flex;gap:8px;overflow-x:auto;padding:2px 0 14px;scrollbar-width:none}
+.bucuria-categories::-webkit-scrollbar{display:none}
+.bucuria-categories button{flex:0 0 auto;border:1px solid rgba(23,61,44,.1);background:rgba(255,255,255,.72);color:#53635a;border-radius:999px;padding:9px 13px;font:inherit;font-size:12px;font-weight:750;cursor:pointer}
+.bucuria-categories button.active{background:#173d2c;color:white;border-color:#173d2c;box-shadow:0 7px 18px rgba(23,61,44,.14)}
+.bucuria-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:13px}
+.bucuria-product{min-width:0;padding:16px;border-radius:20px;background:rgba(255,255,255,.66);border:1px solid rgba(255,255,255,.84);box-shadow:0 9px 26px rgba(23,61,44,.065),inset 0 1px 0 rgba(255,255,255,.8);transition:.18s ease;display:flex;flex-direction:column}
+.bucuria-product:hover{transform:translateY(-2px);box-shadow:0 14px 32px rgba(23,61,44,.1)}
+.bucuria-product.selected{border-color:rgba(49,91,50,.3);background:rgba(236,246,233,.82);box-shadow:0 13px 32px rgba(23,61,44,.11)}
+.bucuria-product-top{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:7px}
+.bucuria-product-top>span{font-size:10px;text-transform:uppercase;letter-spacing:.075em;font-weight:900;color:#9a6222;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bucuria-product-top>small{flex:0 0 auto;padding:4px 7px;border-radius:999px;background:#fff1cf;color:#835f1e;font-weight:800;font-size:9px;text-transform:uppercase}
+.bucuria-product h3{font-family:Georgia,serif;font-size:18px;line-height:1.15;margin:0 0 8px;color:#173d2c;min-height:42px}
+.bucuria-product p{margin:0 0 8px;color:#748078;font-size:12px;min-height:16px}
+.bucuria-product code{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#8c968f;font-size:10px;background:transparent;padding:0;margin-bottom:13px}
+.bucuria-price{display:flex;align-items:end;gap:5px;margin-top:auto;padding-top:5px}
+.bucuria-price strong{font-size:20px;color:#173d2c}.bucuria-price span{font-size:11px;color:#748078;margin-bottom:2px}
+.qty-stepper{display:grid;grid-template-columns:38px 1fr 38px;gap:6px;margin-top:12px}
+.qty-stepper button{width:38px;height:38px;border:0;border-radius:12px;background:#173d2c;color:#fff;display:grid;place-items:center;cursor:pointer;box-shadow:0 6px 14px rgba(23,61,44,.13)}
+.qty-stepper button:disabled{opacity:.28;cursor:not-allowed;box-shadow:none}
+.qty-stepper input{min-width:0;width:100%;height:38px;box-sizing:border-box;border-radius:12px;border:1px solid rgba(23,61,44,.12);background:rgba(255,255,255,.82);text-align:center;font:700 14px/1 system-ui;color:#173d2c;outline:none}
+.qty-stepper input::-webkit-outer-spin-button,.qty-stepper input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+.line-total{margin-top:9px;text-align:center;font-size:11px;color:#748078;min-height:14px}.selected .line-total{color:#315b32;font-weight:800}
+.sticky-order-bar{position:sticky;bottom:12px;z-index:15;margin-top:18px;background:rgba(244,248,240,.9)!important;backdrop-filter:blur(22px) saturate(170%);box-shadow:0 13px 36px rgba(23,61,44,.16);border:1px solid rgba(255,255,255,.9)}
+.sticky-order-bar>div{min-width:0}.sticky-order-bar>div strong{white-space:nowrap}.sticky-order-bar>div small{white-space:nowrap}
+.order-locked-note{text-align:center;margin:10px 0 0;color:#8b6e45;font-size:12px}
+@media(max-width:1050px){.bucuria-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(max-width:760px){.bucuria-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.bucuria-product{padding:13px;border-radius:17px}.bucuria-product h3{font-size:16px;min-height:38px}.bucuria-price strong{font-size:17px}.qty-stepper{grid-template-columns:34px 1fr 34px}.qty-stepper button{width:34px;height:36px}.qty-stepper input{height:36px}.photo-seed-row{align-items:stretch;flex-direction:column}.photo-seed-row .primary{width:100%}}
+@media(max-width:430px){.bucuria-grid{grid-template-columns:1fr 1fr}.bucuria-product{padding:12px 10px}.bucuria-product h3{font-size:15px}.bucuria-product code{font-size:9px}.sticky-order-bar{bottom:8px}}
