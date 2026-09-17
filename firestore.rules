@@ -20,6 +20,10 @@ service cloud.firestore {
         && get(marketUserPath(request.auth.uid)).data.blocked != true;
     }
 
+    function campaignOpen(campaignId) {
+      return get(/databases/$(database)/documents/groupCampaigns/$(campaignId)).data.status == 'open';
+    }
+
     function validInlineImage() {
       return !('imageUrl' in request.resource.data)
         || (
@@ -158,6 +162,33 @@ service cloud.firestore {
         );
 
       allow delete: if isAdmin();
+    }
+
+    match /groupCampaigns/{campaignId} {
+      allow read: if isApproved() || isAdmin();
+      allow create, update, delete: if isAdmin();
+
+      match /products/{productId} {
+        allow read: if isApproved() || isAdmin();
+        allow create, update, delete: if isAdmin();
+      }
+
+      match /orders/{userId} {
+        allow read: if isAdmin()
+          || (isApproved() && request.auth.uid == userId);
+
+        allow create, update: if isApproved()
+          && request.auth.uid == userId
+          && request.resource.data.userId == request.auth.uid
+          && campaignOpen(campaignId)
+          && request.resource.data.items is list
+          && request.resource.data.total is number
+          && request.resource.data.total >= 0
+          && request.resource.data.status == 'submitted';
+
+        allow delete: if isAdmin()
+          || (isApproved() && request.auth.uid == userId && campaignOpen(campaignId));
+      }
     }
 
     match /{document=**} {
