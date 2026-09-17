@@ -177,14 +177,17 @@ service cloud.firestore {
         allow read: if isAdmin()
           || (isApproved() && request.auth.uid == userId);
 
-        allow create, update: if isApproved()
-          && request.auth.uid == userId
-          && request.resource.data.userId == request.auth.uid
-          && campaignOpen(campaignId)
-          && request.resource.data.items is list
-          && request.resource.data.total is number
-          && request.resource.data.total >= 0
-          && request.resource.data.status == 'submitted';
+        allow create, update: if isAdmin()
+          || (
+            isApproved()
+            && request.auth.uid == userId
+            && request.resource.data.userId == request.auth.uid
+            && campaignOpen(campaignId)
+            && request.resource.data.items is list
+            && request.resource.data.total is number
+            && request.resource.data.total >= 0
+            && request.resource.data.status == 'submitted'
+          );
 
         allow delete: if isAdmin()
           || (isApproved() && request.auth.uid == userId && campaignOpen(campaignId));
