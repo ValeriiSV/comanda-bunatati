@@ -19,6 +19,7 @@ import NutsOrderBrand from './components/NutsOrderBrand';
 import './index.css';
 import './wow.css';
 import './pages/marketplace-nav-cleanup.css';
+import './pages/bucuria-brand.css';
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
@@ -28,10 +29,10 @@ createRoot(document.getElementById('root')!).render(
         <Routes>
           <Route path="/" element={<><MarketplaceSellerPhoneEnhancer /><MarketplacePage /></>} />
           <Route path="/comenzi-comune" element={<GroupOrdersPage />} />
-          <Route path="/bucuria" element={<BucuriaShopPage />} />
-          <Route path="/comenzi-comune/bucuria" element={<BucuriaShopPage />} />
-          <Route path="/bucuria/status" element={<BucuriaStatusPage />} />
-          <Route path="/bucuria/manager" element={<BucuriaManagerPage />} />
+          <Route path="/bucuria" element={<div className="bucuria-theme"><BucuriaShopPage /></div>} />
+          <Route path="/comenzi-comune/bucuria" element={<div className="bucuria-theme"><BucuriaShopPage /></div>} />
+          <Route path="/bucuria/status" element={<div className="bucuria-theme"><BucuriaStatusPage /></div>} />
+          <Route path="/bucuria/manager" element={<div className="bucuria-theme"><BucuriaManagerPage /></div>} />
           <Route path="/comanda" element={<><NutsOrderBrand /><OrderDeadlinePublicEnhancer /><OrderPage /></>} />
           <Route path="/profil" element={<ProfilePage />} />
           <Route path="/status" element={<OrderStatusPage />} />
