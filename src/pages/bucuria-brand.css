@@ -1,0 +1,218 @@
+.bucuria-theme{
+  --bucuria-red:#df1f27;
+  --bucuria-red-dark:#b7161d;
+  --bucuria-red-deep:#741015;
+  --bucuria-soft:#fdecee;
+  --bucuria-soft-2:#fff7f7;
+  --bucuria-text:#5a1416;
+  --bucuria-muted:#896a6b;
+  --bucuria-border:rgba(223,31,39,.14);
+  min-height:100vh;
+  background:var(--bucuria-soft-2);
+  color:var(--bucuria-text);
+}
+
+.bucuria-theme .liquid-page,
+.bucuria-theme .bucuria-page-shell{
+  background:
+    radial-gradient(circle at 10% 8%,rgba(223,31,39,.11),transparent 28rem),
+    radial-gradient(circle at 88% 12%,rgba(255,175,180,.18),transparent 30rem),
+    #fff8f8 !important;
+  color:var(--bucuria-text)!important;
+}
+
+.bucuria-theme header.sticky{
+  background:rgba(255,248,248,.72)!important;
+}
+
+.bucuria-theme .glass,
+.bucuria-theme .glass-chip,
+.bucuria-theme .bucuria-page-card,
+.bucuria-theme .manager-kpis article{
+  border-color:var(--bucuria-border)!important;
+  box-shadow:0 14px 34px rgba(132,17,23,.08)!important;
+}
+
+.bucuria-theme .glass-chip:hover,
+.bucuria-theme .manager-head-actions button:hover,
+.bucuria-theme .manager-head-actions a:hover{
+  background:#fff!important;
+}
+
+.bucuria-theme .hero-wow{
+  background:linear-gradient(120deg,#6f0e13 0%,#a9161d 44%,#df1f27 100%)!important;
+  box-shadow:0 28px 80px rgba(137,14,20,.25)!important;
+}
+
+.bucuria-theme .hero-wow>.absolute{
+  background:
+    radial-gradient(circle at 84% 22%,rgba(255,255,255,.18),transparent 26%),
+    radial-gradient(circle at 72% 78%,rgba(255,188,192,.23),transparent 24%),
+    linear-gradient(112deg,#6f0e13 0%,#a9161d 55%,#df1f27 100%)!important;
+}
+
+.bucuria-theme .glass-dark{
+  background:rgba(84,8,12,.48)!important;
+  border-color:rgba(255,255,255,.22)!important;
+}
+
+.bucuria-theme [class*="text-[#173d2c]"],
+.bucuria-theme [class*="text-[#315b32]"],
+.bucuria-theme [class*="text-[#17301f]"]{
+  color:var(--bucuria-text)!important;
+}
+
+.bucuria-theme [class*="text-[#74837b]"],
+.bucuria-theme [class*="text-[#607269]"],
+.bucuria-theme [class*="text-[#6f796f]"],
+.bucuria-theme [class*="text-[#869087]"]{
+  color:var(--bucuria-muted)!important;
+}
+
+.bucuria-theme [class*="text-[#9a6222]"],
+.bucuria-theme [class*="text-[#8b581c]"],
+.bucuria-theme [class*="text-[#7f6a4b]"],
+.bucuria-theme [class*="text-[#6c5538]"]{
+  color:var(--bucuria-red-dark)!important;
+}
+
+.bucuria-theme [class*="bg-[#173d2c]"],
+.bucuria-theme [class*="bg-[#315b32]"],
+.bucuria-theme [class*="bg-[#f2a444]"],
+.bucuria-theme [class*="bg-[#e89531]"]{
+  background:var(--bucuria-red)!important;
+  color:#fff!important;
+}
+
+.bucuria-theme [class*="bg-[#f7dfb8]"],
+.bucuria-theme [class*="bg-[#fff0df]"]{
+  background:var(--bucuria-soft)!important;
+}
+
+.bucuria-theme .pulse-live{
+  background:#fff!important;
+  box-shadow:0 0 0 6px rgba(255,255,255,.15)!important;
+}
+
+.bucuria-theme header.sticky .glass>div:first-child>span:first-child{
+  width:104px!important;
+  height:48px!important;
+  flex:0 0 104px!important;
+  border-radius:12px!important;
+  border:1px solid rgba(223,31,39,.12)!important;
+  background:#fff url('/bucuria-logo.svg?v=1') center/contain no-repeat!important;
+  color:transparent!important;
+  font-size:0!important;
+  box-shadow:0 5px 16px rgba(137,14,20,.08)!important;
+}
+
+.bucuria-theme .hero-wow:after{
+  content:"";
+  position:absolute;
+  right:28px;
+  bottom:18px;
+  width:150px;
+  height:82px;
+  background:url('/bucuria-logo.svg?v=1') center/contain no-repeat;
+  opacity:.13;
+  filter:brightness(0) invert(1);
+  pointer-events:none;
+}
+
+.bucuria-theme .bucuria-page-head>div:nth-child(2){
+  position:relative;
+  min-height:72px;
+  padding-left:132px;
+  display:flex;
+  flex-direction:column;
+  justify-content:center;
+}
+
+.bucuria-theme .bucuria-page-head>div:nth-child(2):before{
+  content:"";
+  position:absolute;
+  left:0;
+  top:50%;
+  transform:translateY(-50%);
+  width:112px;
+  height:62px;
+  border-radius:14px;
+  background:#fff url('/bucuria-logo.svg?v=1') center/contain no-repeat;
+  border:1px solid var(--bucuria-border);
+  box-shadow:0 8px 20px rgba(137,14,20,.08);
+}
+
+.bucuria-theme .bucuria-page-head span,
+.bucuria-theme .bucuria-page-title span,
+.bucuria-theme .manager-kpis article small{
+  color:var(--bucuria-red-dark)!important;
+}
+
+.bucuria-theme .bucuria-status-overview>div,
+.bucuria-theme .bucuria-manager-stats>div{
+  background:rgba(253,236,238,.72)!important;
+}
+
+.bucuria-theme .bucuria-status-buttons button.active,
+.bucuria-theme .manager-campaign-fields button,
+.bucuria-theme .edit-actions button.primary{
+  background:var(--bucuria-red)!important;
+  color:#fff!important;
+}
+
+.bucuria-theme .manager-kpis article svg,
+.bucuria-theme .bucuria-manager-stats svg,
+.bucuria-theme .manager-product-list button,
+.bucuria-theme .manager-order-actions button{
+  color:var(--bucuria-red-dark)!important;
+}
+
+.bucuria-theme .manager-top-products i{
+  background:var(--bucuria-red)!important;
+}
+
+.bucuria-theme .flow-dot{
+  background:#ea7d83!important;
+  box-shadow:0 0 0 5px rgba(223,31,39,.1)!important;
+}
+
+.bucuria-theme .flow-dot.paid{
+  background:var(--bucuria-red-dark)!important;
+  box-shadow:0 0 0 5px rgba(183,22,29,.12)!important;
+}
+
+.bucuria-order-card{
+  border-color:rgba(223,31,39,.16)!important;
+}
+
+.bucuria-order-card .bucuria-cover{
+  background:linear-gradient(145deg,#fff 0%,#fff7f7 60%,#fdecee 100%)!important;
+  color:var(--bucuria-red-dark)!important;
+}
+
+.bucuria-order-card .bucuria-cover img{
+  width:min(220px,72%);
+  max-height:132px;
+  object-fit:contain;
+  filter:drop-shadow(0 10px 22px rgba(130,10,17,.12));
+}
+
+.bucuria-order-card .common-card-body>span,
+.bucuria-order-card .common-status{
+  color:var(--bucuria-red-dark)!important;
+}
+
+.bucuria-order-card .common-card-body strong{
+  color:var(--bucuria-red-dark)!important;
+}
+
+@media(max-width:700px){
+  .bucuria-theme header.sticky .glass>div:first-child>span:first-child{
+    width:78px!important;
+    height:42px!important;
+    flex-basis:78px!important;
+  }
+  .bucuria-theme .hero-wow:after{width:100px;height:56px;right:14px;bottom:12px}
+  .bucuria-theme .bucuria-page-head>div:nth-child(2){padding-left:0;padding-top:74px}
+  .bucuria-theme .bucuria-page-head>div:nth-child(2):before{top:0;transform:none;width:110px;height:60px}
+}
