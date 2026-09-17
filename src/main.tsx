@@ -4,7 +4,9 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import MarketplacePage from './pages/MarketplacePage';
 import OrderPage from './pages/OrderPage';
 import GroupOrdersPage from './pages/GroupOrdersPage';
-import BucuriaOrderPage from './pages/BucuriaOrderPage';
+import BucuriaShopPage from './pages/BucuriaShopPage';
+import BucuriaStatusPage from './pages/BucuriaStatusPage';
+import BucuriaManagerPage from './pages/BucuriaManagerPage';
 import AdminPage from './pages/AdminPage';
 import MiaPaymentPage from './pages/MiaPaymentPage';
 import OrderStatusPage from './pages/OrderStatusPage';
@@ -26,7 +28,10 @@ createRoot(document.getElementById('root')!).render(
         <Routes>
           <Route path="/" element={<><MarketplaceSellerPhoneEnhancer /><MarketplacePage /></>} />
           <Route path="/comenzi-comune" element={<GroupOrdersPage />} />
-          <Route path="/comenzi-comune/bucuria" element={<BucuriaOrderPage />} />
+          <Route path="/bucuria" element={<BucuriaShopPage />} />
+          <Route path="/comenzi-comune/bucuria" element={<BucuriaShopPage />} />
+          <Route path="/bucuria/status" element={<BucuriaStatusPage />} />
+          <Route path="/bucuria/manager" element={<BucuriaManagerPage />} />
           <Route path="/comanda" element={<><NutsOrderBrand /><OrderDeadlinePublicEnhancer /><OrderPage /></>} />
           <Route path="/profil" element={<ProfilePage />} />
           <Route path="/status" element={<OrderStatusPage />} />
