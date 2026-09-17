@@ -6,13 +6,22 @@ import './nuts-order-brand.css';
 export default function NutsOrderBrand() {
   useEffect(() => {
     document.title = 'Nuci & Fructe Uscate · Orbico Market';
-    const frame = window.requestAnimationFrame(() => {
-      document.querySelectorAll('h1,h2,h3').forEach((node) => {
-        const text = (node.textContent || '').trim();
-        if (text === 'Comanda lunii') node.textContent = 'Nuci & Fructe Uscate';
+
+    const rename = () => {
+      document.querySelectorAll('h1,h2,h3,p,span,strong').forEach((node) => {
+        const text = node.textContent || '';
+        if (/comanda lunii/i.test(text)) {
+          node.textContent = text.replace(/comanda lunii/gi, 'Nuci & Fructe Uscate');
+        }
       });
-    });
-    return () => window.cancelAnimationFrame(frame);
+    };
+
+    const frame = window.requestAnimationFrame(rename);
+    const timer = window.setTimeout(rename, 250);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      window.clearTimeout(timer);
+    };
   }, []);
 
   return (
