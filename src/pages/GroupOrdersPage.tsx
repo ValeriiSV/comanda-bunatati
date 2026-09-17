@@ -28,6 +28,7 @@ const statusLabel: Record<string, string> = {
 };
 
 const NUTS_LOGO = '/nuci-logo-orbico-2026.jpg';
+const BUCURIA_LOGO = '/bucuria-logo.svg?v=1';
 
 export default function GroupOrdersPage() {
   const [user, setUser] = useState<User | null>(auth.currentUser);
@@ -106,12 +107,8 @@ export default function GroupOrdersPage() {
         </Link>
 
         <Link to="/bucuria" className="common-order-card bucuria-order-card">
-          <div className="common-card-cover bucuria-cover" aria-hidden="true">
-            <div className="bucuria-mark">B</div>
-            <div>
-              <b>BUCURIA</b>
-              <small>DULCIURI</small>
-            </div>
+          <div className="common-card-cover bucuria-cover">
+            <img src={BUCURIA_LOGO} alt="Bucuria" />
           </div>
           <div className="common-card-body">
             <span>SOLDI SRL / SA BUCURIA</span>
