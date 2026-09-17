@@ -14,6 +14,7 @@ import AppUtilityNav from './components/AppUtilityNav';
 import MarketplaceSellerPhoneEnhancer from './components/MarketplaceSellerPhoneEnhancer';
 import './index.css';
 import './wow.css';
+import './pages/group-orders-shop.css';
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
