@@ -27,6 +27,8 @@ const statusLabel: Record<string, string> = {
   distributed: 'Distribuită',
 };
 
+const NUTS_LOGO = '/nuci-logo-orbico-2026.jpg';
+
 export default function GroupOrdersPage() {
   const [user, setUser] = useState<User | null>(auth.currentUser);
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -93,7 +95,7 @@ export default function GroupOrdersPage() {
       <section className="common-order-grid" aria-label="Comenzi disponibile">
         <Link to="/comanda" className="common-order-card nuts-order-card">
           <div className="common-card-cover nuts-cover">
-            <img src="/nuci-fructe-logo.jpg?v=3" alt="Nuci și Fructe Uscate" />
+            <img src={NUTS_LOGO} alt="Nuci și Fructe Uscate" />
           </div>
           <div className="common-card-body">
             <span>COMANDĂ COMUNĂ</span>
