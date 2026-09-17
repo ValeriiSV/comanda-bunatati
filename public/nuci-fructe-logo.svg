@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 800" role="img" aria-labelledby="title desc">
+  <title id="title">Nuci și fructe uscate</title>
+  <desc id="desc">Emblemă crem cu nuci, fructe uscate și textul Nuci și fructe uscate.</desc>
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="42%" r="70%"><stop offset="0" stop-color="#fff7dc"/><stop offset="1" stop-color="#f1cf8b"/></radialGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="0" dy="14" stdDeviation="18" flood-color="#6b431c" flood-opacity=".22"/></filter>
+  </defs>
+  <rect width="800" height="800" rx="64" fill="url(#bg)"/>
+  <g opacity=".95" font-size="72" text-anchor="middle">
+    <text x="132" y="170">🌰</text><text x="250" y="118">🥜</text><text x="548" y="112">🌰</text><text x="674" y="176">🍑</text>
+    <text x="102" y="380">🥜</text><text x="696" y="382">🥜</text><text x="122" y="642">🍇</text><text x="672" y="648">🌰</text>
+  </g>
+  <circle cx="400" cy="400" r="292" fill="#fff3d1" stroke="#8d672f" stroke-width="8" filter="url(#shadow)"/>
+  <circle cx="400" cy="400" r="270" fill="none" stroke="#b08a4c" stroke-width="3"/>
+  <text x="400" y="278" text-anchor="middle" font-family="Georgia,serif" font-size="82" fill="#4f2d16" font-weight="700">NUCI</text>
+  <line x1="246" y1="323" x2="554" y2="323" stroke="#7f642e" stroke-width="4"/>
+  <text x="400" y="360" text-anchor="middle" font-family="Georgia,serif" font-size="34" fill="#6a4b24" font-weight="700">ȘI</text>
+  <text x="400" y="432" text-anchor="middle" font-family="Georgia,serif" font-size="48" fill="#315b32" font-weight="700">FRUCTE USCATE</text>
+  <g fill="#315b32" font-family="Arial,sans-serif" text-anchor="middle"><text x="400" y="505" font-size="26">Naturale • Sănătate • Calitate</text><text x="400" y="566" font-size="28" font-weight="700">Tel: 068 308 308</text></g>
+  <text x="400" y="655" text-anchor="middle" font-family="Georgia,serif" font-size="24" fill="#755c35">de la colegi, pentru colegi</text>
+</svg>
