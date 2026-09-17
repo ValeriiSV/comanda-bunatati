@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { Link, useLocation } from 'react-router-dom';
 import { onAuthStateChanged, type User } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
-import { ArrowLeft, CalendarDays, UserCircle2 } from 'lucide-react';
+import { ArrowLeft, ShoppingBasket, UserCircle2 } from 'lucide-react';
 import { auth, db } from '@/lib/firebase';
 import '@/pages/profile.css';
 
@@ -40,8 +40,8 @@ export default function AppUtilityNav() {
 
   if (location.pathname === '/comanda') {
     return (
-      <Link to="/" className="app-utility app-utility-back" aria-label="Înapoi la Orbico Market">
-        <ArrowLeft size={18} /> <span>Orbico Market</span>
+      <Link to="/comenzi-comune" className="app-utility app-utility-back" aria-label="Înapoi la Comenzi comune">
+        <ArrowLeft size={18} /> <span>Comenzi comune</span>
       </Link>
     );
   }
@@ -50,8 +50,8 @@ export default function AppUtilityNav() {
     return (
       <>
         {marketNav && createPortal(
-          <Link to="/comanda" className="mobile-monthly-nav" aria-label="Deschide Comanda lunii">
-            <CalendarDays size={18} /> <span>Comanda lunii</span>
+          <Link to="/comenzi-comune" className="mobile-monthly-nav" aria-label="Deschide Comenzi comune">
+            <ShoppingBasket size={18} /> <span>Comenzi comune</span>
           </Link>,
           marketNav,
         )}
