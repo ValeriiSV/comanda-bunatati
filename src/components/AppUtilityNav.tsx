@@ -39,7 +39,7 @@ export default function AppUtilityNav() {
     return () => window.cancelAnimationFrame(frame);
   }, [location.pathname]);
 
-  if (location.pathname === '/comanda') {
+  if (location.pathname === '/comanda' || location.pathname === '/bucuria' || location.pathname === '/comenzi-comune/bucuria') {
     return (
       <Link to="/comenzi-comune" className="app-utility app-utility-back" aria-label="Înapoi la Comenzi comune">
         <ArrowLeft size={18} /> <span>Comenzi comune</span>
