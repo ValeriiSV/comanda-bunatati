@@ -93,7 +93,7 @@ export default function GroupOrdersPage() {
       <section className="common-order-grid" aria-label="Comenzi disponibile">
         <Link to="/comanda" className="common-order-card nuts-order-card">
           <div className="common-card-cover nuts-cover">
-            <img src="/nuci-fructe-logo.jpg" alt="Nuci și Fructe Uscate" />
+            <img src="/nuci-fructe-logo.jpg?v=3" alt="Nuci și Fructe Uscate" />
           </div>
           <div className="common-card-body">
             <span>COMANDĂ COMUNĂ</span>
@@ -103,7 +103,7 @@ export default function GroupOrdersPage() {
           </div>
         </Link>
 
-        <Link to="/comenzi-comune/bucuria" className="common-order-card bucuria-order-card">
+        <Link to="/bucuria" className="common-order-card bucuria-order-card">
           <div className="common-card-cover bucuria-cover" aria-hidden="true">
             <div className="bucuria-mark">B</div>
             <div>
