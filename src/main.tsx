@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import MarketplacePage from './pages/MarketplacePage';
 import OrderPage from './pages/OrderPage';
+import GroupOrdersPage from './pages/GroupOrdersPage';
 import AdminPage from './pages/AdminPage';
 import MiaPaymentPage from './pages/MiaPaymentPage';
 import OrderStatusPage from './pages/OrderStatusPage';
@@ -21,6 +22,7 @@ createRoot(document.getElementById('root')!).render(
         <AppUtilityNav />
         <Routes>
           <Route path="/" element={<><MarketplaceSellerPhoneEnhancer /><MarketplacePage /></>} />
+          <Route path="/comenzi-comune" element={<GroupOrdersPage />} />
           <Route path="/comanda" element={<><OrderDeadlinePublicEnhancer /><OrderPage /></>} />
           <Route path="/profil" element={<ProfilePage />} />
           <Route path="/status" element={<OrderStatusPage />} />
