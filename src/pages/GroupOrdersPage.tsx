@@ -4,6 +4,7 @@ import { onAuthStateChanged, type User } from 'firebase/auth';
 import { doc, getDoc, onSnapshot } from 'firebase/firestore';
 import { ArrowLeft, ChevronRight, ShoppingBasket, Users } from 'lucide-react';
 import { auth, db } from '@/lib/firebase';
+import { BucuriaLogo, NutsLogo } from '@/components/BrandLogos';
 import './group-orders.css';
 
 type Profile = {
@@ -27,8 +28,6 @@ const statusLabel: Record<string, string> = {
   distributed: 'Distribuită',
 };
 
-const NUTS_LOGO = '/nuci-logo-orbico-2026.jpg';
-const BUCURIA_LOGO = '/bucuria-logo.svg?v=1';
 
 export default function GroupOrdersPage() {
   const [user, setUser] = useState<User | null>(auth.currentUser);
@@ -96,7 +95,7 @@ export default function GroupOrdersPage() {
       <section className="common-order-grid" aria-label="Comenzi disponibile">
         <Link to="/comanda" className="common-order-card nuts-order-card">
           <div className="common-card-cover nuts-cover">
-            <img src={NUTS_LOGO} alt="Nuci și Fructe Uscate" />
+            <NutsLogo className="common-brand-logo nuts-inline-logo" />
           </div>
           <div className="common-card-body">
             <span>COMANDĂ COMUNĂ</span>
@@ -108,7 +107,7 @@ export default function GroupOrdersPage() {
 
         <Link to="/bucuria" className="common-order-card bucuria-order-card">
           <div className="common-card-cover bucuria-cover">
-            <img src={BUCURIA_LOGO} alt="Bucuria" />
+            <BucuriaLogo className="common-brand-logo bucuria-inline-logo" />
           </div>
           <div className="common-card-body">
             <span>SOLDI SRL / SA BUCURIA</span>
