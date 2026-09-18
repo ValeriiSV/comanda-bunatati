@@ -4,6 +4,7 @@ import { onAuthStateChanged, type User } from 'firebase/auth';
 import { doc, onSnapshot } from 'firebase/firestore';
 import { ArrowLeft, CheckCircle2, PackageCheck } from 'lucide-react';
 import { auth, db } from '@/lib/firebase';
+import { BucuriaLogo } from '@/components/BrandLogos';
 import './bucuria-admin-pages.css';
 
 type Campaign={status?:string;title?:string};
@@ -30,7 +31,7 @@ export default function BucuriaStatusPage(){
   if(!user)return <main className="bucuria-page-shell"><section className="bucuria-page-card empty"><PackageCheck size={40}/><h1>Status Bucuria</h1><p>Autentifică-te în Orbico Market pentru a vedea comanda.</p><Link to="/">Orbico Market</Link></section></main>;
 
   return <main className="bucuria-page-shell">
-    <header className="bucuria-page-head"><Link to="/bucuria"><ArrowLeft size={18}/> Bucuria</Link><div><span>ORBICO MARKET · BUCURIA</span><h1>Statusul comenzii</h1></div></header>
+    <header className="bucuria-page-head"><Link to="/bucuria"><ArrowLeft size={18}/> Bucuria</Link><div className="bucuria-head-brand"><BucuriaLogo className="bucuria-head-logo" /><div><span>ORBICO MARKET · BUCURIA</span><h1>Statusul comenzii</h1></div></div></header>
     {message&&<div className="bucuria-page-message">{message}</div>}
     <section className="bucuria-status-overview bucuria-page-card">
       <div><span>Campanie</span><strong>{labels[campaign?.status||'draft']||campaign?.status||'—'}</strong></div>
