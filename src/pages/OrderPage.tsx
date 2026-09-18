@@ -18,6 +18,7 @@ import {
   Users,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { NutsLogo } from '@/components/BrandLogos';
 import { Input } from '@/components/ui/input';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { categories, linePrice, priceLabel, quantityLabel, type Category, type Product } from '@/lib/products';
@@ -131,7 +132,7 @@ function useDeadlineNotifications(schedule: OrderSchedule) {
       const due = thresholds.find(({ key, ms }) => remaining <= ms && localStorage.getItem(`${REMINDER_KEY}_${id}_${key}`) !== 'sent');
       if (!due) return;
       try {
-        new Notification(due.title, { body: due.body, icon: '/valera-logo.svg?v=6', tag: `bunatati-${id}-${due.key}` });
+        new Notification(due.title, { body: due.body, icon: '/favicon.svg', tag: `bunatati-${id}-${due.key}` });
         thresholds.filter(({ ms }) => remaining <= ms).forEach(({ key }) => localStorage.setItem(`${REMINDER_KEY}_${id}_${key}`, 'sent'));
       } catch { /* calendar alerts still work when browser notifications are unavailable */ }
     };
@@ -414,7 +415,7 @@ export default function OrderApp() {
       <header className="sticky top-0 z-40 bg-[#f3f5ed]/30 px-2 backdrop-blur-xl">
         <div className="glass glass-shine mx-auto my-2 flex h-16 max-w-[1440px] items-center justify-between rounded-[24px] px-3 sm:px-6">
           <div className="flex min-w-0 items-center gap-3">
-            <img src="/valera-logo.svg?v=6" alt="Bunătăți împreună cu Valera" className="size-12 shrink-0 rounded-full border border-white/70 bg-white/65 object-cover shadow-sm" />
+            <NutsLogo className="size-12 shrink-0 rounded-xl border border-white/70 bg-white/65 shadow-sm" />
             <div className="min-w-0"><p className="truncate font-serif text-lg font-bold leading-none sm:text-2xl">Bunătăți împreună cu Valera</p><p className="mt-1 truncate text-xs text-[#74837b]">{round}</p></div>
           </div>
           <div className="ml-2 flex shrink-0 gap-1.5">
