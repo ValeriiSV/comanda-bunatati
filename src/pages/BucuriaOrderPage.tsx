@@ -23,6 +23,7 @@ import { Input } from '@/components/ui/input';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { auth, db } from '@/lib/firebase';
 import { bucuriaPhotoCatalog } from '@/lib/bucuriaPhotoCatalog';
+import { BucuriaLogo } from '@/components/BrandLogos';
 
 type Profile = {
   uid: string;
@@ -402,7 +403,7 @@ export default function BucuriaOrderPage() {
       <header className="sticky top-0 z-40 bg-[#f3f5ed]/30 px-2 backdrop-blur-xl">
         <div className="glass glass-shine mx-auto my-2 flex h-16 max-w-[1440px] items-center justify-between rounded-[24px] px-3 sm:px-6">
           <div className="flex min-w-0 items-center gap-3">
-            <span className="grid size-12 shrink-0 place-items-center rounded-xl border border-white/70 bg-[#fff1e7]/80 text-2xl shadow-sm">🍫</span>
+            <span className="grid size-12 shrink-0 place-items-center overflow-hidden rounded-xl border border-white/70 bg-white shadow-sm"><BucuriaLogo className="size-full" /></span>
             <div className="min-w-0"><p className="truncate font-serif text-lg font-bold leading-none sm:text-2xl">Bucuria – Dulciuri</p><p className="mt-1 truncate text-xs text-[#74837b]">SOLDI SRL / SA Bucuria</p></div>
           </div>
           <div className="ml-2 flex shrink-0 gap-1.5">
