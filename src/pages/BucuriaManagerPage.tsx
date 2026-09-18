@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { auth, db } from '@/lib/firebase';
 import { bucuriaPhotoCatalog } from '@/lib/bucuriaPhotoCatalog';
+import { BucuriaLogo } from '@/components/BrandLogos';
 import './bucuria-admin-pages.css';
 
 type Profile = { role?: string };
@@ -354,7 +355,7 @@ export default function BucuriaManagerPage() {
   return <main className="bucuria-page-shell manager-full">
     <header className="bucuria-page-head manager-head">
       <Link to="/bucuria"><ArrowLeft size={18}/> Bucuria</Link>
-      <div><span>CONTROL CENTER · BUCURIA</span><h1>Manager Bucuria</h1><p>SOLDI SRL / SA Bucuria</p></div>
+      <div className="bucuria-head-brand"><BucuriaLogo className="bucuria-head-logo" /><div><span>CONTROL CENTER · BUCURIA</span><h1>Manager Bucuria</h1><p>SOLDI SRL / SA Bucuria</p></div></div>
       <div className="manager-head-actions">
         <button onClick={() => window.location.reload()}><RefreshCw size={16}/> Actualizează</button>
         <button onClick={exportCsv}><Download size={16}/> Export CSV</button>
