@@ -1,12 +1,12 @@
 type LogoProps = { className?: string; title?: string };
 
-const LOGO_VERSION = '20260920-1';
+const LOGO_VERSION = '20260920-2';
 
 export function BucuriaLogo({ className = '', title = 'Bucuria' }: LogoProps) {
   return (
     <img
       className={`${className} object-contain`}
-      src={`/bucuria-logo.svg?v=${LOGO_VERSION}`}
+      src={`/bucuria-logo.png?v=${LOGO_VERSION}`}
       alt={title}
       draggable={false}
       decoding="async"
