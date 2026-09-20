@@ -12,3 +12,7 @@
   .common-card-body{padding:18px 18px 20px}
   .common-card-body h2{font-size:26px;line-height:1.08}
 }
+
+@media(max-width:760px){
+  .common-card-cover,.bucuria-cover{height:165px!important;padding:14px!important}
+}
