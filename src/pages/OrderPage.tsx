@@ -445,9 +445,8 @@ export default function OrderApp() {
             </div>
           </div>
 
-          <div className={`mb-5 grid gap-3 ${lastOrder ? 'lg:grid-cols-3' : 'lg:grid-cols-2'}`}>
+          <div className={`mb-5 grid gap-3 ${lastOrder ? 'lg:grid-cols-2' : 'lg:grid-cols-1'}`}>
             <ScheduleNotice schedule={schedule} />
-            <MiaQrCard />
             {lastOrder && (
               <div className="glass glass-shine rounded-2xl p-4 sm:p-5">
                 <div className="flex items-start justify-between gap-3"><div><p className="text-xs font-bold uppercase tracking-[.1em] text-[#7f6a4b]">Comanda ta anterioară</p><strong className="mt-1 block text-lg">{lastOrder.orderCode}</strong><p className="mt-1 text-xs text-[#74837b]">{money(lastOrder.totalLei)} lei</p></div><RotateCcw className="size-5 text-[#58745c]" /></div>
