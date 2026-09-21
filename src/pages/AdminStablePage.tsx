@@ -119,6 +119,8 @@ export default function AdminStablePage() {
   const [dates, setDates] = useState<string[]>([]);
   const [scheduleMessage, setScheduleMessage] = useState('');
   const [newDate, setNewDate] = useState('');
+  const [collectorName, setCollectorName] = useState('');
+  const [collectorPhone, setCollectorPhone] = useState('');
   const [draft, setDraft] = useState<ProductDraft>(emptyDraft);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [imageBusy, setImageBusy] = useState(false);
@@ -129,8 +131,11 @@ export default function AdminStablePage() {
   const loadAll = async () => {
     setBusy(true); setError('');
     try {
-      const [ordersData, productsData, schedule] = await timeout(Promise.all([
-        listCollection('groupOrders'), listCollection('products'), getDocument('settings/orderSchedule'),
+      const [ordersData, productsData, schedule, miaCollector] = await timeout(Promise.all([
+        listCollection('groupOrders'),
+        listCollection('products'),
+        getDocument('settings/orderSchedule'),
+        getDocument('settings/miaCollector'),
       ]), 10000, 'FIRESTORE_TIMEOUT');
       setOrders((ordersData as Order[]).sort((a, b) => orderDate(b).getTime() - orderDate(a).getTime()));
       setProducts(mergeCatalog(productsData as Product[]));
@@ -282,6 +287,28 @@ export default function AdminStablePage() {
     } catch (e) { setError(friendly((e as Error).message)); }
     finally { setBusy(false); }
   };
+  const saveMiaCollector = async () => {
+    const phone = collectorPhone.trim();
+    if (!phone) {
+      setError('Introdu numărul de telefon MIA al persoanei care colectează banii.');
+      return;
+    }
+    setBusy(true);
+    setError('');
+    try {
+      await setDocument('settings/miaCollector', {
+        name: collectorName.trim(),
+        phone,
+        updatedAt: new Date(),
+      });
+      setNotice('Colectorul MIA P2P a fost actualizat pentru toate paginile de comandă.');
+    } catch (e) {
+      setError(friendly((e as Error).message));
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const saveSchedule = async (nextDates = dates, nextMessage = scheduleMessage) => { try { await setDocument('settings/orderSchedule', { dates: [...new Set(nextDates)].sort(), message: nextMessage.trim(), updatedAt: new Date() }); setDates([...new Set(nextDates)].sort()); setScheduleMessage(nextMessage); setNotice('Următoarea comandă a fost actualizată.'); } catch (e) { setError(friendly((e as Error).message)); } };
   const startEdit = (p: Product) => { setEditingId(p.id); setDraft({ name: p.name, category: p.category, priceLei: String(p.priceLei), baseGrams: String(p.baseGrams), stepGrams: String(p.stepGrams), quantityUnit: p.quantityUnit || 'g', stockLimit: p.stockLimit ? String(p.stockLimit) : '', imageUrl: p.imageUrl || '', active: p.active !== false, isNew: !!p.isNew, promo: !!p.promo }); };
   const cancelEdit = () => { setEditingId(null); setDraft(emptyDraft); };
@@ -333,6 +360,20 @@ export default function AdminStablePage() {
   if (!authorized) return <main className="grid min-h-screen place-items-center bg-[#f2f5ed] p-5 text-[#173d2c]"><section className="w-full max-w-md rounded-[28px] border border-[#d9e3d7] bg-white p-8 shadow-xl"><Link to="/" className="mb-7 flex items-center gap-2 text-sm text-[#607269]"><ArrowLeft className="size-4" /> Înapoi la catalog</Link><NutsLogo className="mb-5 size-20 rounded-xl border border-[#d9e3d7] bg-white p-1" title="Nuci și Fructe Uscate" /><h1 className="font-serif text-3xl font-semibold">Panoul managerului</h1><form onSubmit={login} className="mt-7 space-y-3"><Input type="email" autoComplete="username" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Email" className="h-12 rounded-xl" /><Input type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Parolă" className="h-12 rounded-xl" /><Button disabled={busy || !email || !password} className="h-12 w-full rounded-xl bg-[#173d2c]">{busy ? 'Se autentifică…' : 'Intră în panou'}</Button></form><div className="my-4 flex items-center gap-3 text-xs text-[#8a968f]"><span className="h-px flex-1 bg-[#dfe7df]" />sau<span className="h-px flex-1 bg-[#dfe7df]" /></div><Button type="button" variant="outline" onClick={loginGoogle} disabled={busy} className="h-12 w-full rounded-xl">{busy ? 'Se conectează…' : 'Continuă cu Google'}</Button>{error && <p className="mt-4 rounded-xl bg-red-50 p-3 text-sm text-red-700">{error}</p>}</section></main>;
 
   return <main className="min-h-screen bg-[#f2f5ed] text-[#173d2c]"><header className="border-b bg-white"><div className="mx-auto flex max-w-[1400px] items-center justify-between gap-4 px-4 py-4 sm:px-8"><div className="flex items-center gap-3"><Link to="/"><NutsLogo className="size-12 rounded-xl border border-[#d9e3d7] bg-white p-1" title="Nuci și Fructe Uscate" /></Link><div><h1 className="font-serif text-2xl font-semibold">Panoul managerului</h1></div></div><div className="flex gap-2"><Button variant="outline" onClick={loadAll} disabled={busy}><RefreshCw /> Reîncarcă</Button><Button onClick={exportCsv} className="bg-[#173d2c]"><Download /> CSV</Button><Button type="button" variant="outline" size="icon" onClick={logout} disabled={busy} title="Ieșire"><LogOut /></Button></div></div></header><div className="mx-auto max-w-[1400px] space-y-6 p-4 sm:p-8">{error && <p className="rounded-xl bg-red-50 p-3 text-sm text-red-700">{error}</p>}{notice && <p className="rounded-xl bg-[#e8f3df] p-3 text-sm text-[#315b32]">{notice}</p>}
+
+  <section className="rounded-[24px] border border-[#cfe0cf] bg-[#f5faf2] p-5">
+    <div className="flex flex-col gap-1">
+      <p className="text-xs font-bold uppercase tracking-[.12em] text-[#6d7f72]">MIA P2P</p>
+      <h2 className="font-serif text-2xl font-semibold">Colector MIA P2P</h2>
+      <p className="text-sm text-[#74837b]">Aceste date apar automat la Nuci, Bucuria și viitoarele pagini de comandă.</p>
+    </div>
+    <div className="mt-4 grid gap-3 sm:grid-cols-[1fr_1fr_auto]">
+      <Input value={collectorName} onChange={(e) => setCollectorName(e.target.value)} placeholder="Numele persoanei care colectează" className="bg-white" />
+      <Input type="tel" inputMode="tel" value={collectorPhone} onChange={(e) => setCollectorPhone(e.target.value)} placeholder="+373 6X XXX XXX" className="bg-white" />
+      <Button type="button" onClick={saveMiaCollector} disabled={busy || !collectorPhone.trim()} className="bg-[#173d2c]"><Save /> Salvează MIA</Button>
+    </div>
+    {collectorPhone.trim() && <p className="mt-3 text-xs text-[#6f7f76]">QR-ul public va conține numărul: <strong>{collectorPhone.trim()}</strong>. Suma se introduce manual în aplicația bancară.</p>}
+  </section>
 
   <section className="rounded-[22px] border bg-white p-4"><div className="flex items-center justify-between"><div><p className="font-semibold">Perioada comenzilor</p><p className="text-xs text-[#74837b]">Istoric separat pe luni</p></div><select value={selectedMonth} onChange={(e) => setSelectedMonth(e.target.value)} className="h-11 rounded-xl border px-3">{monthOptions.map((k) => <option key={k} value={k}>{monthLabel(k)}</option>)}</select></div></section>
 
