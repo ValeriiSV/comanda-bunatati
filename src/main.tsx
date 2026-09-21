@@ -16,6 +16,7 @@ import OrderDeadlinePublicEnhancer from './components/OrderDeadlinePublicEnhance
 import AppUtilityNav from './components/AppUtilityNav';
 import MarketplaceSellerPhoneEnhancer from './components/MarketplaceSellerPhoneEnhancer';
 import NutsOrderBrand from './components/NutsOrderBrand';
+import MiaCollectorGlobal from './components/MiaCollectorGlobal';
 import './index.css';
 import './wow.css';
 import './pages/marketplace-nav-cleanup.css';
@@ -26,6 +27,7 @@ createRoot(document.getElementById('root')!).render(
     <AppErrorBoundary>
       <BrowserRouter>
         <AppUtilityNav />
+        <MiaCollectorGlobal />
         <Routes>
           <Route path="/" element={<><MarketplaceSellerPhoneEnhancer /><MarketplacePage /></>} />
           <Route path="/comenzi-comune" element={<GroupOrdersPage />} />
