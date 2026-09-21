@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { Check, Copy, QrCode, X } from 'lucide-react';
 import { useLocation } from 'react-router-dom';
 import { useMiaCollector } from '@/hooks/useMiaCollector';
+import SimpleQrCode from '@/components/SimpleQrCode';
 
 function normalizePhone(value: string) {
   return value.replace(/[^+\d]/g, '');
@@ -21,11 +22,6 @@ export default function MiaCollectorGlobal() {
   const [copied, setCopied] = useState(false);
 
   const phone = useMemo(() => normalizePhone(collector.phone), [collector.phone]);
-  const qrUrl = useMemo(
-    () => phone ? `https://quickchart.io/qr?size=260&margin=2&text=${encodeURIComponent(phone)}` : '',
-    [phone],
-  );
-
   if (!shouldShow(pathname) || loading || !phone) return null;
 
   const copy = async () => {
@@ -67,7 +63,7 @@ export default function MiaCollectorGlobal() {
             </div>
 
             <div className="mt-5 rounded-2xl bg-white p-4 text-center shadow-sm">
-              <img src={qrUrl} alt={`QR pentru numărul MIA ${phone}`} className="mx-auto size-52 rounded-xl" />
+              <SimpleQrCode value={phone} title={`QR pentru numărul MIA ${phone}`} className="mx-auto size-52 rounded-xl" />
               <p className="mt-4 text-sm text-[#74837b]">Scanează QR-ul sau copiază numărul și fă transferul P2P prin MIA.</p>
               {collector.name && <strong className="mt-3 block text-lg">{collector.name}</strong>}
               <button
