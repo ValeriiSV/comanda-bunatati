@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { onAuthStateChanged, type User } from 'firebase/auth';
+import { onAuthStateChanged, signOut, type User } from 'firebase/auth';
 import { collection, deleteDoc, doc, getDoc, onSnapshot, serverTimestamp, setDoc, writeBatch } from 'firebase/firestore';
 import {
   ArrowLeft,
@@ -8,6 +8,7 @@ import {
   CircleDollarSign,
   ClipboardList,
   Download,
+  LogOut,
   Pencil,
   Plus,
   RefreshCw,
@@ -20,6 +21,9 @@ import {
 import { auth, db } from '@/lib/firebase';
 import { bucuriaPhotoCatalog } from '@/lib/bucuriaPhotoCatalog';
 import { BucuriaLogo } from '@/components/BrandLogos';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import './bucuria-admin-pages.css';
 
 type Profile = { role?: string };
@@ -46,6 +50,20 @@ const qtyLabel = (qty: number, unit = 'buc') => `${qty.toLocaleString('ro-MD', {
 const safeId = (value: string) => value.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 120);
 const timeValue = (value: any) => typeof value?.toMillis === 'function' ? value.toMillis() : 0;
 const roundQty = (value: number) => Math.round(value * 1000) / 1000;
+function orderDate(order: Order) {
+  const raw = order.updatedAt as any;
+  if (raw instanceof Date) return raw;
+  if (raw && typeof raw.toDate === 'function') return raw.toDate();
+  const parsed = raw ? new Date(raw) : new Date();
+  return Number.isNaN(parsed.getTime()) ? new Date() : parsed;
+}
+function monthKey(date: Date) {
+  return date.getFullYear() + '-' + String(date.getMonth() + 1).padStart(2, '0');
+}
+function monthLabel(key: string) {
+  const parts = key.split('-').map(Number);
+  return new Intl.DateTimeFormat('ro-MD', { month: 'long', year: 'numeric' }).format(new Date(parts[0], parts[1] - 1, 1));
+}
 
 export default function BucuriaManagerPage() {
   const [user, setUser] = useState<User | null>(auth.currentUser);
@@ -63,6 +81,9 @@ export default function BucuriaManagerPage() {
   const [productSearch, setProductSearch] = useState('');
   const [productEditId, setProductEditId] = useState<string | null>(null);
   const [productDraft, setProductDraft] = useState<ProductDraft>(emptyProduct);
+  const [selectedMonth, setSelectedMonth] = useState(monthKey(new Date()));
+  const [collectorName, setCollectorName] = useState('');
+  const [collectorPhone, setCollectorPhone] = useState('');
 
   useEffect(() => onAuthStateChanged(auth, async (next) => {
     setUser(next);
@@ -101,14 +122,30 @@ export default function BucuriaManagerPage() {
     };
   }, [isAdmin]);
 
-  const total = orders.reduce((sum, order) => sum + Number(order.total || 0), 0);
-  const paidTotal = orders.filter((order) => order.paid).reduce((sum, order) => sum + Number(order.total || 0), 0);
+  useEffect(() => {
+    if (!isAdmin) return;
+    return onSnapshot(doc(db, 'settings', 'miaCollector'), (snap) => {
+      const data = snap.exists() ? snap.data() as { name?: string; phone?: string } : {};
+      setCollectorName(data.name || '');
+      setCollectorPhone(data.phone || '');
+    }, (error) => setMessage(error.message));
+  }, [isAdmin]);
+
+  const monthOptions = useMemo(() => {
+    const keys = new Set(orders.map((order) => monthKey(orderDate(order))));
+    keys.add(monthKey(new Date()));
+    return [...keys].sort().reverse();
+  }, [orders]);
+  const visibleOrders = useMemo(() => orders.filter((order) => monthKey(orderDate(order)) === selectedMonth), [orders, selectedMonth]);
+
+  const total = visibleOrders.reduce((sum, order) => sum + Number(order.total || 0), 0);
+  const paidTotal = visibleOrders.filter((order) => order.paid).reduce((sum, order) => sum + Number(order.total || 0), 0);
   const unpaidTotal = Math.max(0, total - paidTotal);
-  const unpaidCount = orders.filter((order) => !order.paid).length;
+  const unpaidCount = visibleOrders.filter((order) => !order.paid).length;
 
   const summary = useMemo(() => {
     const map = new Map<string, { productId: string; name: string; barcode?: string; qty: number; total: number; unit?: string }>();
-    orders.forEach((order) => order.items.forEach((item) => {
+    visibleOrders.forEach((order) => order.items.forEach((item) => {
       const current = map.get(item.productId) || {
         productId: item.productId,
         name: item.name,
@@ -122,7 +159,7 @@ export default function BucuriaManagerPage() {
       map.set(item.productId, current);
     }));
     return [...map.values()].sort((a, b) => b.total - a.total);
-  }, [orders]);
+  }, [visibleOrders]);
 
   const topProducts = summary.slice(0, 5);
   const filteredProducts = useMemo(() => {
@@ -237,7 +274,7 @@ export default function BucuriaManagerPage() {
 
   const exportCsv = () => {
     const rows: string[][] = [['Colegul', 'Telefon', 'Achitat', 'Produs', 'Cod bare', 'Cantitate', 'Unitate', 'Pret', 'Subtotal']];
-    orders.forEach((order) => order.items.forEach((item) => rows.push([
+    visibleOrders.forEach((order) => order.items.forEach((item) => rows.push([
       order.userName,
       order.phone || '',
       order.paid ? 'DA' : 'NU',
@@ -255,6 +292,50 @@ export default function BucuriaManagerPage() {
     link.download = `bucuria-comenzi-${new Date().toISOString().slice(0, 10)}.csv`;
     link.click();
     URL.revokeObjectURL(url);
+  };
+
+  const saveMiaCollector = async () => {
+    if (!collectorPhone.trim()) {
+      setMessage('Introdu numărul de telefon MIA al persoanei care colectează banii.');
+      return;
+    }
+    setBusy(true);
+    try {
+      await setDoc(doc(db, 'settings', 'miaCollector'), {
+        name: collectorName.trim(),
+        phone: collectorPhone.trim(),
+        updatedAt: serverTimestamp(),
+      }, { merge: true });
+      setMessage('Colectorul MIA P2P a fost actualizat pentru toate paginile.');
+    } catch (error) {
+      setMessage((error as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const exportSellerExcel = () => {
+    const escape = (value: unknown) => String(value ?? '')
+      .replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;');
+    const rows = summary.map((item) =>
+      '<tr><td>' + escape(item.name) + '</td><td>' + escape(qtyLabel(item.qty, item.unit)) + '</td><td>' + Number(item.total || 0).toFixed(2) + '</td></tr>'
+    ).join('');
+    const html = '<!doctype html><html><head><meta charset="UTF-8"></head><body><table border="1">' +
+      '<tr><th colspan="3">Lista pentru vânzător Bucuria — ' + escape(monthLabel(selectedMonth)) + '</th></tr>' +
+      '<tr><th>Produs</th><th>Cantitate</th><th>Sumă (lei)</th></tr>' + rows +
+      '<tr><th>TOTAL GENERAL</th><th></th><th>' + Number(total || 0).toFixed(2) + '</th></tr>' +
+      '</table></body></html>';
+    const url = URL.createObjectURL(new Blob(['\ufeff', html], { type: 'application/vnd.ms-excel;charset=utf-8' }));
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'lista-vanzator-bucuria-' + selectedMonth + '.xls';
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const logout = async () => {
+    try { await signOut(auth); } catch {}
+    window.location.replace('/bucuria/manager');
   };
 
   const seedCatalog = async () => {
@@ -346,157 +427,214 @@ export default function BucuriaManagerPage() {
   };
 
   if (!user) {
-    return <main className="bucuria-page-shell"><section className="bucuria-page-card empty"><h1>Manager Bucuria</h1><p>Autentifică-te ca administrator.</p><Link to="/">Orbico Market</Link></section></main>;
-  }
-  if (!isAdmin) {
-    return <main className="bucuria-page-shell"><section className="bucuria-page-card empty"><h1>Acces administrator</h1><p>Pagina Manager este disponibilă doar administratorului Orbico Market.</p><Link to="/bucuria">Înapoi la Bucuria</Link></section></main>;
+    return <main className="grid min-h-screen place-items-center bg-[#f2f5ed] p-5 text-[#173d2c]">
+      <section className="w-full max-w-md rounded-[28px] border border-[#d9e3d7] bg-white p-8 text-center shadow-xl">
+        <BucuriaLogo className="mx-auto mb-5 h-20 w-40" />
+        <h1 className="font-serif text-3xl font-semibold">Panoul managerului</h1>
+        <p className="mt-2 text-sm text-[#74837b]">Autentifică-te în Orbico Market cu contul de administrator.</p>
+        <div className="mt-6 flex justify-center gap-2">
+          <Link to="/" className="rounded-xl bg-[#173d2c] px-4 py-2.5 text-sm font-semibold text-white">Orbico Market</Link>
+          <Link to="/bucuria" className="rounded-xl border px-4 py-2.5 text-sm font-semibold">Bucuria</Link>
+        </div>
+      </section>
+    </main>;
   }
 
-  return <main className="bucuria-page-shell manager-full">
-    <header className="bucuria-page-head manager-head">
-      <Link to="/bucuria"><ArrowLeft size={18}/> Bucuria</Link>
-      <div className="bucuria-head-brand"><BucuriaLogo className="bucuria-head-logo" /><div><span>CONTROL CENTER · BUCURIA</span><h1>Manager Bucuria</h1><p>SOLDI SRL / SA Bucuria</p></div></div>
-      <div className="manager-head-actions">
-        <button onClick={() => window.location.reload()}><RefreshCw size={16}/> Actualizează</button>
-        <button onClick={exportCsv}><Download size={16}/> Export CSV</button>
-        <Link to="/admin"><CircleDollarSign size={16}/> MIA P2P</Link>
+  if (!isAdmin) {
+    return <main className="grid min-h-screen place-items-center bg-[#f2f5ed] p-5 text-[#173d2c]">
+      <section className="w-full max-w-md rounded-[28px] border border-[#d9e3d7] bg-white p-8 text-center shadow-xl">
+        <BucuriaLogo className="mx-auto mb-5 h-20 w-40" />
+        <h1 className="font-serif text-3xl font-semibold">Acces administrator</h1>
+        <p className="mt-2 text-sm text-[#74837b]">Contul autentificat nu are drepturi de manager.</p>
+        <Link to="/bucuria" className="mt-6 inline-flex rounded-xl border px-4 py-2.5 text-sm font-semibold">Înapoi la Bucuria</Link>
+      </section>
+    </main>;
+  }
+
+  const editingOrder = orderEditId ? visibleOrders.find((order) => order.id === orderEditId) : null;
+
+  return <main className="min-h-screen bg-[#f2f5ed] text-[#173d2c]">
+    <header className="border-b bg-white">
+      <div className="mx-auto flex max-w-[1400px] items-center justify-between gap-4 px-4 py-4 sm:px-8">
+        <div className="flex min-w-0 items-center gap-3">
+          <Link to="/bucuria" className="grid size-12 shrink-0 place-items-center overflow-hidden rounded-xl border border-[#d9e3d7] bg-white p-1">
+            <BucuriaLogo className="size-full" />
+          </Link>
+          <div className="min-w-0">
+            <h1 className="truncate font-serif text-2xl font-semibold">Panoul managerului</h1>
+            <p className="text-xs text-[#74837b]">Bucuria</p>
+          </div>
+        </div>
+        <div className="flex flex-wrap justify-end gap-2">
+          <Link to="/bucuria" className="inline-flex h-9 items-center gap-2 rounded-md border px-3 text-sm font-medium"><ArrowLeft size={16}/> Bucuria</Link>
+          <Button type="button" variant="outline" onClick={() => window.location.reload()} disabled={busy}><RefreshCw/> Reîncarcă</Button>
+          <Button type="button" onClick={exportCsv} className="bg-[#173d2c]"><Download/> CSV</Button>
+          <Button type="button" variant="outline" size="icon" onClick={logout} title="Ieșire"><LogOut/></Button>
+        </div>
       </div>
     </header>
 
-    {message && <button className="bucuria-page-message" onClick={() => setMessage('')}>{message}</button>}
+    <div className="mx-auto max-w-[1400px] space-y-6 p-4 sm:p-8">
+      {message && <button type="button" onClick={() => setMessage('')} className="w-full rounded-xl bg-[#e8f3df] p-3 text-left text-sm text-[#315b32]">{message}</button>}
 
-    <section className="manager-kpis">
-      <article><Users size={20}/><span>Comenzi luna aceasta</span><strong>{orders.length}</strong></article>
-      <article><ClipboardList size={20}/><span>Total comandat</span><strong>{money(total)}</strong></article>
-      <article><Check size={20}/><span>Încasat</span><strong>{money(paidTotal)}</strong></article>
-      <article><CircleDollarSign size={20}/><span>Neachitate</span><strong>{money(unpaidTotal)}</strong><small>{unpaidCount} comenzi</small></article>
-    </section>
-
-    <section className="manager-grid-two">
-      <article className="bucuria-page-card manager-card">
-        <div className="bucuria-page-title"><div><span>TOP PRODUSE</span><h2>Cele mai comandate</h2></div></div>
-        <div className="manager-top-products">
-          {topProducts.length ? topProducts.map((item) => <div key={item.productId}>
-            <div><strong>{item.name}</strong><small>{qtyLabel(item.qty, item.unit)}</small></div>
-            <b>{money(item.total)}</b>
-            <i style={{ width: `${Math.max(8, (item.total / Math.max(topProducts[0]?.total || 1, 1)) * 100)}%` }}/>
-          </div>) : <p>Nu sunt date încă.</p>}
+      <section className="rounded-[24px] border border-[#cfe0cf] bg-[#f5faf2] p-5">
+        <p className="text-xs font-bold uppercase tracking-[.12em] text-[#6d7f72]">MIA P2P</p>
+        <h2 className="mt-1 font-serif text-2xl font-semibold">Colector MIA P2P</h2>
+        <p className="mt-1 text-sm text-[#74837b]">Aceeași persoană apare automat la Nuci, Bucuria și viitoarele comenzi.</p>
+        <div className="mt-4 grid gap-3 sm:grid-cols-[1fr_1fr_auto]">
+          <Input value={collectorName} onChange={(event) => setCollectorName(event.target.value)} placeholder="Numele persoanei care colectează" className="bg-white"/>
+          <Input type="tel" inputMode="tel" value={collectorPhone} onChange={(event) => setCollectorPhone(event.target.value)} placeholder="+373 6X XXX XXX" className="bg-white"/>
+          <Button type="button" onClick={saveMiaCollector} disabled={busy || !collectorPhone.trim()} className="bg-[#173d2c]"><Save/> Salvează MIA</Button>
         </div>
-      </article>
+        {collectorPhone.trim() && <p className="mt-3 text-xs text-[#6f7f76]">QR-ul public conține numărul <strong>{collectorPhone.trim()}</strong>. Suma se introduce manual.</p>}
+      </section>
 
-      <article className="bucuria-page-card manager-card">
-        <div className="bucuria-page-title"><div><span>FLUXUL COMENZILOR</span><h2>Activitate recentă</h2></div></div>
-        <div className="manager-flow">
-          {orders.slice(0, 6).map((order) => <div key={order.id}>
-            <span className={order.paid ? 'flow-dot paid' : 'flow-dot'}/>
-            <div><strong>{order.userName}</strong><small>{order.items.length} poziții · {order.paid ? 'achitată' : 'neachitată'}</small></div>
-            <b>{money(order.total)}</b>
-          </div>)}
-          {!orders.length && <p>Nu sunt comenzi încă.</p>}
+      <section className="rounded-[22px] border bg-white p-4">
+        <div className="flex items-center justify-between gap-4">
+          <div><p className="font-semibold">Perioada comenzilor</p><p className="text-xs text-[#74837b]">Istoric separat pe luni</p></div>
+          <select value={selectedMonth} onChange={(event) => setSelectedMonth(event.target.value)} className="h-11 rounded-xl border px-3">
+            {monthOptions.map((key) => <option key={key} value={key}>{monthLabel(key)}</option>)}
+          </select>
         </div>
-      </article>
-    </section>
+      </section>
 
-    <section className="bucuria-page-card manager-card">
-      <div className="bucuria-page-title"><div><span>PANOUL MANAGERULUI</span><h2>Controlul campaniei</h2></div></div>
-      <div className="manager-campaign-fields">
-        <label><span>Termen limită</span><input type="datetime-local" value={deadline} onChange={(event) => setDeadline(event.target.value)}/></label>
-        <label className="wide"><span>Mesaj pentru colegi</span><input value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="Ex.: Comanda se închide vineri la 15:00"/></label>
-        <button onClick={saveCampaign} disabled={busy}><Save size={16}/> Salvează</button>
-      </div>
-      <div className="bucuria-status-buttons manager-statuses">
-        {statuses.map((status) => <button key={status} className={campaign?.status === status ? 'active' : ''} onClick={() => changeStatus(status)} disabled={busy}>{labels[status]}</button>)}
-      </div>
-    </section>
+      <section className="grid gap-3 sm:grid-cols-3">
+        <Stat label="Comenzi" value={String(visibleOrders.length)} />
+        <Stat label="Total de încasat" value={money(total)} />
+        <Stat label="Încasat" value={money(paidTotal)} />
+      </section>
 
-    <section className="bucuria-page-card manager-card">
-      <div className="bucuria-page-title"><div><span>COMENZI COLEGI</span><h2>Gestionarea comenzilor</h2><p>Marchează plata, modifică pozițiile sau șterge o comandă.</p></div></div>
-      <div className="manager-orders">
-        {orders.length === 0 ? <p>Nu sunt comenzi încă.</p> : orders.map((order) => <article key={order.id}>
-          <div className="manager-order-head">
-            <div><strong>{order.userName}</strong><small>{order.phone || 'Fără telefon'} · {order.items.length} poziții</small></div>
-            <b>{money(order.total)}</b>
+      <section className="overflow-hidden rounded-[24px] border bg-white">
+        <div className="flex flex-col gap-3 border-b p-5 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 className="font-serif text-2xl font-semibold">Comenzi individuale · {monthLabel(selectedMonth)}</h2>
+            <p className="mt-1 text-sm text-[#74837b]">Modifică produse, cantități, plată sau șterge comanda colegului.</p>
           </div>
-          <div className="manager-order-actions">
-            <button className={order.paid ? 'paid' : ''} onClick={() => togglePaid(order)}><Check size={15}/> {order.paid ? 'Achitată' : 'Marchează achitată'}</button>
-            <button onClick={() => startOrderEdit(order)}><Pencil size={15}/> Modifică</button>
-            <button className="danger" onClick={() => removeOrder(order)}><Trash2 size={15}/> Șterge</button>
+          <span className="rounded-full bg-[#eef3e8] px-3 py-1.5 text-sm font-semibold">{visibleOrders.length} comenzi</span>
+        </div>
+
+        {editingOrder && <div className="border-b bg-[#f7faf4] p-5">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <div><p className="text-xs font-bold uppercase tracking-[.1em] text-[#74837b]">Editezi comanda</p><h3 className="text-lg font-semibold">{editingOrder.userName}</h3></div>
+            <div className="text-left sm:text-right"><p className="text-xs text-[#74837b]">Total recalculat</p><strong className="font-serif text-2xl">{money(orderDraftTotal)}</strong></div>
           </div>
+          <div className="mt-4 space-y-2">
+            {orderDraft.map((item, index) => {
+              const product = products.find((candidate) => candidate.id === item.productId);
+              const step = Number(product?.step || (item.unit === 'kg' ? 0.1 : 1));
+              return <div key={item.productId + '-' + index} className="flex flex-col gap-3 rounded-2xl border bg-white p-3 sm:flex-row sm:items-center">
+                <div className="min-w-0 flex-1"><strong className="block truncate">{item.name}</strong><span className="text-xs text-[#74837b]">{money(item.price)} / {item.unit || 'buc'}</span></div>
+                <div className="flex items-center gap-1 rounded-xl border bg-[#f7f9f5] p-1">
+                  <Button type="button" variant="ghost" size="icon" onClick={() => setOrderDraft((current) => current.map((entry, i) => i === index ? { ...entry, qty: roundQty(Math.max(0, Number(entry.qty) - step)) } : entry))}>−</Button>
+                  <strong className="min-w-20 text-center text-sm">{qtyLabel(item.qty, item.unit)}</strong>
+                  <Button type="button" variant="ghost" size="icon" onClick={() => setOrderDraft((current) => current.map((entry, i) => i === index ? { ...entry, qty: roundQty(Number(entry.qty) + step) } : entry))}>+</Button>
+                </div>
+                <Button type="button" variant="ghost" size="icon" className="text-red-600" onClick={() => setOrderDraft((current) => current.filter((_, i) => i !== index))}><Trash2/></Button>
+              </div>;
+            })}
+          </div>
+          <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+            <select value={orderProductToAdd} onChange={(event) => setOrderProductToAdd(event.target.value)} className="h-11 min-w-0 flex-1 rounded-xl border bg-white px-3">
+              <option value="">Alege un produs de adăugat</option>
+              {availableOrderProducts.map((product) => <option key={product.id} value={product.id}>{product.name} · {money(product.price)}</option>)}
+            </select>
+            <Button type="button" variant="outline" onClick={addOrderItem} disabled={!orderProductToAdd}><Plus/> Adaugă produs</Button>
+          </div>
+          <div className="mt-4 flex justify-end gap-2">
+            <Button type="button" variant="outline" onClick={cancelOrderEdit}>Renunță</Button>
+            <Button type="button" onClick={() => saveOrderEdit(editingOrder)} className="bg-[#173d2c]"><Save/> Salvează comanda</Button>
+          </div>
+        </div>}
 
-          {orderEditId === order.id && <div className="manager-order-edit">
-            <div className="edit-items">
-              {orderDraft.map((item, index) => <label key={`${item.productId}-${index}`}>
-                <span>{item.name}</span>
-                <input type="number" min="0" step={item.unit === 'kg' ? '0.1' : '1'} value={item.qty} onChange={(event) => setOrderDraft((current) => current.map((entry, i) => i === index ? { ...entry, qty: Number(event.target.value) } : entry))}/>
-                <small>{item.unit || 'buc'} · {money(item.price)} / {item.unit || 'buc'}</small>
-              </label>)}
-            </div>
+        <div className="overflow-x-auto">
+          <Table>
+            <TableHeader><TableRow><TableHead>Nume</TableHead><TableHead>Telefon</TableHead><TableHead>Produse</TableHead><TableHead>Total</TableHead><TableHead>Plată</TableHead><TableHead className="text-right">Acțiuni</TableHead></TableRow></TableHeader>
+            <TableBody>
+              {visibleOrders.map((order) => <TableRow key={order.id} className={orderEditId === order.id ? 'bg-[#f7faf4]' : ''}>
+                <TableCell><strong>{order.userName}</strong><span className="block text-xs text-[#829087]">{orderDate(order).toLocaleDateString('ro-MD')}</span></TableCell>
+                <TableCell>{order.phone || '—'}</TableCell>
+                <TableCell className="min-w-72">{order.items.map((item, index) => <span key={item.productId + '-' + index} className="mr-1.5 mb-1.5 inline-flex rounded-full bg-[#eef3e8] px-2.5 py-1 text-xs">{item.name} · {qtyLabel(item.qty, item.unit)}</span>)}</TableCell>
+                <TableCell className="font-semibold">{money(order.total)}</TableCell>
+                <TableCell><Button type="button" size="sm" variant={order.paid ? 'secondary' : 'outline'} onClick={() => togglePaid(order)}>{order.paid && <Check/>} {order.paid ? 'Achitat' : 'Neachitat'}</Button></TableCell>
+                <TableCell className="text-right"><div className="flex justify-end gap-1"><Button type="button" variant="ghost" size="icon" onClick={() => startOrderEdit(order)}><Pencil/></Button><Button type="button" variant="ghost" size="icon" className="text-red-600" onClick={() => removeOrder(order)}><Trash2/></Button></div></TableCell>
+              </TableRow>)}
+              {visibleOrders.length === 0 && <TableRow><TableCell colSpan={6} className="py-10 text-center text-[#74837b]">Nu există comenzi în această lună.</TableCell></TableRow>}
+            </TableBody>
+          </Table>
+        </div>
+      </section>
 
-            <div className="order-add-row">
-              <select value={orderProductToAdd} onChange={(event) => setOrderProductToAdd(event.target.value)}>
-                <option value="">Adaugă alt produs în comandă…</option>
-                {availableOrderProducts.map((product) => <option key={product.id} value={product.id}>{product.name} · {money(product.price)}</option>)}
-              </select>
-              <button onClick={addOrderItem} disabled={!orderProductToAdd}><Plus size={15}/> Adaugă</button>
-              <strong>Total recalculat: {money(orderDraftTotal)}</strong>
-            </div>
+      <section className="rounded-[24px] border border-[#e4d4b8] bg-[#fffaf0] p-5">
+        <h2 className="font-serif text-2xl font-semibold">Următoarea comandă</h2>
+        <p className="mt-1 text-sm text-[#74837b]">Termenul și mesajul afișat colegilor pe pagina Bucuria.</p>
+        <div className="mt-4 grid gap-3 lg:grid-cols-[260px_1fr_auto]">
+          <Input type="datetime-local" value={deadline} onChange={(event) => setDeadline(event.target.value)} className="bg-white"/>
+          <Input value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="Mesaj pentru colegi" className="bg-white"/>
+          <Button type="button" onClick={saveCampaign} disabled={busy} className="bg-[#173d2c]"><Save/> Salvează</Button>
+        </div>
+        <div className="mt-4 flex flex-wrap gap-2">
+          {statuses.map((status) => <Button key={status} type="button" size="sm" variant={campaign?.status === status ? 'secondary' : 'outline'} onClick={() => changeStatus(status)} disabled={busy}>{labels[status]}</Button>)}
+        </div>
+      </section>
 
-            <div className="edit-actions">
-              <button onClick={cancelOrderEdit}><X size={15}/> Anulează</button>
-              <button className="primary" onClick={() => saveOrderEdit(order)}><Save size={15}/> Salvează comanda</button>
-            </div>
-          </div>}
-        </article>)}
-      </div>
-    </section>
+      <section className="rounded-[24px] border bg-white p-5">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div><h2 className="font-serif text-2xl font-semibold">Produse</h2><p className="mt-1 text-sm text-[#74837b]">Catalog Bucuria: adaugă, modifică, ascunde sau șterge produse.</p></div>
+          <div className="flex gap-2"><Button type="button" variant="outline" onClick={seedCatalog} disabled={busy}><RefreshCw/> Lista foto</Button><Button type="button" onClick={() => startProductEdit()} className="bg-[#173d2c]"><Plus/> Produs nou</Button></div>
+        </div>
 
-    <section className="manager-grid-two">
-      <article className="bucuria-page-card manager-card">
-        <div className="bucuria-page-title"><div><span>CENTRALIZARE</span><h2>Total pe produs</h2></div></div>
-        <div className="bucuria-summary-list">
-          {summary.length === 0 ? <p>Centralizarea va apărea după primele comenzi.</p> : summary.map((item) => <div key={item.productId}>
-            <div><strong>{item.name}</strong><small>{item.barcode || 'fără cod'}</small></div>
-            <span>{qtyLabel(item.qty, item.unit)}</span>
-            <b>{money(item.total)}</b>
+        <label className="relative mt-4 block max-w-lg"><Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[#74837b]"/><Input value={productSearch} onChange={(event) => setProductSearch(event.target.value)} placeholder="Caută produs sau cod de bare" className="pl-9"/></label>
+
+        {productEditId && <div className="mt-5 rounded-2xl border border-[#dce7d7] bg-[#f5f8f1] p-4">
+          <div className="mb-4 flex items-center justify-between"><h3 className="font-semibold">{productEditId === 'new' ? 'Adaugă un produs nou' : 'Modifică produsul'}</h3><Button type="button" variant="ghost" size="icon" onClick={() => setProductEditId(null)}><X/></Button></div>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <Input value={productDraft.name} onChange={(event) => setProductDraft({ ...productDraft, name: event.target.value })} placeholder="Denumire"/>
+            <Input value={productDraft.barcode} onChange={(event) => setProductDraft({ ...productDraft, barcode: event.target.value })} placeholder="Cod bare"/>
+            <Input value={productDraft.pack} onChange={(event) => setProductDraft({ ...productDraft, pack: event.target.value })} placeholder="Ambalaj"/>
+            <Input type="number" step="0.01" value={productDraft.price} onChange={(event) => setProductDraft({ ...productDraft, price: event.target.value })} placeholder="Preț"/>
+            <Input value={productDraft.category} onChange={(event) => setProductDraft({ ...productDraft, category: event.target.value })} placeholder="Categorie"/>
+            <select value={productDraft.unit} onChange={(event) => setProductDraft({ ...productDraft, unit: event.target.value as 'buc' | 'kg' })} className="h-9 rounded-md border bg-white px-3 text-sm"><option value="buc">buc</option><option value="kg">kg</option></select>
+            <Input type="number" step="0.1" value={productDraft.step} onChange={(event) => setProductDraft({ ...productDraft, step: event.target.value })} placeholder="Pas cantitate"/>
+            <label className="flex items-center gap-2 rounded-md border bg-white px-3 text-sm"><input type="checkbox" checked={productDraft.active} onChange={(event) => setProductDraft({ ...productDraft, active: event.target.checked })}/> Activ</label>
+          </div>
+          <div className="mt-4 flex justify-end gap-2"><Button type="button" variant="outline" onClick={() => setProductEditId(null)}>Renunță</Button><Button type="button" onClick={saveProduct} className="bg-[#173d2c]"><Save/> Salvează produsul</Button></div>
+        </div>}
+
+        <div className="mt-5 overflow-x-auto rounded-2xl border">
+          <Table>
+            <TableHeader><TableRow><TableHead>Produs</TableHead><TableHead>Cod bare</TableHead><TableHead>Categorie</TableHead><TableHead>Preț</TableHead><TableHead>Status</TableHead><TableHead className="text-right">Acțiuni</TableHead></TableRow></TableHeader>
+            <TableBody>
+              {filteredProducts.map((product) => <TableRow key={product.id}>
+                <TableCell><strong>{product.name}</strong><span className="block text-xs text-[#829087]">{product.pack || '—'}</span></TableCell>
+                <TableCell>{product.barcode || '—'}</TableCell>
+                <TableCell>{product.category || 'Bucuria'}</TableCell>
+                <TableCell>{money(product.price)} / {product.unit || 'buc'}</TableCell>
+                <TableCell>{product.active === false ? 'Ascuns' : 'Activ'}</TableCell>
+                <TableCell className="text-right"><div className="flex justify-end gap-1"><Button type="button" variant="ghost" size="sm" onClick={() => toggleProduct(product)}>{product.active === false ? 'Arată' : 'Ascunde'}</Button><Button type="button" variant="ghost" size="icon" onClick={() => startProductEdit(product)}><Pencil/></Button><Button type="button" variant="ghost" size="icon" className="text-red-600" onClick={() => removeProduct(product)}><Trash2/></Button></div></TableCell>
+              </TableRow>)}
+            </TableBody>
+          </Table>
+        </div>
+      </section>
+
+      <section className="rounded-[24px] border bg-white p-5">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div><h2 className="font-serif text-2xl font-semibold">Lista pentru vânzător</h2><p className="mt-1 text-sm text-[#74837b]">Cantitatea și suma totală pentru luna selectată.</p></div>
+          <Button type="button" variant="outline" onClick={exportSellerExcel}><Download/> Export Excel</Button>
+        </div>
+        <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+          {summary.map((item) => <div key={item.productId} className="rounded-xl bg-[#f2f6ee] px-4 py-3">
+            <div className="flex items-start justify-between gap-3"><span className="font-medium">{item.name}</span><strong>{qtyLabel(item.qty, item.unit)}</strong></div>
+            <p className="mt-1 text-xs text-[#74837b]">{item.barcode || 'fără cod'} · {money(item.total)}</p>
           </div>)}
+          {summary.length === 0 && <p className="text-sm text-[#74837b]">Lista va apărea după primele comenzi.</p>}
         </div>
-      </article>
-
-      <article className="bucuria-page-card manager-card">
-        <div className="bucuria-page-title">
-          <div><span>CATALOG</span><h2>{products.length} produse</h2></div>
-          <button className="manager-inline-btn" onClick={seedCatalog} disabled={busy}><RefreshCw size={15}/> Lista foto</button>
-        </div>
-        <label className="manager-search"><Search size={16}/><input value={productSearch} onChange={(event) => setProductSearch(event.target.value)} placeholder="Caută produs sau cod..."/></label>
-        <div className="manager-product-list">
-          {filteredProducts.slice(0, 30).map((product) => <div key={product.id}>
-            <div><strong>{product.name}</strong><small>{product.barcode || 'fără cod'} · {product.category || 'Bucuria'}</small></div>
-            <span>{money(product.price)}</span>
-            <button onClick={() => toggleProduct(product)}>{product.active === false ? 'Ascuns' : 'Activ'}</button>
-            <button onClick={() => startProductEdit(product)}><Pencil size={14}/></button>
-            <button className="danger" onClick={() => removeProduct(product)}><Trash2 size={14}/></button>
-          </div>)}
-        </div>
-        <button className="manager-add-product" onClick={() => startProductEdit()}><Plus size={16}/> Produs nou</button>
-      </article>
-    </section>
-
-    {productEditId && <section className="bucuria-page-card manager-card product-editor">
-      <div className="bucuria-page-title"><div><span>CATALOG</span><h2>{productEditId === 'new' ? 'Produs nou' : 'Modifică produsul'}</h2></div></div>
-      <div className="product-form">
-        <label><span>Denumire</span><input value={productDraft.name} onChange={(event) => setProductDraft({ ...productDraft, name: event.target.value })}/></label>
-        <label><span>Cod bare</span><input value={productDraft.barcode} onChange={(event) => setProductDraft({ ...productDraft, barcode: event.target.value })}/></label>
-        <label><span>Ambalaj</span><input value={productDraft.pack} onChange={(event) => setProductDraft({ ...productDraft, pack: event.target.value })}/></label>
-        <label><span>Preț</span><input type="number" step="0.01" value={productDraft.price} onChange={(event) => setProductDraft({ ...productDraft, price: event.target.value })}/></label>
-        <label><span>Categorie</span><input value={productDraft.category} onChange={(event) => setProductDraft({ ...productDraft, category: event.target.value })}/></label>
-        <label><span>Unitate</span><select value={productDraft.unit} onChange={(event) => setProductDraft({ ...productDraft, unit: event.target.value as 'buc' | 'kg' })}><option value="buc">buc</option><option value="kg">kg</option></select></label>
-        <label><span>Pas cantitate</span><input type="number" step="0.1" value={productDraft.step} onChange={(event) => setProductDraft({ ...productDraft, step: event.target.value })}/></label>
-        <label className="check-field"><input type="checkbox" checked={productDraft.active} onChange={(event) => setProductDraft({ ...productDraft, active: event.target.checked })}/><span>Produs activ</span></label>
-      </div>
-      <div className="edit-actions">
-        <button onClick={() => setProductEditId(null)}><X size={15}/> Anulează</button>
-        <button className="primary" onClick={saveProduct}><Save size={15}/> Salvează produsul</button>
-      </div>
-    </section>}
+        <div className="mt-4 flex justify-end border-t pt-4"><span className="text-sm text-[#74837b]">Total general:&nbsp;</span><strong>{money(total)}</strong></div>
+      </section>
+    </div>
   </main>;
+}
+
+function Stat({ label, value }: { label: string; value: string }) {
+  return <div className="rounded-[22px] border bg-white p-5"><p className="text-sm text-[#74837b]">{label}</p><strong className="mt-1 block font-serif text-3xl">{value}</strong></div>;
 }
