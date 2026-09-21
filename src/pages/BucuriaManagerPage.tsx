@@ -8,6 +8,7 @@ import {
   CircleDollarSign,
   ClipboardList,
   Download,
+  FileSpreadsheet,
   LogOut,
   Pencil,
   Plus,
@@ -15,6 +16,7 @@ import {
   Save,
   Search,
   Trash2,
+  Upload,
   Users,
   X,
 } from 'lucide-react';
@@ -65,6 +67,64 @@ function monthLabel(key: string) {
   return new Intl.DateTimeFormat('ro-MD', { month: 'long', year: 'numeric' }).format(new Date(parts[0], parts[1] - 1, 1));
 }
 
+type ImportProductRow = {
+  barcode: string;
+  name: string;
+  pack: string;
+  price: number;
+  category: string;
+  unit: 'buc' | 'kg';
+  step: number;
+  active: boolean;
+};
+
+function normalizeHeader(value: unknown) {
+  return String(value ?? '').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+}
+
+function cellValue(row: Record<string, unknown>, aliases: string[]) {
+  const entries = Object.entries(row);
+  for (const alias of aliases) {
+    const found = entries.find(([key]) => normalizeHeader(key) === normalizeHeader(alias));
+    if (found) return found[1];
+  }
+  return '';
+}
+
+function parsePrice(value: unknown) {
+  const normalized = String(value ?? '').trim().replace(/\s/g, '').replace(',', '.').replace(/[^0-9.-]/g, '');
+  const result = Number(normalized);
+  return Number.isFinite(result) ? result : 0;
+}
+
+function parseBoolean(value: unknown) {
+  const normalized = normalizeHeader(value);
+  if (!normalized) return true;
+  return !['0', 'nu', 'no', 'false', 'inactiv', 'ascuns'].includes(normalized);
+}
+
+function mapImportRow(row: Record<string, unknown>): ImportProductRow | null {
+  const name = String(cellValue(row, ['Denumire', 'Produs', 'Nume', 'Name'])).trim();
+  const price = parsePrice(cellValue(row, ['Preț', 'Pret', 'Price', 'Pret lei', 'Preț lei']));
+  if (!name || price < 0) return null;
+
+  const rawUnit = normalizeHeader(cellValue(row, ['Unitate', 'UM', 'U.M.', 'Unit']));
+  const unit: 'buc' | 'kg' = rawUnit.includes('kg') ? 'kg' : 'buc';
+  const rawStep = parsePrice(cellValue(row, ['Pas', 'Pas cantitate', 'Step']));
+  const step = rawStep > 0 ? rawStep : unit === 'kg' ? 0.1 : 1;
+
+  return {
+    barcode: String(cellValue(row, ['Cod bare', 'Cod de bare', 'Barcode', 'EAN', 'Cod EAN'])).trim(),
+    name,
+    pack: String(cellValue(row, ['Ambalaj', 'Pack', 'Pachet'])).trim(),
+    price,
+    category: String(cellValue(row, ['Categorie', 'Category'])).trim() || 'Bucuria',
+    unit,
+    step,
+    active: parseBoolean(cellValue(row, ['Activ', 'Active', 'Status'])),
+  };
+}
+
 export default function BucuriaManagerPage() {
   const [user, setUser] = useState<User | null>(auth.currentUser);
   const [isAdmin, setIsAdmin] = useState(false);
@@ -84,6 +144,9 @@ export default function BucuriaManagerPage() {
   const [selectedMonth, setSelectedMonth] = useState(monthKey(new Date()));
   const [collectorName, setCollectorName] = useState('');
   const [collectorPhone, setCollectorPhone] = useState('');
+  const [importBusy, setImportBusy] = useState(false);
+  const [importPreview, setImportPreview] = useState<ImportProductRow[]>([]);
+  const [importFileName, setImportFileName] = useState('');
 
   useEffect(() => onAuthStateChanged(auth, async (next) => {
     setUser(next);
@@ -338,6 +401,102 @@ export default function BucuriaManagerPage() {
     window.location.replace('/bucuria/manager');
   };
 
+  const deleteAllProducts = async () => {
+    if (!products.length) {
+      setMessage('Catalogul Bucuria este deja gol.');
+      return;
+    }
+    if (!window.confirm(`Ștergi toate cele ${products.length} poziții din catalogul Bucuria? Comenzile colegilor NU vor fi șterse.`)) return;
+    if (!window.confirm('Confirmare finală: această acțiune nu poate fi anulată. Continui?')) return;
+
+    setBusy(true);
+    try {
+      const chunks: Product[][] = [];
+      for (let i = 0; i < products.length; i += 400) chunks.push(products.slice(i, i + 400));
+      for (const chunk of chunks) {
+        const batch = writeBatch(db);
+        chunk.forEach((product) => batch.delete(doc(db, 'groupCampaigns', 'bucuria', 'products', product.id)));
+        await batch.commit();
+      }
+      setProductSearch('');
+      setMessage('Toate pozițiile Bucuria au fost șterse. Comenzile au rămas intacte.');
+    } catch (error) {
+      setMessage('Ștergerea catalogului a eșuat: ' + (error as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const parseExcelFile = async (file: File) => {
+    setImportBusy(true);
+    setMessage('');
+    try {
+      const url = 'https://cdn.sheetjs.com/xlsx-0.20.3/package/xlsx.mjs';
+      const XLSX: any = await import(/* @vite-ignore */ url);
+      const data = await file.arrayBuffer();
+      const workbook = XLSX.read(data, { type: 'array' });
+      const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(firstSheet, { defval: '' }) as Record<string, unknown>[];
+      const mapped = rows.map(mapImportRow).filter((row): row is ImportProductRow => !!row);
+      if (!mapped.length) throw new Error('Nu am găsit rânduri valide. Verifică denumirea și prețul.');
+      setImportPreview(mapped);
+      setImportFileName(file.name);
+      setMessage(`Fișier citit: ${mapped.length} poziții pregătite pentru import.`);
+    } catch (error) {
+      setImportPreview([]);
+      setImportFileName('');
+      setMessage('Importul nu a putut citi fișierul: ' + (error as Error).message);
+    } finally {
+      setImportBusy(false);
+    }
+  };
+
+  const commitExcelImport = async () => {
+    if (!importPreview.length) return;
+    if (!window.confirm(`Importi ${importPreview.length} poziții în catalogul Bucuria?`)) return;
+    setImportBusy(true);
+    try {
+      const chunks: ImportProductRow[][] = [];
+      for (let i = 0; i < importPreview.length; i += 400) chunks.push(importPreview.slice(i, i + 400));
+      let offset = 0;
+      for (const chunk of chunks) {
+        const batch = writeBatch(db);
+        chunk.forEach((row, index) => {
+          const id = safeId(`${row.barcode || 'fara-cod'}-${row.name}-${offset + index}`) || `produs-${Date.now()}-${offset + index}`;
+          batch.set(doc(db, 'groupCampaigns', 'bucuria', 'products', id), {
+            ...row,
+            source: 'excel-import',
+            updatedAt: serverTimestamp(),
+          }, { merge: true });
+        });
+        await batch.commit();
+        offset += chunk.length;
+      }
+      setMessage(`${importPreview.length} poziții au fost importate din Excel.`);
+      setImportPreview([]);
+      setImportFileName('');
+    } catch (error) {
+      setMessage('Importul în Firestore a eșuat: ' + (error as Error).message);
+    } finally {
+      setImportBusy(false);
+    }
+  };
+
+  const downloadImportTemplate = () => {
+    const rows = [
+      ['Cod bare','Denumire','Ambalaj','Preț','Categorie','Unitate','Pas','Activ'],
+      ['4840095000000','Exemplu produs','1/250','25.50','Bucuria','buc','1','DA'],
+      ['4840095000001','Exemplu vrac','','89.90','Bomboane','kg','0.1','DA'],
+    ];
+    const csv = '\\uFEFF' + rows.map((row) => row.map((cell) => `"${String(cell).replaceAll('"','""')}"`).join(';')).join('\\n');
+    const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'model-import-bucuria.csv';
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
   const seedCatalog = async () => {
     if (!window.confirm('Actualizezi catalogul Bucuria cu pozițiile din fotografii?')) return;
     setBusy(true);
@@ -580,8 +739,30 @@ export default function BucuriaManagerPage() {
       <section className="rounded-[24px] border bg-white p-5">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div><h2 className="font-serif text-2xl font-semibold">Produse</h2><p className="mt-1 text-sm text-[#74837b]">Catalog Bucuria: adaugă, modifică, ascunde sau șterge produse.</p></div>
-          <div className="flex gap-2"><Button type="button" variant="outline" onClick={seedCatalog} disabled={busy}><RefreshCw/> Lista foto</Button><Button type="button" onClick={() => startProductEdit()} className="bg-[#173d2c]"><Plus/> Produs nou</Button></div>
+          <div className="flex flex-wrap gap-2">
+            <Button type="button" variant="outline" onClick={downloadImportTemplate}><FileSpreadsheet/> Model import</Button>
+            <label className="inline-flex h-9 cursor-pointer items-center gap-2 rounded-md border bg-white px-3 text-sm font-medium hover:bg-[#f6f8f4]">
+              <Upload className="size-4"/> {importBusy ? 'Se citește…' : 'Import Excel'}
+              <input type="file" accept=".xlsx,.xls,.csv" className="hidden" disabled={importBusy || busy} onChange={(event) => { const file = event.target.files?.[0]; if (file) void parseExcelFile(file); event.currentTarget.value = ''; }}/>
+            </label>
+            <Button type="button" variant="destructive" onClick={deleteAllProducts} disabled={busy || importBusy || products.length === 0}><Trash2/> Șterge toate</Button>
+            <Button type="button" onClick={() => startProductEdit()} className="bg-[#173d2c]"><Plus/> Produs nou</Button>
+          </div>
         </div>
+
+        {importPreview.length > 0 && <div className="mt-5 rounded-2xl border border-[#cfe0cf] bg-[#f5faf2] p-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div><p className="text-xs font-bold uppercase tracking-[.1em] text-[#6d7f72]">Import Excel</p><h3 className="font-semibold">{importFileName}</h3><p className="text-sm text-[#74837b]">{importPreview.length} poziții pregătite pentru import.</p></div>
+            <div className="flex gap-2"><Button type="button" variant="outline" onClick={() => { setImportPreview([]); setImportFileName(''); }}>Anulează</Button><Button type="button" onClick={commitExcelImport} disabled={importBusy} className="bg-[#173d2c]"><Upload/> {importBusy ? 'Se importă…' : 'Importă pozițiile'}</Button></div>
+          </div>
+          <div className="mt-4 max-h-64 overflow-auto rounded-xl border bg-white">
+            <Table>
+              <TableHeader><TableRow><TableHead>Cod bare</TableHead><TableHead>Denumire</TableHead><TableHead>Preț</TableHead><TableHead>Unitate</TableHead><TableHead>Categorie</TableHead></TableRow></TableHeader>
+              <TableBody>{importPreview.slice(0, 50).map((row, index) => <TableRow key={row.barcode + '-' + index}><TableCell>{row.barcode || '—'}</TableCell><TableCell>{row.name}</TableCell><TableCell>{money(row.price)}</TableCell><TableCell>{row.unit}</TableCell><TableCell>{row.category}</TableCell></TableRow>)}</TableBody>
+            </Table>
+          </div>
+          {importPreview.length > 50 && <p className="mt-2 text-xs text-[#74837b]">Previzualizare: primele 50 din {importPreview.length} poziții.</p>}
+        </div>}
 
         <label className="relative mt-4 block max-w-lg"><Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[#74837b]"/><Input value={productSearch} onChange={(event) => setProductSearch(event.target.value)} placeholder="Caută produs sau cod de bare" className="pl-9"/></label>
 
