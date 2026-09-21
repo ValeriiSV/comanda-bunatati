@@ -359,7 +359,7 @@ export default function BucuriaManagerPage() {
       <div className="manager-head-actions">
         <button onClick={() => window.location.reload()}><RefreshCw size={16}/> Actualizează</button>
         <button onClick={exportCsv}><Download size={16}/> Export CSV</button>
-        <Link to="/admin/mia"><CircleDollarSign size={16}/> MIA</Link>
+        <Link to="/admin"><CircleDollarSign size={16}/> MIA P2P</Link>
       </div>
     </header>
 
