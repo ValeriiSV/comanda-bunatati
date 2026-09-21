@@ -488,7 +488,7 @@ export default function BucuriaManagerPage() {
       ['4840095000000','Exemplu produs','1/250','25.50','Bucuria','buc','1','DA'],
       ['4840095000001','Exemplu vrac','','89.90','Bomboane','kg','0.1','DA'],
     ];
-    const csv = '\\uFEFF' + rows.map((row) => row.map((cell) => `"${String(cell).replaceAll('"','""')}"`).join(';')).join('\\n');
+    const csv = '\uFEFF' + rows.map((row) => row.map((cell) => `"${String(cell).replaceAll('"','""')}"`).join(';')).join('\n');
     const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
     const link = document.createElement('a');
     link.href = url;
