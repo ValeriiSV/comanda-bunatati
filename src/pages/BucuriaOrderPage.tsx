@@ -43,7 +43,6 @@ type Order = { id: string; userId: string; userName: string; phone?: string; ite
 type QtyMap = Record<string, number>;
 
 const ADMIN_EMAIL = 'valerkasvetlicenco@icloud.com';
-const MIA_LINK = 'https://mia-qr.bnm.md/1/m/BNM/MCB983a07f55265457d90654eb9f97574fc';
 const FAVORITES_KEY = 'orbico_bucuria_favorites_v1';
 
 const statusLabel: Record<Status, string> = {
@@ -85,22 +84,6 @@ function quantityLabel(product: Product, qty: number) {
   const unit = product.unit || 'buc';
   if (unit === 'kg') return `${qty.toLocaleString('ro-MD', { maximumFractionDigits: 2 })} kg`;
   return `${qty.toLocaleString('ro-MD', { maximumFractionDigits: 0 })} buc`;
-}
-
-function MiaQrCard({ compact = false }: { compact?: boolean }) {
-  return (
-    <div className={`glass glass-shine rounded-2xl ${compact ? 'p-3' : 'p-4 sm:p-5'}`}>
-      <div className={`flex ${compact ? 'items-center gap-3' : 'flex-col items-center gap-3 text-center sm:flex-row sm:text-left'}`}>
-        <a href={MIA_LINK} target="_blank" rel="noreferrer" aria-label="Deschide MIA" className="rounded-2xl bg-white/70 p-1 shadow-sm backdrop-blur-md">
-          <img src="/mia-qr.svg?v=5" alt="QR pentru transfer prin MIA" className={compact ? 'size-24 rounded-xl bg-white p-1' : 'size-32 rounded-2xl bg-white p-1'} />
-        </a>
-        <div>
-          <p className="text-sm font-bold text-[#173d2c]">Transfer prin MIA</p>
-          <p className="mt-1 text-xs leading-5 text-[#74837b]">Scanează QR-ul și introdu suma comenzii tale Bucuria.</p>
-        </div>
-      </div>
-    </div>
-  );
 }
 
 function CampaignNotice({ campaign }: { campaign: Campaign }) {
@@ -193,7 +176,6 @@ function BucuriaCartPanel({
         <span className="glass mb-5 grid size-16 place-items-center rounded-full text-[#315b32]"><CheckCircle2 className="size-8" /></span>
         <h2 className="font-serif text-3xl font-semibold text-[#173d2c]">Comandă trimisă</h2>
         <p className="mt-3 max-w-xs text-[#607269]">Comanda Bucuria este salvată pe profilul tău și poate fi urmărită din pagina Status.</p>
-        <div className="mt-5 w-full max-w-sm"><MiaQrCard compact /></div>
         <div className="mt-5 flex flex-wrap justify-center gap-2">
           <Link to="/bucuria/status" className="inline-flex h-11 items-center gap-2 rounded-full bg-[#173d2c] px-5 text-sm font-semibold text-white"><PackageCheck className="size-4" /> Vezi statusul</Link>
           <Button variant="outline" className="glass-chip h-11 rounded-full px-5" onClick={() => setSuccess(false)}>Modifică comanda</Button>
@@ -440,9 +422,8 @@ export default function BucuriaOrderPage() {
             </div>
           </div>
 
-          <div className={`mb-5 grid gap-3 ${myOrder ? 'lg:grid-cols-3' : 'lg:grid-cols-2'}`}>
+          <div className={`mb-5 grid gap-3 ${myOrder ? 'lg:grid-cols-2' : 'lg:grid-cols-1'}`}>
             <CampaignNotice campaign={campaign} />
-            <MiaQrCard />
             {myOrder && <div className="glass glass-shine rounded-2xl p-4 sm:p-5"><div className="flex items-start justify-between gap-3"><div><p className="text-xs font-bold uppercase tracking-[.1em] text-[#7f6a4b]">Comanda ta anterioară</p><strong className="mt-1 block text-lg">Bucuria</strong><p className="mt-1 text-xs text-[#74837b]">{money(myOrder.total)} lei · {myOrder.items.length} poziții</p></div><RotateCcw className="size-5 text-[#58745c]" /></div><Button onClick={restoreLastOrder} variant="outline" className="glass-chip mt-4 w-full rounded-xl"><RotateCcw /> Comandă din nou</Button></div>}
           </div>
 
