@@ -1,0 +1,274 @@
+/* Darwin-inspired Orbico Market design system
+   Source tokens: Rubik, black surfaces, lime accent, compact radii, WCAG-visible focus. */
+
+:root{
+  --dx-font:"Rubik",Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",Arial,sans-serif;
+  --dx-bg:#000;
+  --dx-surface:#1c1c1e;
+  --dx-raised:#3c3c3d;
+  --dx-text:#fff;
+  --dx-muted:#a8a8aa;
+  --dx-muted-strong:#c9c9cb;
+  --dx-accent:#c8fb57;
+  --dx-accent-ink:#101500;
+  --dx-border:#343436;
+  --dx-border-strong:#c8fb57;
+  --dx-danger:#ff6b6b;
+  --dx-radius-xs:8px;
+  --dx-radius-sm:10px;
+  --dx-radius-md:20px;
+  --dx-space-1:8px;
+  --dx-space-2:10px;
+  --dx-space-3:12px;
+  --dx-space-4:16px;
+  --dx-space-5:20px;
+  --dx-space-6:25px;
+  --dx-shadow:inset 0 1px 0 rgba(255,255,255,.15),0 1px 1px rgba(0,0,0,.08);
+  --dx-fast:200ms;
+  color-scheme:dark;
+}
+
+html{background:var(--dx-bg);font-family:var(--dx-font)}
+body{margin:0;background:var(--dx-bg)!important;color:var(--dx-text)!important;font-family:var(--dx-font)!important}
+body,button,input,select,textarea{font-family:var(--dx-font)!important}
+.font-serif,.market-hero h1,.section-head h2,.market-modal h2,.listing-body h3,.manage-card h3,.order-card-head h3,.profile-heading h1,.group-topbar h1,.common-card-body h2{font-family:var(--dx-font)!important}
+
+a,button,input,select,textarea{transition:background-color var(--dx-fast),border-color var(--dx-fast),color var(--dx-fast),transform var(--dx-fast),box-shadow var(--dx-fast),opacity var(--dx-fast)}
+a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,[tabindex]:focus-visible{
+  outline:3px solid var(--dx-accent)!important;
+  outline-offset:3px!important;
+  box-shadow:none!important;
+}
+button:disabled,[aria-disabled="true"]{opacity:.45!important;cursor:not-allowed!important;transform:none!important}
+::selection{background:var(--dx-accent);color:var(--dx-accent-ink)}
+*{scrollbar-color:#57575a #1c1c1e}
+*::-webkit-scrollbar{width:8px;height:8px}
+*::-webkit-scrollbar-track{background:#1c1c1e}
+*::-webkit-scrollbar-thumb{background:#57575a;border-radius:999px}
+
+/* Global page surfaces */
+.market-shell,.group-shell,.profile-page,.liquid-page,.bucuria-theme,.bucuria-theme .liquid-page,.bucuria-theme .bucuria-page-shell{
+  background:var(--dx-bg)!important;
+  color:var(--dx-text)!important;
+}
+.market-shell:before,.liquid-page:before{display:none!important}
+
+/* Navigation */
+.market-header{
+  background:rgba(0,0,0,.94)!important;
+  border-bottom:1px solid var(--dx-border)!important;
+  box-shadow:none!important;
+  backdrop-filter:blur(18px)!important;
+}
+.market-brand strong,.market-brand span,.market-nav button,.profile-button,.legacy-link{color:var(--dx-text)!important}
+.market-brand span{color:var(--dx-muted)!important}
+.brand-mark{background-color:var(--dx-surface)!important;box-shadow:none!important;border:1px solid var(--dx-border)!important}
+.market-nav button,.profile-button,.legacy-link{
+  border-radius:var(--dx-radius-sm)!important;
+  min-height:44px;
+}
+.market-nav button:hover,.profile-button:hover,.legacy-link:hover,
+.market-nav button.active{
+  background:var(--dx-surface)!important;
+  border-color:var(--dx-border)!important;
+  color:var(--dx-accent)!important;
+  box-shadow:none!important;
+}
+.market-nav button.active{border-color:var(--dx-accent)!important}
+.nav-badge{background:var(--dx-accent)!important;color:var(--dx-accent-ink)!important}
+
+/* Primary actions */
+.sell-button,.hero-cta,.primary-wide,.order-actions button,.user-actions button,.profile-save,
+.group-empty a,.bucuria-theme .manager-campaign-fields button,.bucuria-theme .edit-actions button.primary{
+  background:var(--dx-accent)!important;
+  color:var(--dx-accent-ink)!important;
+  border:1px solid var(--dx-accent)!important;
+  border-radius:var(--dx-radius-sm)!important;
+  box-shadow:none!important;
+  min-height:44px;
+}
+.sell-button:hover,.hero-cta:hover,.primary-wide:hover,.order-actions button:hover,.user-actions button:hover,.profile-save:hover,
+.group-empty a:hover{
+  background:#d7ff7e!important;
+  border-color:#d7ff7e!important;
+  transform:translateY(-1px);
+}
+
+/* Hero */
+.market-main{max-width:1360px}
+.market-hero{
+  background:linear-gradient(135deg,#111 0%,#1c1c1e 70%,#262628 100%)!important;
+  border:1px solid var(--dx-border)!important;
+  border-radius:var(--dx-radius-md)!important;
+  box-shadow:var(--dx-shadow)!important;
+  color:var(--dx-text)!important;
+}
+.market-hero h1{font-weight:700!important;letter-spacing:-.035em!important}
+.market-hero p{color:var(--dx-muted-strong)!important}
+.eyebrow,.listing-category,.common-card-body>span,.profile-heading>div:last-child>span{
+  color:var(--dx-accent)!important;
+  opacity:1!important;
+}
+.hero-card{
+  background:var(--dx-raised)!important;
+  border:1px solid #4b4b4d!important;
+  border-radius:var(--dx-radius-md)!important;
+  box-shadow:none!important;
+}
+.hero-mini span{background:#2b2b2d!important;color:var(--dx-muted-strong)!important}
+
+/* Cards/surfaces */
+.locked-market,.listing-card,.manage-card,.order-card,.admin-stats>div,.admin-users,.search-box,.market-modal,
+.profile-card,.profile-message,.group-empty,.common-order-card,
+.glass,.glass-strong,.glass-chip,.bucuria-page-card,.manager-kpis article{
+  background:var(--dx-surface)!important;
+  color:var(--dx-text)!important;
+  border:1px solid var(--dx-border)!important;
+  box-shadow:var(--dx-shadow)!important;
+  backdrop-filter:none!important;
+}
+.glass-dark{background:var(--dx-raised)!important;border:1px solid #555!important;box-shadow:var(--dx-shadow)!important}
+
+.listing-card,.manage-card,.order-card,.admin-stats>div,.admin-users,.market-modal,
+.profile-card,.group-empty,.common-order-card{border-radius:var(--dx-radius-md)!important}
+.listing-card:hover,.common-order-card:hover,.glass-card-hover:hover{
+  border-color:#58585b!important;
+  background:#232325!important;
+  box-shadow:0 0 0 1px rgba(200,251,87,.08)!important;
+  transform:translateY(-2px)!important;
+}
+
+.listing-image,.manage-card>div{background:#111!important}
+.listing-body h3,.listing-footer strong,.section-head h2,.orders-columns>section>h3,.empty-state h3,
+.profile-heading h1,.group-topbar h1,.common-card-body h2{color:var(--dx-text)!important}
+.listing-body p,.listing-footer span,.seller-line,.muted,.manage-card p,.order-card p,
+.empty-state,.profile-heading p,.group-topbar p,.common-card-body p,.group-empty p{
+  color:var(--dx-muted)!important;
+}
+.listing-footer{border-top-color:var(--dx-border)!important}
+.listing-footer button,.category-row button.active{
+  background:var(--dx-accent)!important;
+  color:var(--dx-accent-ink)!important;
+  border-color:var(--dx-accent)!important;
+}
+.stock-pill{background:rgba(0,0,0,.82)!important;border:1px solid #4b4b4d!important}
+
+/* Inputs / filters */
+.search-box,.profile-form input,.glass-input,
+.market-modal input,.market-modal select,.market-modal textarea,
+.bucuria-theme input,.bucuria-theme select,.bucuria-theme textarea{
+  background:#111!important;
+  color:var(--dx-text)!important;
+  border:1px solid var(--dx-border)!important;
+  box-shadow:none!important;
+}
+.search-box input{color:var(--dx-text)!important}
+.search-box input::placeholder,input::placeholder,textarea::placeholder{color:#7f7f82!important}
+.category-row button{
+  background:var(--dx-surface)!important;
+  border:1px solid var(--dx-border)!important;
+  color:var(--dx-muted-strong)!important;
+  border-radius:var(--dx-radius-sm)!important;
+}
+.category-row button:hover{border-color:#666!important;color:var(--dx-text)!important}
+
+/* Group orders */
+.group-shell{padding-top:32px!important}
+.group-back{
+  color:var(--dx-text)!important;
+  background:var(--dx-surface)!important;
+  border:1px solid var(--dx-border)!important;
+  box-shadow:none!important;
+  border-radius:var(--dx-radius-sm)!important;
+}
+.group-back:hover{border-color:var(--dx-accent)!important;color:var(--dx-accent)!important}
+.common-card-cover{background:#111!important;border-bottom:1px solid var(--dx-border)!important}
+.nuts-cover{background:#171717!important}
+.bucuria-cover{background:#171717!important}
+.common-card-body{background:var(--dx-surface)!important}
+.common-card-body strong{color:var(--dx-accent)!important}
+.common-status{background:var(--dx-raised)!important;color:var(--dx-text)!important}
+.status-open{background:rgba(200,251,87,.14)!important;color:var(--dx-accent)!important}
+
+/* Profile */
+.profile-page{padding-top:40px!important}
+.profile-topbar button,.profile-empty a{
+  background:var(--dx-surface)!important;
+  color:var(--dx-text)!important;
+  border:1px solid var(--dx-border)!important;
+}
+.profile-camera{background:var(--dx-accent)!important;color:var(--dx-accent-ink)!important}
+.profile-form label{color:var(--dx-muted-strong)!important}
+.profile-photo-row{background:#111!important;color:var(--dx-muted)!important}
+
+/* Utility navigation */
+.app-utility{
+  background:rgba(28,28,30,.94)!important;
+  border:1px solid var(--dx-border)!important;
+  color:var(--dx-text)!important;
+  box-shadow:0 8px 28px rgba(0,0,0,.28)!important;
+}
+.app-utility:hover{border-color:var(--dx-accent)!important;color:var(--dx-accent)!important}
+
+/* Bucuria keeps brand identity only in its logo; system UI follows the shared storefront language */
+.bucuria-theme{
+  --bucuria-red:var(--dx-accent);
+  --bucuria-red-dark:var(--dx-accent);
+  --bucuria-red-deep:#111;
+  --bucuria-soft:#262628;
+  --bucuria-soft-2:#000;
+  --bucuria-text:#fff;
+  --bucuria-muted:#aaa;
+  --bucuria-border:#343436;
+}
+.bucuria-theme header.sticky{background:rgba(0,0,0,.92)!important;border-bottom:1px solid var(--dx-border)!important}
+.bucuria-theme .hero-wow{
+  background:linear-gradient(135deg,#111,#1c1c1e)!important;
+  border:1px solid var(--dx-border)!important;
+  box-shadow:var(--dx-shadow)!important;
+}
+.bucuria-theme .hero-wow>.absolute{background:linear-gradient(135deg,#111,#222)!important}
+.bucuria-theme .bucuria-head-logo{background:#fff!important}
+.bucuria-theme .bucuria-status-buttons button.active,
+.bucuria-theme .manager-campaign-fields button,
+.bucuria-theme .edit-actions button.primary{background:var(--dx-accent)!important;color:var(--dx-accent-ink)!important}
+.bucuria-theme .manager-top-products i,.bucuria-theme .flow-dot.paid{background:var(--dx-accent)!important}
+.bucuria-theme .bucuria-status-overview>div,.bucuria-theme .bucuria-manager-stats>div{background:#111!important}
+.bucuria-theme .bucuria-page-head span,.bucuria-theme .bucuria-page-title span,.bucuria-theme .manager-kpis article small{color:var(--dx-accent)!important}
+
+/* Old liquid-glass system normalized to storefront tokens */
+.liquid-page{background:var(--dx-bg)!important}
+.glass-shine:before{display:none!important}
+.glass-input{background:#111!important}
+.glass-scrollbar{scrollbar-color:#57575a #1c1c1e}
+
+/* Accessibility / interaction states */
+button:active,a:active{transform:translateY(1px)!important}
+button[aria-busy="true"],.loading{cursor:progress!important}
+.danger,.icon-danger,.profile-logout{color:var(--dx-danger)!important}
+.error,[role="alert"]{border-color:var(--dx-danger)!important}
+
+/* Responsive density */
+@media(max-width:900px){
+  .market-header{grid-template-columns:1fr auto!important;padding:10px 14px!important}
+  .market-nav{grid-column:1/-1;justify-content:flex-start;overflow-x:auto;padding-bottom:2px;scrollbar-width:none}
+  .market-nav::-webkit-scrollbar{display:none}
+  .market-main{padding:16px!important}
+  .market-hero{padding:28px 22px!important}
+  .market-grid{gap:12px!important}
+  .group-shell{padding:18px 12px 88px!important}
+}
+@media(max-width:640px){
+  .market-hero h1{font-size:32px!important;line-height:1.08!important}
+  .market-hero p{font-size:15px!important}
+  .market-grid{grid-template-columns:1fr!important}
+  .common-order-grid{grid-template-columns:1fr!important}
+  .common-card-cover{height:180px!important}
+  .profile-card{border-radius:var(--dx-radius-md)!important}
+  .app-utility-back,.app-utility-profile{bottom:74px!important}
+}
+
+/* Testable motion fallback */
+@media(prefers-reduced-motion:reduce){
+  *,*::before,*::after{scroll-behavior:auto!important;transition-duration:.01ms!important;animation-duration:.01ms!important;animation-iteration-count:1!important}
+}
