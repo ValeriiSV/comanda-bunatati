@@ -21,6 +21,7 @@ import './index.css';
 import './wow.css';
 import './pages/marketplace-nav-cleanup.css';
 import './pages/bucuria-brand.css';
+import './darwin-theme.css';
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
