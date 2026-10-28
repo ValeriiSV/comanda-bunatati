@@ -68,13 +68,13 @@ export default function MiaPaymentPage() {
       <span className="mx-auto mb-5 grid size-14 place-items-center rounded-2xl bg-[#e8f0e2]"><WalletCards /></span>
       <h1 className="font-serif text-3xl font-semibold">Setări MIA</h1>
       <p className="mt-3 text-sm leading-6 text-[#74837b]">Autentifică-te mai întâi în panoul managerului.</p>
-      <Link to="/admin"><Button className="mt-6 bg-[#173d2c]">Mergi la Admin</Button></Link>
+      <Link to="/admin/plati"><Button className="mt-6 bg-[#173d2c]">Mergi la Plăți / MIA</Button></Link>
     </section>
   </main>;
 
   return <main className="min-h-screen bg-[#f2f5ed] p-4 text-[#173d2c] sm:p-8">
     <div className="mx-auto max-w-3xl">
-      <Link to="/admin" className="mb-6 inline-flex items-center gap-2 text-sm font-medium text-[#607269]"><ArrowLeft className="size-4" /> Înapoi la Admin</Link>
+      <Link to="/admin/plati" className="mb-6 inline-flex items-center gap-2 text-sm font-medium text-[#607269]"><ArrowLeft className="size-4" /> Înapoi la Plăți / MIA</Link>
       <section className="rounded-[28px] border border-[#d9e3d7] bg-white p-6 shadow-[0_20px_60px_rgba(23,61,44,.08)] sm:p-8">
         <div className="mb-7 flex items-start gap-4">
           <span className="grid size-12 shrink-0 place-items-center rounded-2xl bg-[#e8f0e2]"><WalletCards /></span>

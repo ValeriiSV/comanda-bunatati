@@ -26,6 +26,11 @@ createRoot(document.getElementById('root')!).render(
           <Route path="/comanda" element={<BunatatiPage />} />
           <Route path="/status" element={<OrderStatusPage />} />
           <Route path="/admin" element={<AdminPage />} />
+          <Route path="/admin/comenzi" element={<AdminPage />} />
+          <Route path="/admin/produse" element={<AdminPage />} />
+          <Route path="/admin/program" element={<AdminPage />} />
+          <Route path="/admin/plati" element={<AdminPage />} />
+          <Route path="/admin/setari" element={<AdminPage />} />
           <Route path="/admin/mia" element={<MiaPaymentPage />} />
 
           {/* Rutele vechi Orbico Market rămân doar ca redirect ca linkurile salvate să nu se rupă. */}

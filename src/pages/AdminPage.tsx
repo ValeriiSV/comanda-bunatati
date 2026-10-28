@@ -1,16 +1,24 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
-import { ArrowLeft } from 'lucide-react';
+import { useLocation } from 'react-router-dom';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import { saveExternalAdminSession } from '@/lib/firebaseRest';
-import SellerExcelExport from '@/components/SellerExcelExport';
-import AdminWowDashboard from '@/components/AdminWowDashboard';
-import OrderDeadlineTimeEditor from '@/components/OrderDeadlineTimeEditor';
+import type { AdminSection } from '@/components/AdminLayout';
 import AdminStablePage from './AdminStablePage';
+
+const sectionByPath: Record<string, AdminSection> = {
+  '/admin': 'dashboard',
+  '/admin/comenzi': 'orders',
+  '/admin/produse': 'products',
+  '/admin/program': 'schedule',
+  '/admin/plati': 'payments',
+  '/admin/setari': 'settings',
+};
 
 export default function AdminPage() {
   const [ready, setReady] = useState(false);
+  const location = useLocation();
+  const section = sectionByPath[location.pathname] || 'dashboard';
 
   useEffect(() => {
     let finished = false;
@@ -55,19 +63,5 @@ export default function AdminPage() {
     );
   }
 
-  return (
-    <div className="relative">
-      <Link
-        to="/"
-        className="fixed bottom-5 left-5 z-[100] inline-flex items-center gap-2 rounded-full border border-[#d9e3d7] bg-white px-4 py-2.5 text-sm font-semibold text-[#173d2c] shadow-lg transition hover:bg-[#f2f5ed]"
-      >
-        <ArrowLeft className="size-4" />
-        Înapoi la catalog
-      </Link>
-      <AdminWowDashboard />
-      <OrderDeadlineTimeEditor />
-      <AdminStablePage />
-      <SellerExcelExport />
-    </div>
-  );
+  return <AdminStablePage section={section} />;
 }

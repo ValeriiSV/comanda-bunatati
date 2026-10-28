@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowLeft, Check, Download, Eye, EyeOff, ImagePlus, LogOut, Minus, Pencil, Plus, RefreshCw, Save, Trash2, X } from 'lucide-react';
+import { ArrowLeft, Check, Download, Eye, EyeOff, ImagePlus, LogOut, Minus, Pencil, Plus, RefreshCw, Save, ShieldCheck, Trash2, WalletCards, X } from 'lucide-react';
 import { GoogleAuthProvider, signInWithPopup, signOut } from 'firebase/auth';
 import { Button } from '@/components/ui/button';
 import { NutsLogo } from '@/components/BrandLogos';
@@ -9,6 +9,10 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { categories, priceLabel, products as catalogProducts, quantityLabel, type Product as CatalogProduct, type QuantityUnit } from '@/lib/products';
 import { auth } from '@/lib/firebase';
 import { adminLogin, clearAdminSession, deleteDocument, getAdminSession, getDocument, listCollection, saveExternalAdminSession, setDocument, updateDocument } from '@/lib/firebaseRest';
+import AdminLayout, { type AdminSection } from '@/components/AdminLayout';
+import AdminWowDashboard from '@/components/AdminWowDashboard';
+import OrderDeadlineTimeEditor from '@/components/OrderDeadlineTimeEditor';
+import SellerExcelExport from '@/components/SellerExcelExport';
 
 type OrderItem = { productId?: string; productName?: string; category?: string; grams?: number; quantityUnit?: string; lineTotalBani?: number };
 type Order = { id: string; orderCode?: string; customerName?: string; phone?: string; totalBani?: number; paid?: boolean; createdAt?: Date | string | null; items?: OrderItem[] };
@@ -106,7 +110,7 @@ function prepareProductImage(file: File): Promise<string> {
   });
 }
 
-export default function AdminStablePage() {
+export default function AdminStablePage({ section = 'dashboard' }: { section?: AdminSection }) {
   const [authorized, setAuthorized] = useState(false);
   const [email, setEmail] = useState('valerkasvetlicenco@icloud.com');
   const [password, setPassword] = useState('');
@@ -141,6 +145,8 @@ export default function AdminStablePage() {
       setProducts(mergeCatalog(productsData as Product[]));
       setDates(Array.isArray(schedule?.dates) ? schedule.dates : []);
       setScheduleMessage(typeof schedule?.message === 'string' ? schedule.message : '');
+      setCollectorName(typeof miaCollector?.name === 'string' ? miaCollector.name : '');
+      setCollectorPhone(typeof miaCollector?.phone === 'string' ? miaCollector.phone : '');
     } catch (e) {
       setError(`Panoul nu poate încărca datele: ${friendly((e as Error).message)}`);
     } finally { setBusy(false); }
@@ -359,9 +365,11 @@ export default function AdminStablePage() {
 
   if (!authorized) return <main className="grid min-h-screen place-items-center bg-[#f2f5ed] p-5 text-[#173d2c]"><section className="w-full max-w-md rounded-[28px] border border-[#d9e3d7] bg-white p-8 shadow-xl"><Link to="/" className="mb-7 flex items-center gap-2 text-sm text-[#607269]"><ArrowLeft className="size-4" /> Înapoi la catalog</Link><NutsLogo className="mb-5 size-20 rounded-xl border border-[#d9e3d7] bg-white p-1" title="Nuci și Fructe Uscate" /><h1 className="font-serif text-3xl font-semibold">Panoul managerului</h1><form onSubmit={login} className="mt-7 space-y-3"><Input type="email" autoComplete="username" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Email" className="h-12 rounded-xl" /><Input type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Parolă" className="h-12 rounded-xl" /><Button disabled={busy || !email || !password} className="h-12 w-full rounded-xl bg-[#173d2c]">{busy ? 'Se autentifică…' : 'Intră în panou'}</Button></form><div className="my-4 flex items-center gap-3 text-xs text-[#8a968f]"><span className="h-px flex-1 bg-[#dfe7df]" />sau<span className="h-px flex-1 bg-[#dfe7df]" /></div><Button type="button" variant="outline" onClick={loginGoogle} disabled={busy} className="h-12 w-full rounded-xl">{busy ? 'Se conectează…' : 'Continuă cu Google'}</Button>{error && <p className="mt-4 rounded-xl bg-red-50 p-3 text-sm text-red-700">{error}</p>}</section></main>;
 
-  return <main className="min-h-screen bg-[#f2f5ed] text-[#173d2c]"><header className="border-b bg-white"><div className="mx-auto flex max-w-[1400px] items-center justify-between gap-4 px-4 py-4 sm:px-8"><div className="flex items-center gap-3"><Link to="/"><NutsLogo className="size-12 rounded-xl border border-[#d9e3d7] bg-white p-1" title="Nuci și Fructe Uscate" /></Link><div><h1 className="font-serif text-2xl font-semibold">Panoul managerului</h1></div></div><div className="flex gap-2"><Button variant="outline" onClick={loadAll} disabled={busy}><RefreshCw /> Reîncarcă</Button><Button onClick={exportCsv} className="bg-[#173d2c]"><Download /> CSV</Button><Button type="button" variant="outline" size="icon" onClick={logout} disabled={busy} title="Ieșire"><LogOut /></Button></div></div></header><div className="mx-auto max-w-[1400px] space-y-6 p-4 sm:p-8">{error && <p className="rounded-xl bg-red-50 p-3 text-sm text-red-700">{error}</p>}{notice && <p className="rounded-xl bg-[#e8f3df] p-3 text-sm text-[#315b32]">{notice}</p>}
+  return <AdminLayout section={section} actions={<><Button variant="outline" onClick={loadAll} disabled={busy}><RefreshCw /> Reîncarcă</Button>{section === 'orders' && <Button onClick={exportCsv} className="bg-[#173d2c]"><Download /> CSV</Button>}<Button type="button" variant="outline" size="icon" onClick={logout} disabled={busy} title="Ieșire"><LogOut /></Button></>}><div className="space-y-6">{error && <p className="rounded-xl bg-red-50 p-3 text-sm text-red-700">{error}</p>}{notice && <p className="rounded-xl bg-[#e8f3df] p-3 text-sm text-[#315b32]">{notice}</p>}
 
-  <section className="rounded-[24px] border border-[#cfe0cf] bg-[#f5faf2] p-5">
+  {section === 'dashboard' && <AdminWowDashboard />}
+
+  {section === 'payments' && <><section className="rounded-[24px] border border-[#cfe0cf] bg-[#f5faf2] p-5">
     <div className="flex flex-col gap-1">
       <p className="text-xs font-bold uppercase tracking-[.12em] text-[#6d7f72]">MIA P2P</p>
       <h2 className="font-serif text-2xl font-semibold">Colector MIA P2P</h2>
@@ -374,8 +382,13 @@ export default function AdminStablePage() {
     </div>
     {collectorPhone.trim() && <p className="mt-3 text-xs text-[#6f7f76]">QR-ul public va conține numărul: <strong>{collectorPhone.trim()}</strong>. Suma se introduce manual în aplicația bancară.</p>}
   </section>
+  <section className="rounded-[24px] border bg-white p-5">
+    <h2 className="font-serif text-2xl font-semibold">Setări complete MIA</h2>
+    <p className="mt-1 text-sm text-[#74837b]">Configurează numele beneficiarului, numărul asociat și linkul opțional de plată.</p>
+    <Link to="/admin/mia"><Button variant="outline" className="mt-4"><WalletCards className="size-4" /> Deschide setările MIA</Button></Link>
+  </section></>}
 
-  <section className="rounded-[22px] border bg-white p-4"><div className="flex items-center justify-between"><div><p className="font-semibold">Perioada comenzilor</p><p className="text-xs text-[#74837b]">Istoric separat pe luni</p></div><select value={selectedMonth} onChange={(e) => setSelectedMonth(e.target.value)} className="h-11 rounded-xl border px-3">{monthOptions.map((k) => <option key={k} value={k}>{monthLabel(k)}</option>)}</select></div></section>
+  {section === 'orders' && <><section className="rounded-[22px] border bg-white p-4"><div className="flex items-center justify-between"><div><p className="font-semibold">Perioada comenzilor</p><p className="text-xs text-[#74837b]">Istoric separat pe luni</p></div><select value={selectedMonth} onChange={(e) => setSelectedMonth(e.target.value)} className="h-11 rounded-xl border px-3">{monthOptions.map((k) => <option key={k} value={k}>{monthLabel(k)}</option>)}</select></div></section>
 
   <section className="grid gap-3 sm:grid-cols-3"><Stat label="Comenzi" value={String(visibleOrders.length)} /><Stat label="Total de încasat" value={`${lei(totals.totalBani)} lei`} /><Stat label="Încasat" value={`${lei(totals.paidBani)} lei`} /></section>
 
@@ -424,11 +437,11 @@ export default function AdminStablePage() {
     </div>}
 
     <div className="overflow-x-auto"><Table><TableHeader><TableRow><TableHead>Nume</TableHead><TableHead>Telefon</TableHead><TableHead>Produse</TableHead><TableHead>Total</TableHead><TableHead>Plată</TableHead><TableHead className="text-right">Acțiuni</TableHead></TableRow></TableHeader><TableBody>{visibleOrders.map((o) => <TableRow key={o.id} className={editingOrderId === o.id ? 'bg-[#f7faf4]' : ''}><TableCell><strong>{o.customerName || 'Fără nume'}</strong><span className="block text-xs text-[#829087]">{o.orderCode || '—'} · {orderDate(o).toLocaleDateString('ro-MD')}</span></TableCell><TableCell>{o.phone || '—'}</TableCell><TableCell className="min-w-72">{(o.items || []).map((i, idx) => <span key={`${i.productId}-${idx}`} className="mr-1.5 mb-1.5 inline-flex rounded-full bg-[#eef3e8] px-2.5 py-1 text-xs">{i.productName} · {orderQuantityLabel(i.productId, i.grams || 0, products)}</span>)}</TableCell><TableCell className="font-semibold">{lei(o.totalBani || 0)} lei</TableCell><TableCell><Button size="sm" variant={o.paid ? 'secondary' : 'outline'} onClick={() => togglePaid(o)}>{o.paid && <Check />} {o.paid ? 'Achitat' : 'Neachitat'}</Button></TableCell><TableCell className="text-right"><div className="flex justify-end gap-1"><Button variant="ghost" size="icon" onClick={() => startOrderEdit(o)} title="Modifică această comandă"><Pencil /></Button><Button variant="ghost" size="icon" onClick={() => removeOrder(o)} className="text-red-600" title="Șterge comanda"><Trash2 /></Button></div></TableCell></TableRow>)}{visibleOrders.length === 0 && <TableRow><TableCell colSpan={6} className="py-10 text-center text-[#74837b]">Nu există comenzi în această lună.</TableCell></TableRow>}</TableBody></Table></div>
-  </section>
+  </section></>}
 
-  <section className="rounded-[24px] border border-[#e4d4b8] bg-[#fffaf0] p-5"><h2 className="font-serif text-2xl font-semibold">Următoarea comandă</h2><div className="mt-4 flex flex-col gap-3 sm:flex-row"><Input type="date" value={newDate} onChange={(e) => setNewDate(e.target.value)} className="max-w-xs bg-white" /><Button onClick={() => { if (newDate) { saveSchedule([...dates, newDate]); setNewDate(''); } }} className="bg-[#173d2c]"><Plus /> Adaugă data</Button></div>{dates.length > 0 && <div className="mt-4 flex flex-wrap gap-2">{dates.map((d) => <div key={d} className="flex items-center gap-2 rounded-full border bg-white py-1.5 pl-3 pr-1.5 text-sm"><span>{formatOrderDate(d)}</span><button onClick={() => saveSchedule(dates.filter((x) => x !== d))} className="grid size-7 place-items-center text-red-600"><X className="size-4" /></button></div>)}</div>}<div className="mt-4 flex gap-2"><Input value={scheduleMessage} onChange={(e) => setScheduleMessage(e.target.value)} placeholder="Mesaj opțional" className="bg-white" /><Button variant="outline" onClick={() => saveSchedule(dates, scheduleMessage)}><Save /> Salvează</Button></div></section>
+  {section === 'schedule' && <section className="rounded-[24px] border border-[#e4d4b8] bg-[#fffaf0] p-5"><h2 className="font-serif text-2xl font-semibold">Următoarea comandă</h2><div className="mt-4 flex flex-col gap-3 sm:flex-row"><Input type="date" value={newDate} onChange={(e) => setNewDate(e.target.value)} className="max-w-xs bg-white" /><Button onClick={() => { if (newDate) { saveSchedule([...dates, newDate]); setNewDate(''); } }} className="bg-[#173d2c]"><Plus /> Adaugă data</Button></div>{dates.length > 0 && <div className="mt-4 flex flex-wrap gap-2">{dates.map((d) => <div key={d} className="flex items-center gap-2 rounded-full border bg-white py-1.5 pl-3 pr-1.5 text-sm"><span>{formatOrderDate(d)}</span><button onClick={() => saveSchedule(dates.filter((x) => x !== d))} className="grid size-7 place-items-center text-red-600"><X className="size-4" /></button></div>)}</div>}<div className="mt-4 flex flex-col gap-2 sm:flex-row"><Input value={scheduleMessage} onChange={(e) => setScheduleMessage(e.target.value)} placeholder="Mesaj opțional" className="bg-white" /><Button variant="outline" onClick={() => saveSchedule(dates, scheduleMessage)}><Save /> Salvează</Button></div><OrderDeadlineTimeEditor /></section>}
 
-  <section className="rounded-[24px] border bg-white p-5">
+  {section === 'products' && <section className="rounded-[24px] border bg-white p-5">
     <div><h2 className="font-serif text-2xl font-semibold">Produse</h2><p className="mt-1 text-sm text-[#74837b]">Adaugă orice produs, inclusiv produse la bucată, cofraj sau borcan.</p></div>
 
     <form onSubmit={saveProduct} className="mt-5 rounded-2xl border border-[#dce7d7] bg-[#f5f8f1] p-4 sm:p-5">
@@ -466,11 +479,23 @@ export default function AdminStablePage() {
     </form>
 
     {products.length > 0 && <div className="mt-5 overflow-x-auto rounded-2xl border"><Table><TableHeader><TableRow><TableHead>Produs</TableHead><TableHead>Categorie</TableHead><TableHead>Preț</TableHead><TableHead>Limită</TableHead><TableHead>Status</TableHead><TableHead className="text-right">Acțiuni</TableHead></TableRow></TableHeader><TableBody>{products.map((p) => <TableRow key={p.id}><TableCell><div className="flex min-w-48 items-center gap-3">{p.imageUrl && <img src={p.imageUrl} alt="" className="size-10 rounded-xl object-cover" />}<strong>{p.name}</strong></div></TableCell><TableCell>{p.category}</TableCell><TableCell>{priceLabel(p)}</TableCell><TableCell>{p.stockLimit ? quantityLabel(p, p.stockLimit) : 'Fără limită'}</TableCell><TableCell>{p.active === false ? 'Ascuns' : 'Activ'}</TableCell><TableCell><div className="flex justify-end gap-1"><Button variant="ghost" size="icon" onClick={() => toggleProduct(p)} title={p.active === false ? 'Afișează produsul' : 'Ascunde produsul'}>{p.active === false ? <Eye /> : <EyeOff />}</Button><Button variant="ghost" size="icon" onClick={() => startEdit(p)} title="Modifică produsul"><Pencil /></Button><Button variant="ghost" size="icon" onClick={() => removeProduct(p)} title="Șterge sau ascunde produsul"><Trash2 /></Button></div></TableCell></TableRow>)}</TableBody></Table></div>}
-  </section>
+  </section>}
 
-  <section className="rounded-[24px] border bg-white p-5"><h2 className="font-serif text-2xl font-semibold">Lista pentru vânzător</h2><div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">{totals.byProduct.map((p) => <div key={p.id} className="flex justify-between rounded-xl bg-[#f2f6ee] px-4 py-3"><span>{p.name}</span><strong>{orderQuantityLabel(p.id, p.grams, products)}</strong></div>)}</div></section>
+  {section === 'orders' && <section className="rounded-[24px] border bg-white p-5"><h2 className="font-serif text-2xl font-semibold">Lista pentru vânzător</h2><SellerExcelExport /><div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">{totals.byProduct.map((p) => <div key={p.id} className="flex justify-between rounded-xl bg-[#f2f6ee] px-4 py-3"><span>{p.name}</span><strong>{orderQuantityLabel(p.id, p.grams, products)}</strong></div>)}</div></section>}
 
-  </div></main>;
+  {section === 'settings' && <section className="rounded-[24px] border bg-white p-6">
+    <div className="flex items-start gap-4">
+      <span className="grid size-12 shrink-0 place-items-center rounded-2xl bg-[#e8f0e2]"><ShieldCheck className="size-5" /></span>
+      <div><h2 className="font-serif text-2xl font-semibold">Acces manager</h2><p className="mt-1 text-sm text-[#74837b]">Sesiunea activă poate administra comenzile, catalogul, programul și plățile din Firebase.</p></div>
+    </div>
+    <div className="mt-5 flex flex-wrap gap-2">
+      <Button variant="outline" onClick={loadAll} disabled={busy}><RefreshCw /> Reîncarcă toate datele</Button>
+      <Button variant="outline" onClick={logout} disabled={busy}><LogOut /> Ieșire din cont</Button>
+      <Link to="/"><Button className="bg-[#173d2c]">Deschide catalogul</Button></Link>
+    </div>
+  </section>}
+
+  </div></AdminLayout>;
 }
 
 function Stat({ label, value }: { label: string; value: string }) { return <div className="rounded-[22px] border bg-white p-5"><p className="text-sm text-[#74837b]">{label}</p><strong className="mt-1 block font-serif text-3xl">{value}</strong></div>; }
