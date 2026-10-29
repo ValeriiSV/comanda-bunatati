@@ -76,9 +76,12 @@ function readLastOrder(): LastOrder | null {
 function readOrderHistory(): LastOrder[] {
   try {
     const raw = localStorage.getItem(ORDER_HISTORY_KEY);
-    return raw ? (JSON.parse(raw) as LastOrder[]).slice(0, 8) : [];
+    if (raw) return (JSON.parse(raw) as LastOrder[]).slice(0, 8);
+    const last = readLastOrder();
+    return last ? [last] : [];
   } catch {
-    return [];
+    const last = readLastOrder();
+    return last ? [last] : [];
   }
 }
 
