@@ -380,7 +380,7 @@ function CartPanel({ cart, setCart, products, schedule, lastOrder, onSubmitted }
         <div className="space-y-3">
           <Input className="glass-input h-11 rounded-xl px-3" placeholder="Numele și prenumele *" value={name} onChange={(event) => setName(event.target.value)} />
           <Input type="tel" inputMode="tel" autoComplete="tel" className="glass-input h-11 rounded-xl px-3" placeholder="Număr de telefon *" value={phone} onChange={(event) => setPhone(event.target.value)} />
-          {schedule.closed ? <p className="rounded-xl bg-[#fff0df]/90 p-3 text-sm font-medium text-[#8b581c]">Comanda curentă este închisă. Vei putea trimite din nou când managerul deschide următoarea rundă.</p> : schedule.dates.length > 0 ? <ScheduleNotice schedule={schedule} compact /> : null}
+          {schedule.closed && <p className="rounded-xl bg-[#fff0df]/90 p-3 text-sm font-medium text-[#8b581c]">Comanda curentă este închisă. Vei putea trimite din nou când managerul deschide următoarea rundă.</p>}
           {submitError && <p className="rounded-xl bg-red-50/85 p-3 text-sm text-red-700 backdrop-blur-md">{submitError}</p>}
           <Button disabled={!name.trim() || !phone.trim() || !lines.length || sending || schedule.closed} onClick={submit} className="h-12 w-full rounded-xl bg-[#f2a444]/95 text-base font-semibold text-[#17301f] shadow-lg backdrop-blur-md hover:bg-[#e89531]">
             {sending ? 'Se trimite…' : schedule.closed ? 'Comanda este închisă' : 'Trimite comanda'} <ChevronRight />
