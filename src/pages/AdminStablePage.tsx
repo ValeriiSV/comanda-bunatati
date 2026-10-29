@@ -241,13 +241,7 @@ export default function AdminStablePage({ section = 'dashboard' }: { section?: A
 
   const monthOptions = useMemo(() => { const keys = new Set(orders.map((o) => monthKey(orderDate(o)))); keys.add(monthKey(new Date())); return [...keys].sort().reverse(); }, [orders]);
   const visibleOrders = useMemo(() => orders.filter((o) => monthKey(orderDate(o)) === selectedMonth), [orders, selectedMonth]);
-  const totals = useMemo(() => {
-    const totalBani = visibleOrders.reduce((s, o) => s + (Number(o.totalBani) || 0), 0);
-    const paidBani = visibleOrders.filter((o) => o.paid).reduce((s, o) => s + (Number(o.totalBani) || 0), 0);
-    const byProduct = new Map<string, { id: string; name: string; grams: number }>();
-    visibleOrders.forEach((o) => (o.items || []).forEach((i) => { const id = i.productId || i.productName || 'produs'; const cur = byProduct.get(id) || { id, name: i.productName || 'Produs', grams: 0 }; cur.grams += Number(i.grams) || 0; byProduct.set(id, cur); }));
-    return { totalBani, paidBani, byProduct: [...byProduct.values()].sort((a, b) => a.name.localeCompare(b.name, 'ro')) };
-  }, [visibleOrders]);
+
   const editingOrder = editingOrderId ? orders.find((order) => order.id === editingOrderId) : undefined;
   const orderDraftTotalBani = useMemo(() => orderDraftItems.reduce((sum, item) => {
     const product = products.find((candidate) => candidate.id === item.productId);
