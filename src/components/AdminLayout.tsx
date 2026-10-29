@@ -4,20 +4,23 @@ import {
   CalendarClock,
   ExternalLink,
   LayoutDashboard,
+  MessageCircle,
   Package,
+  ScanLine,
   Settings,
   ShoppingBag,
   WalletCards,
 } from 'lucide-react';
-import { NutsLogo } from '@/components/BrandLogos';
 
-export type AdminSection = 'dashboard' | 'orders' | 'products' | 'schedule' | 'payments' | 'settings';
+export type AdminSection = 'dashboard' | 'orders' | 'packing' | 'products' | 'schedule' | 'campaign' | 'payments' | 'settings';
 
 const navigation = [
   { section: 'dashboard', to: '/admin', label: 'Dashboard', icon: LayoutDashboard, end: true },
   { section: 'orders', to: '/admin/comenzi', label: 'Comenzi', icon: ShoppingBag },
+  { section: 'packing', to: '/admin/pregatire', label: 'Pregătire & ridicare', icon: ScanLine },
   { section: 'products', to: '/admin/produse', label: 'Produse', icon: Package },
   { section: 'schedule', to: '/admin/program', label: 'Program', icon: CalendarClock },
+  { section: 'campaign', to: '/admin/viber', label: 'Campanie Viber', icon: MessageCircle },
   { section: 'payments', to: '/admin/plati', label: 'Plăți / MIA', icon: WalletCards },
   { section: 'settings', to: '/admin/setari', label: 'Setări', icon: Settings },
 ] as const;
@@ -25,8 +28,10 @@ const navigation = [
 const sectionCopy: Record<AdminSection, { eyebrow: string; title: string; description: string }> = {
   dashboard: { eyebrow: 'Privire de ansamblu', title: 'Dashboard', description: 'Situația rundei curente și fluxul comenzilor.' },
   orders: { eyebrow: 'Administrare', title: 'Comenzi', description: 'Comenzi, plăți, editare și exporturi pentru vânzător.' },
+  packing: { eyebrow: 'Operațiuni', title: 'Pregătire & ridicare', description: 'Pregătește comenzile, scanează QR și marchează predarea.' },
   products: { eyebrow: 'Catalog', title: 'Produse', description: 'Adaugă, modifică sau ascunde produsele din catalog.' },
   schedule: { eyebrow: 'Runda de comandă', title: 'Program și termen', description: 'Configurează datele, mesajul public și ora limită.' },
+  campaign: { eyebrow: 'Comunicare', title: 'Campanie Viber', description: 'Generează și distribuie mesajul rundei în grupul colegilor.' },
   payments: { eyebrow: 'Încasări', title: 'Plăți și MIA', description: 'Configurează beneficiarul și datele de transfer MIA.' },
   settings: { eyebrow: 'Panou manager', title: 'Setări', description: 'Sesiune, acces și scurtături administrative.' },
 };
@@ -48,7 +53,7 @@ export default function AdminLayout({
         <aside className="border-b border-[#d9e3d7] bg-white/90 lg:sticky lg:top-0 lg:flex lg:h-screen lg:flex-col lg:border-b-0 lg:border-r">
           <div className="flex items-center justify-between gap-3 px-4 py-4 lg:px-5 lg:py-6">
             <Link to="/admin" className="flex min-w-0 items-center gap-3">
-              <NutsLogo className="size-11 shrink-0 rounded-xl border border-[#d9e3d7] bg-white p-1" title="Bunătăți cu Valera" />
+              <img src="/valera-logo.svg?v=8" alt="Bunătăți cu Valera" className="size-11 shrink-0 rounded-full border border-[#d9e3d7] bg-white object-cover" />
               <div className="min-w-0">
                 <strong className="block truncate font-serif text-lg">Bunătăți cu Valera</strong>
                 <span className="block text-xs text-[#74837b]">Panoul managerului</span>
