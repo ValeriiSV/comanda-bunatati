@@ -18,6 +18,9 @@ import {
   Users,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import SimpleQrCode from '@/components/SimpleQrCode';
+import CollectiveGoalBadge from '@/components/CollectiveGoalBadge';
+import SmartBasketCard from '@/components/SmartBasketCard';
 import { Input } from '@/components/ui/input';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { categories, linePrice, priceLabel, quantityLabel, type Category, type Product } from '@/lib/products';
@@ -41,6 +44,7 @@ type LastOrder = {
 const MIA_LINK = 'https://mia-qr.bnm.md/1/m/BNM/MCB983a07f55265457d90654eb9f97574fc';
 const FAVORITES_KEY = 'bunatati_favorites_v1';
 const LAST_ORDER_KEY = 'bunatati_last_order_v2';
+const ORDER_HISTORY_KEY = 'bunatati_order_history_v1';
 
 function productImage(product: Product) {
   if (product.imageUrl && !product.imageUrl.startsWith('/products/')) return product.imageUrl;
@@ -66,6 +70,15 @@ function readLastOrder(): LastOrder | null {
     return raw ? JSON.parse(raw) as LastOrder : null;
   } catch {
     return null;
+  }
+}
+
+function readOrderHistory(): LastOrder[] {
+  try {
+    const raw = localStorage.getItem(ORDER_HISTORY_KEY);
+    return raw ? (JSON.parse(raw) as LastOrder[]).slice(0, 8) : [];
+  } catch {
+    return [];
   }
 }
 
@@ -193,17 +206,20 @@ function ScheduleNotice({ schedule, compact = false }: { schedule: OrderSchedule
 
 function PublicPulse({ stats }: { stats: PublicOrderStats }) {
   const hasData = stats.orderCount > 0 || stats.totalBani > 0;
+  const lastMinutes = stats.lastOrderAt ? Math.max(0, Math.floor((Date.now() - new Date(stats.lastOrderAt).getTime()) / 60000)) : null;
   return (
     <div className="glass-dark rounded-[24px] p-4 text-white shadow-2xl">
       <div className="flex items-center justify-between gap-3">
         <div><p className="text-[11px] font-bold uppercase tracking-[.14em] text-white/65">Live · comanda lunii</p><p className="mt-1 font-serif text-2xl font-semibold">{hasData ? `${stats.orderCount} comenzi` : 'Comanda e deschisă'}</p></div>
         <span className="pulse-live size-2.5 rounded-full bg-[#9be57d]" />
       </div>
-      <div className="mt-4 grid grid-cols-2 gap-2">
-        <div className="rounded-2xl bg-white/10 p-3"><Users className="size-4 text-[#dceecf]" /><strong className="mt-2 block text-lg">{stats.orderCount}</strong><span className="text-xs text-white/60">comenzi</span></div>
-        <div className="rounded-2xl bg-white/10 p-3"><TrendingUp className="size-4 text-[#f7cf8d]" /><strong className="mt-2 block text-lg">{money(stats.totalBani / 100)} lei</strong><span className="text-xs text-white/60">valoare totală</span></div>
+      <div className="mt-4 grid grid-cols-3 gap-2">
+        <div className="rounded-2xl bg-white/10 p-3"><Users className="size-4 text-[#dceecf]" /><strong className="mt-2 block text-lg">{stats.orderCount}</strong><span className="text-[11px] text-white/60">comenzi</span></div>
+        <div className="rounded-2xl bg-white/10 p-3"><TrendingUp className="size-4 text-[#f7cf8d]" /><strong className="mt-2 block text-lg">{money(stats.totalBani / 100)}</strong><span className="text-[11px] text-white/60">lei</span></div>
+        <div className="rounded-2xl bg-white/10 p-3"><PackageCheck className="size-4 text-[#dceecf]" /><strong className="mt-2 block text-lg">{money(stats.totalGrams / 1000)}</strong><span className="text-[11px] text-white/60">kg</span></div>
       </div>
-      {stats.paidCount > 0 && <p className="mt-3 text-xs text-white/65">{stats.paidCount} comenzi marcate achitate.</p>}
+      {stats.topProductName && <p className="mt-3 rounded-xl bg-white/10 px-3 py-2 text-xs text-white/75">🔥 Cel mai comandat: <strong className="text-white">{stats.topProductName}</strong></p>}
+      {lastMinutes !== null && <p className="mt-2 text-xs text-white/55">{lastMinutes < 1 ? 'Ultima comandă chiar acum' : `Ultima comandă acum ${lastMinutes} min`}</p>}
     </div>
   );
 }
@@ -298,6 +314,8 @@ function CartPanel({ cart, setCart, products, schedule, lastOrder, onSubmitted }
         <h2 className="font-serif text-3xl font-semibold text-[#173d2c]">Comandă trimisă</h2>
         <p className="mt-3 max-w-xs text-[#607269]">Codul tău este <strong className="text-[#173d2c]">{success}</strong>. Păstrează-l pentru urmărirea statusului.</p>
         {schedule.dates.length > 0 && <p className="glass mt-3 max-w-xs rounded-xl px-4 py-2.5 text-sm text-[#7a5325]">Comanda comună este planificată pentru <strong>{schedule.dates.map(formatOrderDate).join(' / ')}</strong>.</p>}
+        <div className="glass mt-5 w-40 rounded-2xl p-2"><SimpleQrCode value={success} title={`QR ${success}`} className="size-full" /></div>
+        <p className="mt-2 max-w-xs text-xs text-[#74837b]">Păstrează QR-ul. La ridicare îl poți arăta direct managerului.</p>
         <div className="mt-5 w-full max-w-sm"><MiaQrCard compact /></div>
         <div className="mt-5 flex flex-wrap justify-center gap-2">
           <Link to={`/status?code=${encodeURIComponent(success)}`} className="inline-flex h-11 items-center gap-2 rounded-full bg-[#173d2c] px-5 text-sm font-semibold text-white"><PackageCheck className="size-4" /> Vezi statusul</Link>
@@ -365,14 +383,22 @@ export default function OrderApp() {
   const { products: firestoreProducts, loading, error } = useProducts();
   const { schedule } = useOrderSchedule();
   useDeadlineNotifications(schedule);
-  const { stats } = usePublicOrderMeta();
-  const products = useMemo(() => firestoreProducts.filter((product) => product.active !== false), [firestoreProducts]);
+  const { stats, productTotals, goals } = usePublicOrderMeta();
+  const baseProducts = useMemo(() => firestoreProducts.filter((product) => product.active !== false), [firestoreProducts]);
+  const products = useMemo(() => baseProducts.map((product) => {
+    const goal = goals[product.id];
+    const total = productTotals[product.id];
+    return goal && total && total.amount >= goal.goalAmount
+      ? { ...product, priceLei: goal.goalPriceLei }
+      : product;
+  }), [baseProducts, goals, productTotals]);
   const [activeCategory, setActiveCategory] = useState<Category>('Nuci');
   const [search, setSearch] = useState('');
   const [cart, setCart] = useState<Cart>({});
   const [favorites, setFavorites] = useState<Set<string>>(() => readFavorites());
   const [favoritesOnly, setFavoritesOnly] = useState(false);
   const [lastOrder, setLastOrder] = useState<LastOrder | null>(() => readLastOrder());
+  const [orderHistory, setOrderHistory] = useState<LastOrder[]>(() => readOrderHistory());
 
   const displayCategories = useMemo(() => [...new Set([...categories, ...products.map((product) => product.category)])].filter((category) => products.some((product) => product.category === category)), [products]);
   const categoryCounts = useMemo(() => Object.fromEntries(displayCategories.map((category) => [category, products.filter((product) => product.category === category).length])) as Record<Category, number>, [displayCategories, products]);
@@ -409,6 +435,15 @@ export default function OrderApp() {
     setCart(Object.fromEntries(Object.entries(lastOrder.cart).filter(([id, amount]) => known.has(id) && amount > 0)));
   };
 
+  const handleSubmitted = (order: LastOrder) => {
+    setLastOrder(order);
+    setOrderHistory((current) => {
+      const next = [order, ...current.filter((item) => item.orderCode !== order.orderCode)].slice(0, 8);
+      localStorage.setItem(ORDER_HISTORY_KEY, JSON.stringify(next));
+      return next;
+    });
+  };
+
   return (
     <main className="liquid-page min-h-screen pb-28 text-[#173d2c] lg:pb-0">
       <header className="sticky top-0 z-40 bg-[#f3f5ed]/30 px-2 backdrop-blur-xl">
@@ -443,6 +478,8 @@ export default function OrderApp() {
               <PublicPulse stats={stats} />
             </div>
           </div>
+
+          <SmartBasketCard history={orderHistory} products={products} onApply={setCart} />
 
           <div className={`mb-5 grid gap-3 ${lastOrder ? 'lg:grid-cols-2' : 'lg:grid-cols-1'}`}>
             <ScheduleNotice schedule={schedule} />
@@ -520,6 +557,7 @@ export default function OrderApp() {
                   </div>
                   <div className="p-5">
                     <h3 className="min-h-12 text-[17px] font-semibold leading-6">{product.name}</h3>
+                    <CollectiveGoalBadge product={product} goal={goals[product.id]} total={productTotals[product.id]} />
                     {amount ? (
                       <div className="mt-4 flex items-center justify-between gap-3"><div className="glass-chip flex items-center gap-1 rounded-full p-1"><Button variant="ghost" size="icon-sm" className="rounded-full" onClick={() => change(product.id, -product.stepGrams)}><Minus /></Button><strong className="min-w-14 text-center text-sm">{quantityLabel(product, amount)}</strong><Button variant="ghost" size="icon-sm" className="rounded-full" onClick={() => change(product.id, product.stepGrams)}><Plus /></Button></div><strong className="shrink-0">{money(linePrice(product, amount))} lei</strong></div>
                     ) : (
@@ -537,7 +575,7 @@ export default function OrderApp() {
         <aside className="sticky top-20 hidden h-[calc(100vh-5rem)] p-3 pl-0 lg:block">
           <div className="glass-strong glass-shine flex h-full min-h-0 flex-col overflow-hidden rounded-[28px]">
             <div className="border-b border-white/60 px-5 py-5"><h2 className="font-serif text-2xl font-semibold">Comanda mea</h2><p className="mt-1 text-sm text-[#74837b]">{itemCount ? `${itemCount} produse alese` : 'Alege produsele din catalog'}</p></div>
-            <div className="min-h-0 flex-1"><CartPanel cart={cart} setCart={setCart} products={products} schedule={schedule} lastOrder={lastOrder} onSubmitted={setLastOrder} /></div>
+            <div className="min-h-0 flex-1"><CartPanel cart={cart} setCart={setCart} products={products} schedule={schedule} lastOrder={lastOrder} onSubmitted={handleSubmitted} /></div>
           </div>
         </aside>
       </div>
@@ -545,7 +583,7 @@ export default function OrderApp() {
       <div className="glass fixed inset-x-3 bottom-3 z-40 rounded-[24px] p-2 lg:hidden">
         <Sheet>
           <SheetTrigger render={<Button className="glass-dark h-13 w-full rounded-[20px] px-5 text-base text-white" />}><ShoppingBag /> Vezi comanda <span className="ml-auto">{money(total)} lei</span></SheetTrigger>
-          <SheetContent side="bottom" className="glass-strong max-h-[90vh] rounded-t-[30px] border-white/70 bg-white/68"><SheetHeader className="border-b border-white/60 px-5 py-4"><SheetTitle className="font-serif text-2xl">Comanda mea</SheetTitle><SheetDescription>{itemCount ? `${itemCount} produse alese` : 'Coșul este gol'}</SheetDescription></SheetHeader><CartPanel cart={cart} setCart={setCart} products={products} schedule={schedule} lastOrder={lastOrder} onSubmitted={setLastOrder} /></SheetContent>
+          <SheetContent side="bottom" className="glass-strong max-h-[90vh] rounded-t-[30px] border-white/70 bg-white/68"><SheetHeader className="border-b border-white/60 px-5 py-4"><SheetTitle className="font-serif text-2xl">Comanda mea</SheetTitle><SheetDescription>{itemCount ? `${itemCount} produse alese` : 'Coșul este gol'}</SheetDescription></SheetHeader><CartPanel cart={cart} setCart={setCart} products={products} schedule={schedule} lastOrder={lastOrder} onSubmitted={handleSubmitted} /></SheetContent>
         </Sheet>
       </div>
     </main>
