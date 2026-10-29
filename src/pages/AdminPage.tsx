@@ -9,8 +9,10 @@ import AdminStablePage from './AdminStablePage';
 const sectionByPath: Record<string, AdminSection> = {
   '/admin': 'dashboard',
   '/admin/comenzi': 'orders',
+  '/admin/pregatire': 'packing',
   '/admin/produse': 'products',
   '/admin/program': 'schedule',
+  '/admin/viber': 'campaign',
   '/admin/plati': 'payments',
   '/admin/setari': 'settings',
 };
