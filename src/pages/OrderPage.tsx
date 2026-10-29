@@ -28,6 +28,7 @@ import { getCategoryExperience, isNewProduct, recommendProducts } from '@/lib/ca
 import { useProducts, type ManagedProduct } from '@/hooks/useProducts';
 import { formatOrderDate, useOrderSchedule, type OrderSchedule } from '@/hooks/useOrderSchedule';
 import { usePublicOrderMeta, type PublicOrderStats } from '@/hooks/usePublicOrderMeta';
+import { useMiaPayment } from '@/hooks/useMiaPayment';
 import { submitPublicOrder } from '@/lib/orderApi';
 import { downloadOrderReminder, orderDeadline, REMINDER_KEY, reminderId } from '@/lib/orderReminders';
 
@@ -41,7 +42,6 @@ type LastOrder = {
   createdAt: string;
 };
 
-const MIA_LINK = 'https://mia-qr.bnm.md/1/m/BNM/MCB983a07f55265457d90654eb9f97574fc';
 const FAVORITES_KEY = 'bunatati_favorites_v1';
 const LAST_ORDER_KEY = 'bunatati_last_order_v2';
 const ORDER_HISTORY_KEY = 'bunatati_order_history_v1';
@@ -228,15 +228,24 @@ function PublicPulse({ stats }: { stats: PublicOrderStats }) {
 }
 
 function MiaQrCard({ compact = false }: { compact?: boolean }) {
+  const { payment } = useMiaPayment();
+  const qrValue = payment.paymentLink || payment.phone;
+  if (!qrValue) return null;
+
+  const qr = <SimpleQrCode value={qrValue} title="QR pentru transfer prin MIA" className={compact ? 'size-24 rounded-xl bg-white p-1' : 'size-32 rounded-2xl bg-white p-1'} />;
+
   return (
     <div className={`glass glass-shine rounded-2xl ${compact ? 'p-3' : 'p-4 sm:p-5'}`}>
       <div className={`flex ${compact ? 'items-center gap-3' : 'flex-col items-center gap-3 text-center sm:flex-row sm:text-left'}`}>
-        <a href={MIA_LINK} target="_blank" rel="noreferrer" aria-label="Deschide MIA" className="rounded-2xl bg-white/70 p-1 shadow-sm backdrop-blur-md">
-          <img src="/mia-qr.svg?v=5" alt="QR pentru transfer prin MIA" className={compact ? 'size-24 rounded-xl bg-white p-1' : 'size-32 rounded-2xl bg-white p-1'} />
-        </a>
+        {payment.paymentLink ? (
+          <a href={payment.paymentLink} target="_blank" rel="noreferrer" aria-label="Deschide MIA" className="rounded-2xl bg-white/70 p-1 shadow-sm backdrop-blur-md">{qr}</a>
+        ) : (
+          <div className="rounded-2xl bg-white/70 p-1 shadow-sm backdrop-blur-md">{qr}</div>
+        )}
         <div>
           <p className="text-sm font-bold text-[#173d2c]">Transfer prin MIA</p>
-          <p className="mt-1 text-xs leading-5 text-[#74837b]">Scanează QR-ul și introdu suma pe care o ai de transferat.</p>
+          {payment.recipientName && <p className="mt-1 text-sm font-semibold text-[#315b32]">{payment.recipientName}</p>}
+          <p className="mt-1 text-xs leading-5 text-[#74837b]">{payment.phone ? `Număr MIA: ${payment.phone}` : 'Scanează QR-ul și introdu suma de transfer.'}</p>
         </div>
       </div>
     </div>
