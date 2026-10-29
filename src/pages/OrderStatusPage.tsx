@@ -2,10 +2,11 @@ import { useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, CheckCircle2, Circle, PackageCheck, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import SimpleQrCode from '@/components/SimpleQrCode';
 import { Input } from '@/components/ui/input';
 import { usePublicOrderMeta } from '@/hooks/usePublicOrderMeta';
 
-const stages = ['Trimisă', 'Confirmată', 'Comandată furnizorului', 'Gata de ridicare'];
+const stages = ['Trimisă', 'Confirmată', 'Comandată furnizorului', 'Gata de ridicare', 'Predată'];
 const LAST_ORDER_KEY = 'bunatati_last_order_v2';
 
 function normalizeCode(value: string) {
@@ -74,9 +75,9 @@ export default function OrderStatusPage() {
             <div className="mt-7">
               {status ? (
                 <>
-                  <div className="glass rounded-2xl p-4">
-                    <p className="text-xs uppercase tracking-[.12em] text-[#7b8981]">{code}</p>
-                    <p className="mt-1 text-xl font-bold text-[#173d2c]">{status}</p>
+                  <div className="glass grid gap-4 rounded-2xl p-4 sm:grid-cols-[120px_1fr] sm:items-center">
+                    <SimpleQrCode value={code} title={`QR ${code}`} className="size-28 rounded-xl" />
+                    <div><p className="text-xs uppercase tracking-[.12em] text-[#7b8981]">{code}</p><p className="mt-1 text-xl font-bold text-[#173d2c]">{status}</p><p className="mt-2 text-xs text-[#74837b]">Arată acest QR la ridicare pentru identificare rapidă.</p></div>
                   </div>
                   <div className="mt-6 space-y-2">
                     {stages.map((stage, index) => {
