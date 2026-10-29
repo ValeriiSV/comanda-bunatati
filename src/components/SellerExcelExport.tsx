@@ -1,5 +1,4 @@
-import { useEffect, useState } from 'react';
-import { createPortal } from 'react-dom';
+import { useState } from 'react';
 import { Download } from 'lucide-react';
 import { listCollection } from '@/lib/firebaseRest';
 
@@ -40,54 +39,15 @@ function amountLabel(amount: number, unit = 'g') {
   return `${amount} ${unit}`;
 }
 
-function findSelectedMonth() {
-  const sections = Array.from(document.querySelectorAll('section'));
-  const periodSection = sections.find((section) => section.textContent?.includes('Perioada comenzilor'));
-  const select = periodSection?.querySelector('select') as HTMLSelectElement | null;
-  return select?.value || monthKey(new Date());
-}
-
-export default function SellerExcelExport() {
-  const [mount, setMount] = useState<HTMLElement | null>(null);
+export default function SellerExcelExport({ selectedMonth }: { selectedMonth: string }) {
   const [busy, setBusy] = useState(false);
-
-  useEffect(() => {
-    let cancelled = false;
-    let attempts = 0;
-
-    const timer = window.setInterval(() => {
-      attempts += 1;
-      const sections = Array.from(document.querySelectorAll('section'));
-      const sellerSection = sections.find((section) => section.textContent?.includes('Lista pentru vânzător'));
-      const heading = sellerSection?.querySelector('h2');
-
-      if (sellerSection && heading) {
-        let target = sellerSection.querySelector('[data-seller-excel-slot]') as HTMLElement | null;
-        if (!target) {
-          target = document.createElement('div');
-          target.setAttribute('data-seller-excel-slot', 'true');
-          target.style.marginTop = '12px';
-          heading.insertAdjacentElement('afterend', target);
-        }
-        if (!cancelled) setMount(target);
-        window.clearInterval(timer);
-      } else if (attempts >= 50) {
-        window.clearInterval(timer);
-      }
-    }, 200);
-
-    return () => {
-      cancelled = true;
-      window.clearInterval(timer);
-    };
-  }, []);
 
   const exportExcel = async () => {
     setBusy(true);
     try {
-      const selectedMonth = findSelectedMonth();
+      const month = selectedMonth || monthKey(new Date());
       const orders = (await listCollection('groupOrders')) as Order[];
-      const monthOrders = orders.filter((order) => monthKey(orderDate(order)) === selectedMonth);
+      const monthOrders = orders.filter((order) => monthKey(orderDate(order)) === month);
 
       const grouped = new Map<string, { name: string; grams: number; unit: string; sumBani: number }>();
       monthOrders.forEach((order) => {
@@ -107,7 +67,6 @@ export default function SellerExcelExport() {
 
       const rows = [...grouped.values()].sort((a, b) => a.name.localeCompare(b.name, 'ro'));
       const totalBani = rows.reduce((sum, row) => sum + row.sumBani, 0);
-
       const tableRows = rows.map((row) => `
         <tr>
           <td>${escapeHtml(row.name)}</td>
@@ -118,7 +77,7 @@ export default function SellerExcelExport() {
       const html = `<!doctype html>
 <html><head><meta charset="UTF-8"></head><body>
 <table border="1">
-  <tr><th colspan="3">Lista pentru vânzător — ${escapeHtml(selectedMonth)}</th></tr>
+  <tr><th colspan="3">Lista pentru vânzător — ${escapeHtml(month)}</th></tr>
   <tr><th>Produs</th><th>Cantitate</th><th>Sumă (lei)</th></tr>
   ${tableRows}
   <tr><th>TOTAL GENERAL</th><th></th><th>${(totalBani / 100).toFixed(2)}</th></tr>
@@ -129,7 +88,7 @@ export default function SellerExcelExport() {
       const url = URL.createObjectURL(blob);
       const anchor = document.createElement('a');
       anchor.href = url;
-      anchor.download = `lista-vanzator-${selectedMonth}.xls`;
+      anchor.download = `lista-vanzator-${month}.xls`;
       document.body.appendChild(anchor);
       anchor.click();
       anchor.remove();
@@ -141,9 +100,7 @@ export default function SellerExcelExport() {
     }
   };
 
-  if (!mount) return null;
-
-  return createPortal(
+  return (
     <button
       type="button"
       onClick={exportExcel}
@@ -151,8 +108,7 @@ export default function SellerExcelExport() {
       className="inline-flex h-9 items-center gap-2 rounded-xl border border-[#d9e3d7] bg-white px-3 text-sm font-semibold text-[#173d2c] transition hover:bg-[#f2f5ed] disabled:opacity-50"
     >
       <Download className="size-4" />
-      {busy ? 'Se exportă…' : 'Export Excel'}
-    </button>,
-    mount,
+      {busy ? 'Se exportă…' : 'Excel vânzător'}
+    </button>
   );
 }
