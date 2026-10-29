@@ -113,16 +113,15 @@ export function usePublicOrderMeta() {
         })));
 
         const goalsMap = goalsDoc?.fields?.goals?.mapValue?.fields || {};
+        const goalEntries = Object.entries(goalsMap).map(([id, value]): [string, CollectiveGoal] => {
+          const f = value.mapValue?.fields || {};
+          return [id, {
+            goalAmount: numberValue(f.goalAmount),
+            goalPriceLei: numberValue(f.goalPriceLei),
+          }];
+        });
         setGoals(Object.fromEntries(
-          Object.entries(goalsMap)
-            .map(([id, value]) => {
-              const f = value.mapValue?.fields || {};
-              return [id, {
-                goalAmount: numberValue(f.goalAmount),
-                goalPriceLei: numberValue(f.goalPriceLei),
-              }];
-            })
-            .filter(([, goal]) => goal.goalAmount > 0 && goal.goalPriceLei > 0),
+          goalEntries.filter(([, goal]) => goal.goalAmount > 0 && goal.goalPriceLei > 0),
         ));
       } catch {
         // Metadatele publice sunt auxiliare; catalogul trebuie să rămână funcțional.
