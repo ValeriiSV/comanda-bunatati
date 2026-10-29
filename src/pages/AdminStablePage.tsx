@@ -345,7 +345,7 @@ export default function AdminStablePage({ section = 'dashboard' }: { section?: A
   const saveSchedule = async (nextDates = dates, nextMessage = scheduleMessage, nextClosed = scheduleClosed) => {
     try {
       const normalizedDates = [...new Set(nextDates)].sort();
-      await setDocument('settings/orderSchedule', {
+      await updateDocument('settings/orderSchedule', {
         dates: normalizedDates,
         message: nextMessage.trim(),
         closed: nextClosed,
@@ -554,12 +554,11 @@ export default function AdminStablePage({ section = 'dashboard' }: { section?: A
   {section === 'settings' && <section className="rounded-[24px] border bg-white p-6">
     <div className="flex items-start gap-4">
       <span className="grid size-12 shrink-0 place-items-center rounded-2xl bg-[#e8f0e2]"><ShieldCheck className="size-5" /></span>
-      <div><h2 className="font-serif text-2xl font-semibold">Acces manager</h2><p className="mt-1 text-sm text-[#74837b]">Sesiunea activă poate administra comenzile, catalogul, programul și plățile din Firebase.</p></div>
-    </div>
-    <div className="mt-5 flex flex-wrap gap-2">
-      <Button variant="outline" onClick={loadAll} disabled={busy}><RefreshCw /> Reîncarcă toate datele</Button>
-      <Button variant="outline" onClick={logout} disabled={busy}><LogOut /> Ieșire din cont</Button>
-      <Link to="/"><Button className="bg-[#173d2c]">Deschide catalogul</Button></Link>
+      <div>
+        <h2 className="font-serif text-2xl font-semibold">Acces manager</h2>
+        <p className="mt-1 text-sm text-[#74837b]">Sesiunea activă poate administra comenzile, catalogul, programul și plățile din Firebase.</p>
+        <p className="mt-3 text-xs leading-5 text-[#87928c]">Reîncărcarea datelor și ieșirea din cont sunt disponibile permanent în bara de sus, ca să nu fie duplicate aici.</p>
+      </div>
     </div>
   </section>}
 
