@@ -127,6 +127,8 @@ export default function AdminStablePage({ section = 'dashboard' }: { section?: A
   const [newDate, setNewDate] = useState('');
   const [collectorName, setCollectorName] = useState('');
   const [collectorPhone, setCollectorPhone] = useState('');
+  const [collectorPaymentLink, setCollectorPaymentLink] = useState('');
+  const [scheduleClosed, setScheduleClosed] = useState(false);
   const [draft, setDraft] = useState<ProductDraft>(emptyDraft);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [imageBusy, setImageBusy] = useState(false);
@@ -137,18 +139,39 @@ export default function AdminStablePage({ section = 'dashboard' }: { section?: A
   const loadAll = async () => {
     setBusy(true); setError('');
     try {
-      const [ordersData, productsData, schedule, miaCollector] = await timeout(Promise.all([
+      const [ordersData, productsData, schedule, miaCollector, legacyMiaPayment] = await timeout(Promise.all([
         listCollection('groupOrders'),
         listCollection('products'),
         getDocument('settings/orderSchedule'),
         getDocument('settings/miaCollector'),
+        getDocument('settings/miaPayment'),
       ]), 10000, 'FIRESTORE_TIMEOUT');
       setOrders((ordersData as Order[]).sort((a, b) => orderDate(b).getTime() - orderDate(a).getTime()));
       setProducts(mergeCatalog(productsData as Product[]));
       setDates(Array.isArray(schedule?.dates) ? schedule.dates : []);
       setScheduleMessage(typeof schedule?.message === 'string' ? schedule.message : '');
-      setCollectorName(typeof miaCollector?.name === 'string' ? miaCollector.name : '');
-      setCollectorPhone(typeof miaCollector?.phone === 'string' ? miaCollector.phone : '');
+      setScheduleClosed(Boolean(schedule?.closed));
+      setCollectorName(
+        typeof miaCollector?.name === 'string' && miaCollector.name
+          ? miaCollector.name
+          : typeof legacyMiaPayment?.recipientName === 'string'
+            ? legacyMiaPayment.recipientName
+            : '',
+      );
+      setCollectorPhone(
+        typeof miaCollector?.phone === 'string' && miaCollector.phone
+          ? miaCollector.phone
+          : typeof legacyMiaPayment?.phone === 'string'
+            ? legacyMiaPayment.phone
+            : '',
+      );
+      setCollectorPaymentLink(
+        typeof miaCollector?.paymentLink === 'string' && miaCollector.paymentLink
+          ? miaCollector.paymentLink
+          : typeof legacyMiaPayment?.paymentLink === 'string'
+            ? legacyMiaPayment.paymentLink
+            : '',
+      );
     } catch (e) {
       setError(`Panoul nu poate încărca datele: ${friendly((e as Error).message)}`);
     } finally { setBusy(false); }
@@ -307,9 +330,11 @@ export default function AdminStablePage({ section = 'dashboard' }: { section?: A
       await setDocument('settings/miaCollector', {
         name: collectorName.trim(),
         phone,
+        paymentLink: collectorPaymentLink.trim(),
         updatedAt: new Date(),
       });
-      setNotice('Colectorul MIA P2P a fost actualizat pentru toate paginile de comandă.');
+      try { await deleteDocument('settings/miaPayment'); } catch {}
+      setNotice('Setările MIA au fost salvate într-un singur loc.');
     } catch (e) {
       setError(friendly((e as Error).message));
     } finally {
@@ -317,7 +342,23 @@ export default function AdminStablePage({ section = 'dashboard' }: { section?: A
     }
   };
 
-  const saveSchedule = async (nextDates = dates, nextMessage = scheduleMessage) => { try { await setDocument('settings/orderSchedule', { dates: [...new Set(nextDates)].sort(), message: nextMessage.trim(), updatedAt: new Date() }); setDates([...new Set(nextDates)].sort()); setScheduleMessage(nextMessage); setNotice('Următoarea comandă a fost actualizată.'); } catch (e) { setError(friendly((e as Error).message)); } };
+  const saveSchedule = async (nextDates = dates, nextMessage = scheduleMessage, nextClosed = scheduleClosed) => {
+    try {
+      const normalizedDates = [...new Set(nextDates)].sort();
+      await setDocument('settings/orderSchedule', {
+        dates: normalizedDates,
+        message: nextMessage.trim(),
+        closed: nextClosed,
+        updatedAt: new Date(),
+      });
+      setDates(normalizedDates);
+      setScheduleMessage(nextMessage);
+      setScheduleClosed(nextClosed);
+      setNotice(nextClosed ? 'Runda a fost închisă.' : 'Programul comenzii a fost actualizat.');
+    } catch (e) {
+      setError(friendly((e as Error).message));
+    }
+  };
   const startEdit = (p: Product) => { setEditingId(p.id); setDraft({ name: p.name, category: p.category, priceLei: String(p.priceLei), baseGrams: String(p.baseGrams), stepGrams: String(p.stepGrams), quantityUnit: p.quantityUnit || 'g', stockLimit: p.stockLimit ? String(p.stockLimit) : '', imageUrl: p.imageUrl || '', active: p.active !== false, isNew: !!p.isNew, promo: !!p.promo }); };
   const cancelEdit = () => { setEditingId(null); setDraft(emptyDraft); };
   const handleProductImage = async (file?: File) => {
@@ -367,34 +408,36 @@ export default function AdminStablePage({ section = 'dashboard' }: { section?: A
 
   if (!authorized) return <main className="grid min-h-screen place-items-center bg-[#f2f5ed] p-5 text-[#173d2c]"><section className="w-full max-w-md rounded-[28px] border border-[#d9e3d7] bg-white p-8 shadow-xl"><Link to="/" className="mb-7 flex items-center gap-2 text-sm text-[#607269]"><ArrowLeft className="size-4" /> Înapoi la catalog</Link><img src="/valera-logo.svg?v=8" alt="Bunătăți împreună cu Valera" className="mb-5 size-20 rounded-full border border-[#d9e3d7] bg-white object-cover" /><h1 className="font-serif text-3xl font-semibold">Panoul managerului</h1><form onSubmit={login} className="mt-7 space-y-3"><Input type="email" autoComplete="username" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Email" className="h-12 rounded-xl" /><Input type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Parolă" className="h-12 rounded-xl" /><Button disabled={busy || !email || !password} className="h-12 w-full rounded-xl bg-[#173d2c]">{busy ? 'Se autentifică…' : 'Intră în panou'}</Button></form><div className="my-4 flex items-center gap-3 text-xs text-[#8a968f]"><span className="h-px flex-1 bg-[#dfe7df]" />sau<span className="h-px flex-1 bg-[#dfe7df]" /></div><Button type="button" variant="outline" onClick={loginGoogle} disabled={busy} className="h-12 w-full rounded-xl">{busy ? 'Se conectează…' : 'Continuă cu Google'}</Button>{error && <p className="mt-4 rounded-xl bg-red-50 p-3 text-sm text-red-700">{error}</p>}</section></main>;
 
-  return <AdminLayout section={section} actions={<><Button variant="outline" onClick={loadAll} disabled={busy}><RefreshCw /> Reîncarcă</Button>{section === 'orders' && <Button onClick={exportCsv} className="bg-[#173d2c]"><Download /> CSV</Button>}<Button type="button" variant="outline" size="icon" onClick={logout} disabled={busy} title="Ieșire"><LogOut /></Button></>}><div className="space-y-6">{error && <p className="rounded-xl bg-red-50 p-3 text-sm text-red-700">{error}</p>}{notice && <p className="rounded-xl bg-[#e8f3df] p-3 text-sm text-[#315b32]">{notice}</p>}
+  return <AdminLayout section={section} actions={<><Button variant="outline" onClick={loadAll} disabled={busy}><RefreshCw /> Reîncarcă</Button>{section === 'orders' && <><Button onClick={exportCsv} className="bg-[#173d2c]"><Download /> CSV</Button><SellerExcelExport selectedMonth={selectedMonth} /></>}<Button type="button" variant="outline" size="icon" onClick={logout} disabled={busy} title="Ieșire"><LogOut /></Button></>}><div className="space-y-6">{error && <p className="rounded-xl bg-red-50 p-3 text-sm text-red-700">{error}</p>}{notice && <p className="rounded-xl bg-[#e8f3df] p-3 text-sm text-[#315b32]">{notice}</p>}
 
   {section === 'dashboard' && <AdminWowDashboard />}
   {section === 'packing' && <PackingModePanel />}
   {section === 'campaign' && <ViberCampaignPanel />}
 
-  {section === 'payments' && <><section className="rounded-[24px] border border-[#cfe0cf] bg-[#f5faf2] p-5">
-    <div className="flex flex-col gap-1">
-      <p className="text-xs font-bold uppercase tracking-[.12em] text-[#6d7f72]">MIA P2P</p>
-      <h2 className="font-serif text-2xl font-semibold">Colector MIA P2P</h2>
-      <p className="text-sm text-[#74837b]">Aceste date apar automat la Nuci, Bucuria și viitoarele pagini de comandă.</p>
+  {section === 'payments' && <section className="rounded-[24px] border border-[#cfe0cf] bg-white p-5 sm:p-6">
+    <div className="flex items-start gap-4">
+      <span className="grid size-12 shrink-0 place-items-center rounded-2xl bg-[#e8f0e2]"><WalletCards className="size-5" /></span>
+      <div>
+        <p className="text-xs font-bold uppercase tracking-[.12em] text-[#6d7f72]">Setare unică</p>
+        <h2 className="font-serif text-2xl font-semibold">Plăți prin MIA</h2>
+        <p className="mt-1 text-sm text-[#74837b]">Acestea sunt singurele date MIA folosite în catalog și după trimiterea comenzii.</p>
+      </div>
     </div>
-    <div className="mt-4 grid gap-3 sm:grid-cols-[1fr_1fr_auto]">
-      <Input value={collectorName} onChange={(e) => setCollectorName(e.target.value)} placeholder="Numele persoanei care colectează" className="bg-white" />
-      <Input type="tel" inputMode="tel" value={collectorPhone} onChange={(e) => setCollectorPhone(e.target.value)} placeholder="+373 6X XXX XXX" className="bg-white" />
+
+    <div className="mt-5 grid gap-4 lg:grid-cols-2">
+      <label className="block"><span className="mb-1.5 block text-xs font-semibold text-[#607269]">Numele beneficiarului</span><Input value={collectorName} onChange={(e) => setCollectorName(e.target.value)} placeholder="Ex.: Valeriu" className="bg-white" /></label>
+      <label className="block"><span className="mb-1.5 block text-xs font-semibold text-[#607269]">Numărul asociat MIA</span><Input type="tel" inputMode="tel" value={collectorPhone} onChange={(e) => setCollectorPhone(e.target.value)} placeholder="+373 6X XXX XXX" className="bg-white" /></label>
+      <label className="block lg:col-span-2"><span className="mb-1.5 block text-xs font-semibold text-[#607269]">Link MIA <span className="font-normal text-[#87928c]">(opțional)</span></span><Input type="url" value={collectorPaymentLink} onChange={(e) => setCollectorPaymentLink(e.target.value)} placeholder="https://mia-qr.bnm.md/..." className="bg-white" /><span className="mt-1.5 block text-xs text-[#87928c]">Dacă există link, QR-ul public îl va deschide direct. Dacă nu, rămâne disponibil numărul de telefon.</span></label>
+    </div>
+
+    <div className="mt-5 flex flex-col gap-3 rounded-2xl bg-[#f5f8f1] p-4 sm:flex-row sm:items-center sm:justify-between">
+      <div><p className="text-sm font-semibold">{collectorName || 'Beneficiar MIA'}</p><p className="text-xs text-[#74837b]">{collectorPhone || 'Numărul MIA nu este setat'}</p></div>
       <Button type="button" onClick={saveMiaCollector} disabled={busy || !collectorPhone.trim()} className="bg-[#173d2c]"><Save /> Salvează MIA</Button>
     </div>
-    {collectorPhone.trim() && <p className="mt-3 text-xs text-[#6f7f76]">QR-ul public va conține numărul: <strong>{collectorPhone.trim()}</strong>. Suma se introduce manual în aplicația bancară.</p>}
-  </section>
-  <section className="rounded-[24px] border bg-white p-5">
-    <h2 className="font-serif text-2xl font-semibold">Setări complete MIA</h2>
-    <p className="mt-1 text-sm text-[#74837b]">Configurează numele beneficiarului, numărul asociat și linkul opțional de plată.</p>
-    <Link to="/admin/mia"><Button variant="outline" className="mt-4"><WalletCards className="size-4" /> Deschide setările MIA</Button></Link>
-  </section></>}
+  </section>}
 
   {section === 'orders' && <><section className="rounded-[22px] border bg-white p-4"><div className="flex items-center justify-between"><div><p className="font-semibold">Perioada comenzilor</p><p className="text-xs text-[#74837b]">Istoric separat pe luni</p></div><select value={selectedMonth} onChange={(e) => setSelectedMonth(e.target.value)} className="h-11 rounded-xl border px-3">{monthOptions.map((k) => <option key={k} value={k}>{monthLabel(k)}</option>)}</select></div></section>
 
-  <section className="grid gap-3 sm:grid-cols-3"><Stat label="Comenzi" value={String(visibleOrders.length)} /><Stat label="Total de încasat" value={`${lei(totals.totalBani)} lei`} /><Stat label="Încasat" value={`${lei(totals.paidBani)} lei`} /></section>
 
   <section className="overflow-hidden rounded-[24px] border bg-white">
     <div className="flex flex-col gap-3 border-b p-5 sm:flex-row sm:items-center sm:justify-between">
@@ -443,7 +486,28 @@ export default function AdminStablePage({ section = 'dashboard' }: { section?: A
     <div className="overflow-x-auto"><Table><TableHeader><TableRow><TableHead>Nume</TableHead><TableHead>Telefon</TableHead><TableHead>Produse</TableHead><TableHead>Total</TableHead><TableHead>Plată</TableHead><TableHead className="text-right">Acțiuni</TableHead></TableRow></TableHeader><TableBody>{visibleOrders.map((o) => <TableRow key={o.id} className={editingOrderId === o.id ? 'bg-[#f7faf4]' : ''}><TableCell><strong>{o.customerName || 'Fără nume'}</strong><span className="block text-xs text-[#829087]">{o.orderCode || '—'} · {orderDate(o).toLocaleDateString('ro-MD')}</span></TableCell><TableCell>{o.phone || '—'}</TableCell><TableCell className="min-w-72">{(o.items || []).map((i, idx) => <span key={`${i.productId}-${idx}`} className="mr-1.5 mb-1.5 inline-flex rounded-full bg-[#eef3e8] px-2.5 py-1 text-xs">{i.productName} · {orderQuantityLabel(i.productId, i.grams || 0, products)}</span>)}</TableCell><TableCell className="font-semibold">{lei(o.totalBani || 0)} lei</TableCell><TableCell><Button size="sm" variant={o.paid ? 'secondary' : 'outline'} onClick={() => togglePaid(o)}>{o.paid && <Check />} {o.paid ? 'Achitat' : 'Neachitat'}</Button></TableCell><TableCell className="text-right"><div className="flex justify-end gap-1"><Button variant="ghost" size="icon" onClick={() => startOrderEdit(o)} title="Modifică această comandă"><Pencil /></Button><Button variant="ghost" size="icon" onClick={() => removeOrder(o)} className="text-red-600" title="Șterge comanda"><Trash2 /></Button></div></TableCell></TableRow>)}{visibleOrders.length === 0 && <TableRow><TableCell colSpan={6} className="py-10 text-center text-[#74837b]">Nu există comenzi în această lună.</TableCell></TableRow>}</TableBody></Table></div>
   </section></>}
 
-  {section === 'schedule' && <section className="rounded-[24px] border border-[#e4d4b8] bg-[#fffaf0] p-5"><h2 className="font-serif text-2xl font-semibold">Următoarea comandă</h2><div className="mt-4 flex flex-col gap-3 sm:flex-row"><Input type="date" value={newDate} onChange={(e) => setNewDate(e.target.value)} className="max-w-xs bg-white" /><Button onClick={() => { if (newDate) { saveSchedule([...dates, newDate]); setNewDate(''); } }} className="bg-[#173d2c]"><Plus /> Adaugă data</Button></div>{dates.length > 0 && <div className="mt-4 flex flex-wrap gap-2">{dates.map((d) => <div key={d} className="flex items-center gap-2 rounded-full border bg-white py-1.5 pl-3 pr-1.5 text-sm"><span>{formatOrderDate(d)}</span><button onClick={() => saveSchedule(dates.filter((x) => x !== d))} className="grid size-7 place-items-center text-red-600"><X className="size-4" /></button></div>)}</div>}<div className="mt-4 flex flex-col gap-2 sm:flex-row"><Input value={scheduleMessage} onChange={(e) => setScheduleMessage(e.target.value)} placeholder="Mesaj opțional" className="bg-white" /><Button variant="outline" onClick={() => saveSchedule(dates, scheduleMessage)}><Save /> Salvează</Button></div><OrderDeadlineTimeEditor /></section>}
+  {section === 'schedule' && <div className="space-y-5">
+    <section className={`rounded-[24px] border p-5 ${scheduleClosed ? 'border-[#e7c8aa] bg-[#fff4e8]' : 'border-[#cfe0cf] bg-[#f5faf2]'}`}>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p className="text-xs font-bold uppercase tracking-[.12em] text-[#74837b]">Starea rundei</p>
+          <h2 className="mt-1 font-serif text-2xl font-semibold">{scheduleClosed ? 'Comanda este închisă' : 'Comanda este deschisă'}</h2>
+          <p className="mt-1 text-sm text-[#74837b]">Doar aici deschizi sau închizi runda curentă.</p>
+        </div>
+        <Button type="button" variant={scheduleClosed ? 'default' : 'outline'} onClick={() => void saveSchedule(dates, scheduleMessage, !scheduleClosed)} className={scheduleClosed ? 'bg-[#173d2c]' : ''}>
+          {scheduleClosed ? 'Deschide runda' : 'Închide runda'}
+        </Button>
+      </div>
+    </section>
+
+    <section className="rounded-[24px] border border-[#e4d4b8] bg-[#fffaf0] p-5">
+      <h2 className="font-serif text-2xl font-semibold">Termen și mesaj public</h2>
+      <div className="mt-4 flex flex-col gap-3 sm:flex-row"><Input type="date" value={newDate} onChange={(e) => setNewDate(e.target.value)} className="max-w-xs bg-white" /><Button onClick={() => { if (newDate) { void saveSchedule([...dates, newDate], scheduleMessage, scheduleClosed); setNewDate(''); } }} className="bg-[#173d2c]"><Plus /> Adaugă data</Button></div>
+      {dates.length > 0 && <div className="mt-4 flex flex-wrap gap-2">{dates.map((d) => <div key={d} className="flex items-center gap-2 rounded-full border bg-white py-1.5 pl-3 pr-1.5 text-sm"><span>{formatOrderDate(d)}</span><button onClick={() => void saveSchedule(dates.filter((x) => x !== d), scheduleMessage, scheduleClosed)} className="grid size-7 place-items-center text-red-600"><X className="size-4" /></button></div>)}</div>}
+      <div className="mt-4 flex flex-col gap-2 sm:flex-row"><Input value={scheduleMessage} onChange={(e) => setScheduleMessage(e.target.value)} placeholder="Mesaj opțional" className="bg-white" /><Button variant="outline" onClick={() => void saveSchedule(dates, scheduleMessage, scheduleClosed)}><Save /> Salvează mesajul</Button></div>
+      <OrderDeadlineTimeEditor />
+    </section>
+  </div>}
 
   {section === 'products' && <section className="rounded-[24px] border bg-white p-5">
     <div><h2 className="font-serif text-2xl font-semibold">Produse</h2><p className="mt-1 text-sm text-[#74837b]">Adaugă orice produs, inclusiv produse la bucată, cofraj sau borcan.</p></div>
@@ -485,9 +549,7 @@ export default function AdminStablePage({ section = 'dashboard' }: { section?: A
     {products.length > 0 && <div className="mt-5 overflow-x-auto rounded-2xl border"><Table><TableHeader><TableRow><TableHead>Produs</TableHead><TableHead>Categorie</TableHead><TableHead>Preț</TableHead><TableHead>Limită</TableHead><TableHead>Status</TableHead><TableHead className="text-right">Acțiuni</TableHead></TableRow></TableHeader><TableBody>{products.map((p) => <TableRow key={p.id}><TableCell><div className="flex min-w-48 items-center gap-3">{p.imageUrl && <img src={p.imageUrl} alt="" className="size-10 rounded-xl object-cover" />}<strong>{p.name}</strong></div></TableCell><TableCell>{p.category}</TableCell><TableCell>{priceLabel(p)}</TableCell><TableCell>{p.stockLimit ? quantityLabel(p, p.stockLimit) : 'Fără limită'}</TableCell><TableCell>{p.active === false ? 'Ascuns' : 'Activ'}</TableCell><TableCell><div className="flex justify-end gap-1"><Button variant="ghost" size="icon" onClick={() => toggleProduct(p)} title={p.active === false ? 'Afișează produsul' : 'Ascunde produsul'}>{p.active === false ? <Eye /> : <EyeOff />}</Button><Button variant="ghost" size="icon" onClick={() => startEdit(p)} title="Modifică produsul"><Pencil /></Button><Button variant="ghost" size="icon" onClick={() => removeProduct(p)} title="Șterge sau ascunde produsul"><Trash2 /></Button></div></TableCell></TableRow>)}</TableBody></Table></div>}
   </section>}
 
-  {section === 'orders' && <section className="rounded-[24px] border bg-white p-5"><h2 className="font-serif text-2xl font-semibold">Lista pentru vânzător</h2><SellerExcelExport /><div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">{totals.byProduct.map((p) => <div key={p.id} className="flex justify-between rounded-xl bg-[#f2f6ee] px-4 py-3"><span>{p.name}</span><strong>{orderQuantityLabel(p.id, p.grams, products)}</strong></div>)}</div></section>}
-
-  {section === 'products' && <CollectiveGoalsPanel products={products} />}
+  {section === 'goals' && <CollectiveGoalsPanel products={products} />}
 
   {section === 'settings' && <section className="rounded-[24px] border bg-white p-6">
     <div className="flex items-start gap-4">
@@ -504,4 +566,3 @@ export default function AdminStablePage({ section = 'dashboard' }: { section?: A
   </div></AdminLayout>;
 }
 
-function Stat({ label, value }: { label: string; value: string }) { return <div className="rounded-[22px] border bg-white p-5"><p className="text-sm text-[#74837b]">{label}</p><strong className="mt-1 block font-serif text-3xl">{value}</strong></div>; }
