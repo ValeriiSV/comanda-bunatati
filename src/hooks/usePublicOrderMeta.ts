@@ -2,11 +2,29 @@ import { useEffect, useState } from 'react';
 
 const BASE = 'https://firestore.googleapis.com/v1/projects/comanda-bunatati/databases/(default)/documents/settings';
 
+export type PublicProductTotal = {
+  name: string;
+  amount: number;
+  unit: string;
+  orders: number;
+  bani: number;
+};
+
+export type CollectiveGoal = {
+  goalAmount: number;
+  goalPriceLei: number;
+};
+
 export type PublicOrderStats = {
   orderCount: number;
   totalBani: number;
   paidCount: number;
   roundLabel: string;
+  totalGrams: number;
+  lastOrderAt?: string;
+  topProductName?: string;
+  topProductAmount?: number;
+  topProductUnit?: string;
   updatedAt?: string;
 };
 
@@ -26,8 +44,7 @@ function numberValue(value?: FireValue) {
 }
 
 function stringValue(value?: FireValue) {
-  if (!value) return '';
-  return typeof value.stringValue === 'string' ? value.stringValue : '';
+  return typeof value?.stringValue === 'string' ? value.stringValue : '';
 }
 
 async function fetchDocument(name: string) {
@@ -43,8 +60,11 @@ export function usePublicOrderMeta() {
     totalBani: 0,
     paidCount: 0,
     roundLabel: '',
+    totalGrams: 0,
   });
   const [statuses, setStatuses] = useState<Record<string, string>>({});
+  const [productTotals, setProductTotals] = useState<Record<string, PublicProductTotal>>({});
+  const [goals, setGoals] = useState<Record<string, CollectiveGoal>>({});
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -52,9 +72,10 @@ export function usePublicOrderMeta() {
 
     const load = async () => {
       try {
-        const [statsDoc, statusesDoc] = await Promise.all([
+        const [statsDoc, statusesDoc, goalsDoc] = await Promise.all([
           fetchDocument('publicStats'),
           fetchDocument('publicStatuses'),
+          fetchDocument('collectiveGoals'),
         ]);
         if (!active) return;
 
@@ -64,14 +85,44 @@ export function usePublicOrderMeta() {
           totalBani: numberValue(fields.totalBani),
           paidCount: numberValue(fields.paidCount),
           roundLabel: stringValue(fields.roundLabel),
+          totalGrams: numberValue(fields.totalGrams),
+          lastOrderAt: fields.lastOrderAt?.timestampValue,
+          topProductName: stringValue(fields.topProductName),
+          topProductAmount: numberValue(fields.topProductAmount),
+          topProductUnit: stringValue(fields.topProductUnit),
           updatedAt: fields.updatedAt?.timestampValue,
         });
 
-        const map = statusesDoc?.fields?.statuses?.mapValue?.fields || {};
+        const statusMap = statusesDoc?.fields?.statuses?.mapValue?.fields || {};
         setStatuses(Object.fromEntries(
-          Object.entries(map)
+          Object.entries(statusMap)
             .map(([code, value]) => [code.toUpperCase(), stringValue(value)])
             .filter(([, status]) => Boolean(status)),
+        ));
+
+        const totalsMap = fields.productTotals?.mapValue?.fields || {};
+        setProductTotals(Object.fromEntries(Object.entries(totalsMap).map(([id, value]) => {
+          const f = value.mapValue?.fields || {};
+          return [id, {
+            name: stringValue(f.name),
+            amount: numberValue(f.amount),
+            unit: stringValue(f.unit),
+            orders: numberValue(f.orders),
+            bani: numberValue(f.bani),
+          }];
+        })));
+
+        const goalsMap = goalsDoc?.fields?.goals?.mapValue?.fields || {};
+        setGoals(Object.fromEntries(
+          Object.entries(goalsMap)
+            .map(([id, value]) => {
+              const f = value.mapValue?.fields || {};
+              return [id, {
+                goalAmount: numberValue(f.goalAmount),
+                goalPriceLei: numberValue(f.goalPriceLei),
+              }];
+            })
+            .filter(([, goal]) => goal.goalAmount > 0 && goal.goalPriceLei > 0),
         ));
       } catch {
         // Metadatele publice sunt auxiliare; catalogul trebuie să rămână funcțional.
@@ -81,7 +132,7 @@ export function usePublicOrderMeta() {
     };
 
     void load();
-    const timer = window.setInterval(load, 20000);
+    const timer = window.setInterval(load, 15000);
     const onFocus = () => void load();
     window.addEventListener('focus', onFocus);
 
@@ -92,5 +143,5 @@ export function usePublicOrderMeta() {
     };
   }, []);
 
-  return { stats, statuses, loading };
+  return { stats, statuses, productTotals, goals, loading };
 }
