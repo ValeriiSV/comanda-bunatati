@@ -9,31 +9,68 @@ import {
   ScanLine,
   Settings,
   ShoppingBag,
+  Target,
   WalletCards,
 } from 'lucide-react';
 
-export type AdminSection = 'dashboard' | 'orders' | 'packing' | 'products' | 'schedule' | 'campaign' | 'payments' | 'settings';
+export type AdminSection =
+  | 'dashboard'
+  | 'orders'
+  | 'packing'
+  | 'products'
+  | 'goals'
+  | 'schedule'
+  | 'campaign'
+  | 'payments'
+  | 'settings';
 
-const navigation = [
-  { section: 'dashboard', to: '/admin', label: 'Dashboard', icon: LayoutDashboard, end: true },
-  { section: 'orders', to: '/admin/comenzi', label: 'Comenzi', icon: ShoppingBag },
-  { section: 'packing', to: '/admin/pregatire', label: 'Pregătire & ridicare', icon: ScanLine },
-  { section: 'products', to: '/admin/produse', label: 'Produse', icon: Package },
-  { section: 'schedule', to: '/admin/program', label: 'Program', icon: CalendarClock },
-  { section: 'campaign', to: '/admin/viber', label: 'Campanie Viber', icon: MessageCircle },
-  { section: 'payments', to: '/admin/plati', label: 'Plăți / MIA', icon: WalletCards },
-  { section: 'settings', to: '/admin/setari', label: 'Setări', icon: Settings },
+const navigationGroups = [
+  {
+    label: 'Privire generală',
+    items: [
+      { section: 'dashboard', to: '/admin', label: 'Dashboard', icon: LayoutDashboard, end: true },
+    ],
+  },
+  {
+    label: 'Comenzi',
+    items: [
+      { section: 'orders', to: '/admin/comenzi', label: 'Comenzi', icon: ShoppingBag },
+      { section: 'packing', to: '/admin/pregatire', label: 'Pregătire & ridicare', icon: ScanLine },
+    ],
+  },
+  {
+    label: 'Catalog',
+    items: [
+      { section: 'products', to: '/admin/produse', label: 'Produse', icon: Package },
+      { section: 'goals', to: '/admin/praguri', label: 'Praguri colective', icon: Target },
+    ],
+  },
+  {
+    label: 'Comunicare',
+    items: [
+      { section: 'schedule', to: '/admin/program', label: 'Program', icon: CalendarClock },
+      { section: 'campaign', to: '/admin/viber', label: 'Campanie Viber', icon: MessageCircle },
+    ],
+  },
+  {
+    label: 'Finanțe & sistem',
+    items: [
+      { section: 'payments', to: '/admin/plati', label: 'Plăți / MIA', icon: WalletCards },
+      { section: 'settings', to: '/admin/setari', label: 'Setări', icon: Settings },
+    ],
+  },
 ] as const;
 
 const sectionCopy: Record<AdminSection, { eyebrow: string; title: string; description: string }> = {
-  dashboard: { eyebrow: 'Privire de ansamblu', title: 'Dashboard', description: 'Situația rundei curente și fluxul comenzilor.' },
-  orders: { eyebrow: 'Administrare', title: 'Comenzi', description: 'Comenzi, plăți, editare și exporturi pentru vânzător.' },
+  dashboard: { eyebrow: 'Privire de ansamblu', title: 'Dashboard', description: 'Cifrele importante și starea rundei curente.' },
+  orders: { eyebrow: 'Administrare', title: 'Comenzi', description: 'Editează comenzile, plata și exporturile.' },
   packing: { eyebrow: 'Operațiuni', title: 'Pregătire & ridicare', description: 'Pregătește comenzile, scanează QR și marchează predarea.' },
   products: { eyebrow: 'Catalog', title: 'Produse', description: 'Adaugă, modifică sau ascunde produsele din catalog.' },
-  schedule: { eyebrow: 'Runda de comandă', title: 'Program și termen', description: 'Configurează datele, mesajul public și ora limită.' },
+  goals: { eyebrow: 'Catalog', title: 'Praguri colective', description: 'Configurează ținte de cantitate și prețuri de grup.' },
+  schedule: { eyebrow: 'Runda de comandă', title: 'Program și termen', description: 'Deschide sau închide runda și configurează termenul.' },
   campaign: { eyebrow: 'Comunicare', title: 'Campanie Viber', description: 'Generează și distribuie mesajul rundei în grupul colegilor.' },
-  payments: { eyebrow: 'Încasări', title: 'Plăți și MIA', description: 'Configurează beneficiarul și datele de transfer MIA.' },
-  settings: { eyebrow: 'Panou manager', title: 'Setări', description: 'Sesiune, acces și scurtături administrative.' },
+  payments: { eyebrow: 'Încasări', title: 'Plăți și MIA', description: 'Unicul loc pentru beneficiarul și datele de plată MIA.' },
+  settings: { eyebrow: 'Panou manager', title: 'Setări', description: 'Sesiune, acces și operațiuni tehnice.' },
 };
 
 export default function AdminLayout({
@@ -49,7 +86,7 @@ export default function AdminLayout({
 
   return (
     <main className="min-h-screen bg-[#f2f5ed] text-[#173d2c]">
-      <div className="mx-auto grid min-h-screen max-w-[1600px] lg:grid-cols-[250px_minmax(0,1fr)]">
+      <div className="mx-auto grid min-h-screen max-w-[1600px] lg:grid-cols-[260px_minmax(0,1fr)]">
         <aside className="border-b border-[#d9e3d7] bg-white/90 lg:sticky lg:top-0 lg:flex lg:h-screen lg:flex-col lg:border-b-0 lg:border-r">
           <div className="flex items-center justify-between gap-3 px-4 py-4 lg:px-5 lg:py-6">
             <Link to="/admin" className="flex min-w-0 items-center gap-3">
@@ -64,21 +101,28 @@ export default function AdminLayout({
             </Link>
           </div>
 
-          <nav aria-label="Navigare panou manager" className="flex gap-2 overflow-x-auto px-4 pb-4 lg:block lg:space-y-1.5 lg:overflow-visible lg:px-3">
-            {navigation.map((item) => {
-              const Icon = item.icon;
-              return (
-                <NavLink
-                  key={item.section}
-                  to={item.to}
-                  end={'end' in item ? item.end : undefined}
-                  className={({ isActive }) => `flex shrink-0 items-center gap-2.5 rounded-xl px-3.5 py-2.5 text-sm font-semibold transition lg:w-full ${isActive ? 'bg-[#173d2c] text-white shadow-sm' : 'border border-[#dfe7df] bg-white text-[#52645b] hover:bg-[#f2f5ed] lg:border-transparent lg:bg-transparent'}`}
-                >
-                  <Icon className="size-4" />
-                  {item.label}
-                </NavLink>
-              );
-            })}
+          <nav aria-label="Navigare panou manager" className="flex gap-2 overflow-x-auto px-4 pb-4 lg:block lg:space-y-4 lg:overflow-visible lg:px-3">
+            {navigationGroups.map((group) => (
+              <div key={group.label} className="contents lg:block">
+                <p className="mb-1 hidden px-3 text-[10px] font-bold uppercase tracking-[.14em] text-[#9aa59f] lg:block">{group.label}</p>
+                <div className="contents lg:block lg:space-y-1">
+                  {group.items.map((item) => {
+                    const Icon = item.icon;
+                    return (
+                      <NavLink
+                        key={item.section}
+                        to={item.to}
+                        end={'end' in item ? item.end : undefined}
+                        className={({ isActive }) => `flex shrink-0 items-center gap-2.5 rounded-xl px-3.5 py-2.5 text-sm font-semibold transition lg:w-full ${isActive ? 'bg-[#173d2c] text-white shadow-sm' : 'border border-[#dfe7df] bg-white text-[#52645b] hover:bg-[#f2f5ed] lg:border-transparent lg:bg-transparent'}`}
+                      >
+                        <Icon className="size-4" />
+                        {item.label}
+                      </NavLink>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
           </nav>
 
           <div className="mt-auto hidden px-5 pb-6 pt-5 lg:block">
