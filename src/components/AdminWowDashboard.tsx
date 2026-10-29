@@ -3,7 +3,7 @@ import { BarChart3, CheckCircle2, Download, LockKeyhole, PackageCheck, RefreshCw
 import { Button } from '@/components/ui/button';
 import { getAdminSession, listCollection, setDocument, updateDocument } from '@/lib/firebaseRest';
 
-const ORDER_STAGES = ['Trimisă', 'Confirmată', 'Comandată furnizorului', 'Gata de ridicare'] as const;
+const ORDER_STAGES = ['Trimisă', 'Confirmată', 'Comandată furnizorului', 'Gata de ridicare', 'Predată'] as const;
 type OrderStage = (typeof ORDER_STAGES)[number];
 
 type OrderItem = {
@@ -74,18 +74,35 @@ export default function AdminWowDashboard() {
         .map((order) => [String(order.orderCode).toUpperCase(), order.status || 'Trimisă']),
     );
 
+    const productTotals = new Map<string, { name: string; amount: number; unit: string; orders: number; bani: number }>();
+    let totalGrams = 0;
+    visible.forEach((order) => (order.items || []).forEach((item) => {
+      const id = item.productId || item.productName || 'produs';
+      const current = productTotals.get(id) || { name: item.productName || 'Produs', amount: 0, unit: item.quantityUnit || 'g', orders: 0, bani: 0 };
+      current.amount += Number(item.grams) || 0;
+      current.orders += 1;
+      current.bani += Number(item.lineTotalBani) || 0;
+      productTotals.set(id, current);
+      if ((item.quantityUnit || 'g') === 'g') totalGrams += Number(item.grams) || 0;
+    }));
+    const top = [...productTotals.values()].sort((a, b) => b.bani - a.bani)[0];
+    const last = [...visible].sort((a, b) => orderDate(b).getTime() - orderDate(a).getTime())[0];
+
     await Promise.all([
       setDocument('settings/publicStats', {
         orderCount: visible.length,
         totalBani: visible.reduce((sum, order) => sum + (Number(order.totalBani) || 0), 0),
         paidCount: visible.filter((order) => order.paid).length,
         roundLabel: roundLabel(),
+        totalGrams,
+        lastOrderAt: last ? orderDate(last) : null,
+        topProductName: top?.name || '',
+        topProductAmount: top?.amount || 0,
+        topProductUnit: top?.unit || '',
+        productTotals: Object.fromEntries(productTotals),
         updatedAt: new Date(),
       }),
-      setDocument('settings/publicStatuses', {
-        statuses,
-        updatedAt: new Date(),
-      }),
+      setDocument('settings/publicStatuses', { statuses, updatedAt: new Date() }),
     ]);
   };
 
