@@ -31,7 +31,7 @@ const unitOptions: Array<{ value: QuantityUnit; label: string }> = [
   { value: 'borcan', label: 'borcane' },
   { value: 'cofraj', label: 'cofraje' },
 ];
-const CATALOG_REFRESH_AT = Date.parse('2026-09-10T04:45:00Z');
+const CATALOG_REFRESH_AT = Date.parse('2026-11-04T06:50:00Z');
 
 function lei(bani = 0) { return new Intl.NumberFormat('ro-MD', { maximumFractionDigits: 2 }).format(bani / 100); }
 function slugify(value: string) { return value.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''); }
