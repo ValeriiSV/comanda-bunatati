@@ -18,7 +18,7 @@ import CollectiveGoalsPanel from '@/components/CollectiveGoalsPanel';
 
 type OrderItem = { productId?: string; productName?: string; category?: string; grams?: number; quantityUnit?: string; lineTotalBani?: number };
 type Order = { id: string; orderCode?: string; customerName?: string; phone?: string; totalBani?: number; paid?: boolean; createdAt?: Date | string | null; items?: OrderItem[] };
-type Product = CatalogProduct & { active?: boolean; isNew?: boolean; promo?: boolean; sortOrder?: number; updatedAt?: unknown };
+type Product = CatalogProduct & { active?: boolean; isNew?: boolean; promo?: boolean; sortOrder?: number; createdAt?: unknown; updatedAt?: unknown };
 type ProductDraft = { name: string; category: string; priceLei: string; baseGrams: string; stepGrams: string; quantityUnit: QuantityUnit; stockLimit: string; imageUrl: string; active: boolean; isNew: boolean; promo: boolean };
 type OrderDraftItem = { productId: string; productName: string; category: string; grams: number };
 
@@ -73,7 +73,9 @@ function mergeCatalog(remoteProducts: Product[]) {
     if (updatedAtMillis(remote.updatedAt) > CATALOG_REFRESH_AT) return { ...catalogProduct, ...remote, id: catalogProduct.id };
     return { ...catalogProduct, active: remote.active, isNew: remote.isNew, promo: remote.promo, sortOrder: remote.sortOrder ?? index };
   });
-  const customProducts = remoteProducts.filter((product) => !catalogIds.has(product.id));
+  const customProducts = remoteProducts.filter((product) =>
+    !catalogIds.has(product.id) && updatedAtMillis(product.createdAt) > CATALOG_REFRESH_AT
+  );
   return [...refreshed, ...customProducts].sort((a, b) => (a.sortOrder ?? 9999) - (b.sortOrder ?? 9999));
 }
 function orderQuantityLabel(productId: string | undefined, amount = 0, productList: CatalogProduct[] = catalogProducts) {
