@@ -70,7 +70,7 @@ export const products: Product[] = [
   { id: 'cipsuri-mere', name: 'Chipsuri de mere', category: 'Fructe uscate', priceLei: 60, baseGrams: 150, stepGrams: 150 },
 
   // Conserve
-  { id: 'visina-suc-propriu', name: 'Vișine în suc propriu', category: 'Conserve', priceLei: 250, baseGrams: 3000, stepGrams: 3000, priceUnitLabel: 'borcan 3 L', quantityUnit: 'ml' },
+  { id: 'visina-suc-propriu', name: 'Vișine în suc propriu', category: 'Conserve', priceLei: 250, baseGrams: 1, stepGrams: 1, priceUnitLabel: 'borcan 3 L', quantityUnit: 'borcan' },
 
   // Semințe
   { id: 'mix-4-seminte', name: 'Mix 4 semințe', category: 'Semințe', priceLei: 30, baseGrams: 200, stepGrams: 200 },
@@ -89,8 +89,8 @@ export const products: Product[] = [
   { id: 'marzotto-expresso-bar-grani', name: 'Marzotto Expresso Bar Grani', category: 'Cafea boabe', priceLei: 350, baseGrams: 1000, stepGrams: 500 },
 
   // Olive conservate — producător Grecia
-  { id: 'olive-cu-samburi', name: 'Olive cu sâmburi', category: 'Olive conservate', priceLei: 100, baseGrams: 720, stepGrams: 720, priceUnitLabel: 'borcan 720 g', quantityUnit: 'borcan' },
-  { id: 'masline-cu-samburi', name: 'Măsline cu sâmburi', category: 'Olive conservate', priceLei: 100, baseGrams: 720, stepGrams: 720, priceUnitLabel: 'borcan 720 g', quantityUnit: 'borcan' },
+  { id: 'olive-cu-samburi', name: 'Olive cu sâmburi', category: 'Olive conservate', priceLei: 100, baseGrams: 1, stepGrams: 1, priceUnitLabel: 'borcan 720 g', quantityUnit: 'borcan' },
+  { id: 'masline-cu-samburi', name: 'Măsline cu sâmburi', category: 'Olive conservate', priceLei: 100, baseGrams: 1, stepGrams: 1, priceUnitLabel: 'borcan 720 g', quantityUnit: 'borcan' },
 
   // Ulei de măsline
   { id: 'ulei-olive-extra-virgin', name: 'Ulei de măsline Extra Virgin · prima presare', category: 'Ulei de olive', priceLei: 200, baseGrams: 500, stepGrams: 500, priceUnitLabel: '0,5 L', quantityUnit: 'ml' },
