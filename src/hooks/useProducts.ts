@@ -12,11 +12,11 @@ export type ManagedProduct = Product & {
   updatedAt?: unknown;
 };
 
-// Lista finală a catalogului actualizată la 11.09.2026.
+// Lista oficială a catalogului actualizată după preț-listul furnizorului din 26.10.2026.
 // Datele Firebase mai vechi nu trebuie să suprascrie prețurile sau
 // pașii de cantitate actuali. Produsele/editările făcute ulterior
 // din panoul managerului rămân însă active.
-const CATALOG_FINAL_AT = Date.parse('2026-09-11T05:35:00Z');
+const CATALOG_FINAL_AT = Date.parse('2026-11-04T06:50:00Z');
 
 function normalizeKgStep<T extends ManagedProduct>(product: T): T {
   const isBuiltInProduct = fallbackProducts.some((catalogProduct) => catalogProduct.id === product.id);
