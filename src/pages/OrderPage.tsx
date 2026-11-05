@@ -6,16 +6,17 @@ import {
   CheckCircle2,
   ChevronRight,
   Clock,
+  Copy,
+  ExternalLink,
   Heart,
   Minus,
   PackageCheck,
   Plus,
+  QrCode,
   RotateCcw,
   Search,
   ShoppingBag,
   Sparkles,
-  TrendingUp,
-  Users,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import SimpleQrCode from '@/components/SimpleQrCode';
@@ -27,7 +28,7 @@ import { categories, linePrice, priceLabel, quantityLabel, type Category, type P
 import { getCategoryExperience, isNewProduct, recommendProducts } from '@/lib/catalogExperience';
 import { useProducts, type ManagedProduct } from '@/hooks/useProducts';
 import { formatOrderDate, useOrderSchedule, type OrderSchedule } from '@/hooks/useOrderSchedule';
-import { usePublicOrderMeta, type PublicOrderStats } from '@/hooks/usePublicOrderMeta';
+import { usePublicOrderMeta } from '@/hooks/usePublicOrderMeta';
 import { useMiaPayment } from '@/hooks/useMiaPayment';
 import { submitPublicOrder } from '@/lib/orderApi';
 import { downloadOrderReminder, orderDeadline, REMINDER_KEY, reminderId } from '@/lib/orderReminders';
@@ -207,22 +208,75 @@ function ScheduleNotice({ schedule, compact = false }: { schedule: OrderSchedule
   );
 }
 
-function PublicPulse({ stats }: { stats: PublicOrderStats }) {
-  const hasData = stats.orderCount > 0 || stats.totalBani > 0;
-  const lastMinutes = stats.lastOrderAt ? Math.max(0, Math.floor((Date.now() - new Date(stats.lastOrderAt).getTime()) / 60000)) : null;
+function MiaHeroPanel() {
+  const { payment, loading } = useMiaPayment();
+  const qrValue = payment.paymentLink || payment.phone;
+  const [copied, setCopied] = useState(false);
+
+  const copyPayment = async () => {
+    const value = payment.paymentLink || payment.phone;
+    if (!value) return;
+    try {
+      await navigator.clipboard.writeText(value);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1600);
+    } catch {
+      // Butonul de deschidere MIA rămâne disponibil.
+    }
+  };
+
   return (
-    <div className="glass-dark rounded-[24px] p-4 text-white shadow-2xl">
-      <div className="flex items-center justify-between gap-3">
-        <div><p className="text-[11px] font-bold uppercase tracking-[.14em] text-white/65">Live · comanda lunii</p><p className="mt-1 font-serif text-2xl font-semibold">{hasData ? `${stats.orderCount} comenzi` : 'Comanda e deschisă'}</p></div>
-        <span className="pulse-live size-2.5 rounded-full bg-[#9be57d]" />
+    <div className="glass-dark rounded-[24px] p-4 text-white shadow-2xl sm:p-5">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="text-[11px] font-bold uppercase tracking-[.14em] text-white/65">MIA · plată rapidă</p>
+          <p className="mt-1 font-serif text-2xl font-semibold">Scanează și plătește</p>
+        </div>
+        <span className="grid size-10 shrink-0 place-items-center rounded-full bg-white/10 text-[#dceecf]"><QrCode className="size-5" /></span>
       </div>
-      <div className="mt-4 grid grid-cols-3 gap-2">
-        <div className="rounded-2xl bg-white/10 p-3"><Users className="size-4 text-[#dceecf]" /><strong className="mt-2 block text-lg">{stats.orderCount}</strong><span className="text-[11px] text-white/60">comenzi</span></div>
-        <div className="rounded-2xl bg-white/10 p-3"><TrendingUp className="size-4 text-[#f7cf8d]" /><strong className="mt-2 block text-lg">{money(stats.totalBani / 100)}</strong><span className="text-[11px] text-white/60">lei</span></div>
-        <div className="rounded-2xl bg-white/10 p-3"><PackageCheck className="size-4 text-[#dceecf]" /><strong className="mt-2 block text-lg">{money(stats.totalGrams / 1000)}</strong><span className="text-[11px] text-white/60">kg</span></div>
-      </div>
-      {stats.topProductName && <p className="mt-3 rounded-xl bg-white/10 px-3 py-2 text-xs text-white/75">🔥 Cel mai comandat: <strong className="text-white">{stats.topProductName}</strong></p>}
-      {lastMinutes !== null && <p className="mt-2 text-xs text-white/55">{lastMinutes < 1 ? 'Ultima comandă chiar acum' : `Ultima comandă acum ${lastMinutes} min`}</p>}
+
+      {loading ? (
+        <div className="mt-4 grid min-h-40 place-items-center rounded-2xl bg-white/8 text-sm text-white/60">Se încarcă MIA…</div>
+      ) : qrValue ? (
+        <>
+          <div className="mt-4 grid gap-4 sm:grid-cols-[150px_minmax(0,1fr)] lg:grid-cols-1">
+            <div className="mx-auto w-full max-w-[170px] rounded-[22px] bg-white p-3 shadow-xl">
+              <SimpleQrCode value={qrValue} title="QR pentru plata MIA" className="aspect-square w-full rounded-xl bg-white" />
+            </div>
+
+            <div className="min-w-0">
+              {payment.recipientName && <p className="truncate text-base font-semibold text-white">{payment.recipientName}</p>}
+              {payment.phone && <p className="mt-1 text-sm text-white/65">{payment.phone}</p>}
+              <p className="mt-2 text-xs leading-5 text-white/60">Folosește QR-ul configurat în Manager → Plăți / MIA.</p>
+
+              <div className="mt-3 flex flex-wrap gap-2">
+                {payment.paymentLink && (
+                  <a
+                    href={payment.paymentLink}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex h-9 items-center gap-1.5 rounded-full bg-white px-3 text-xs font-bold text-[#173d2c] transition hover:bg-white/90"
+                  >
+                    <ExternalLink className="size-3.5" /> Deschide MIA
+                  </a>
+                )}
+                <button
+                  type="button"
+                  onClick={() => void copyPayment()}
+                  className="inline-flex h-9 items-center gap-1.5 rounded-full border border-white/20 bg-white/8 px-3 text-xs font-bold text-white transition hover:bg-white/15"
+                >
+                  {copied ? <CheckCircle2 className="size-3.5" /> : <Copy className="size-3.5" />}
+                  {copied ? 'Copiat' : payment.paymentLink ? 'Copiază linkul' : 'Copiază numărul'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </>
+      ) : (
+        <div className="mt-4 rounded-2xl bg-white/8 p-4 text-sm leading-5 text-white/65">
+          QR-ul MIA nu este configurat încă. Adaugă datele în Manager → Plăți / MIA.
+        </div>
+      )}
     </div>
   );
 }
@@ -487,7 +541,7 @@ export default function OrderApp() {
                 <h1 className="font-serif text-4xl font-semibold leading-[1.03] sm:text-5xl lg:text-6xl">Alege ce-ți place.<br />Noi comandăm împreună.</h1>
                 <p className="mt-4 max-w-xl text-sm leading-6 text-white/78 sm:text-base">Catalogul lunii, favoritele tale, recomandări rapide și statusul comenzii — într-o experiență simplă și premium.</p>
               </div>
-              <PublicPulse stats={stats} />
+              <MiaHeroPanel />
             </div>
           </div>
 
