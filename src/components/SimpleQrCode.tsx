@@ -6,10 +6,13 @@ type Props = {
   title?: string;
 };
 
-const VERSION = 2;
+// QR Version 5-L: suficient pentru linkurile MIA complete (~106 bytes în byte mode).
+// Versiunea anterioară (V2-L) suporta doar ~32 bytes și putea prăbuși pagina.
+const VERSION = 5;
 const SIZE = 17 + VERSION * 4;
-const DATA_CODEWORDS = 34;
-const ECC_CODEWORDS = 10;
+const DATA_CODEWORDS = 108;
+const ECC_CODEWORDS = 26;
+const MAX_BYTE_LENGTH = 106;
 
 function gfMultiply(x: number, y: number) {
   let z = 0;
@@ -50,7 +53,7 @@ function appendBits(target: number[], value: number, length: number) {
 
 function makeCodewords(value: string) {
   const bytes = [...new TextEncoder().encode(value)];
-  if (bytes.length > 32) throw new Error('Valoarea QR este prea lungă.');
+  if (bytes.length > MAX_BYTE_LENGTH) return null;
 
   const bits: number[] = [];
   appendBits(bits, 0b0100, 4);
@@ -114,7 +117,7 @@ function makeMatrix(value: string) {
     if (!isFunction[6][i]) setFunction(i, 6, i % 2 === 0);
     if (!isFunction[i][6]) setFunction(6, i, i % 2 === 0);
   }
-  alignment(18, 18);
+  alignment(30, 30);
 
   // Reserve format information areas.
   for (let i = 0; i <= 5; i++) setFunction(8, i, false);
@@ -127,6 +130,7 @@ function makeMatrix(value: string) {
   setFunction(8, SIZE - 8, true);
 
   const codewords = makeCodewords(value);
+  if (!codewords) return null;
   let bitIndex = 0;
   let upward = true;
 
@@ -167,6 +171,14 @@ export default function SimpleQrCode({ value, className = '', title = 'QR' }: Pr
   const matrix = useMemo(() => makeMatrix(value), [value]);
   const quiet = 4;
   const full = SIZE + quiet * 2;
+
+  if (!matrix) {
+    return (
+      <div className={`${className} grid place-items-center bg-white p-3 text-center text-xs font-medium text-[#607269]`} role="img" aria-label={title}>
+        QR indisponibil pentru această valoare
+      </div>
+    );
+  }
 
   return (
     <svg className={className} viewBox={`0 0 ${full} ${full}`} role="img" aria-label={title} shapeRendering="crispEdges">
