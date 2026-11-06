@@ -47,9 +47,52 @@ const FAVORITES_KEY = 'bunatati_favorites_v1';
 const LAST_ORDER_KEY = 'bunatati_last_order_v2';
 const ORDER_HISTORY_KEY = 'bunatati_order_history_v1';
 
+const LOCAL_PRODUCT_IMAGES = new Set([
+  'alune-ciocolata-lapte','ananas-uscat','arahide-crude','banana-ciocolata','caju-fara-coaja-prajit','caju-prajit','caju',
+  'caramel-sarat','cernosliv','cipsuri-banane','cipsuri-mere','cocos-ciocolata','cuburi-cocos','curmale-regale','curmale-tunis',
+  'finic-nuci-ciocolata','fistic-american','macadamia-coaja','mango-uscat','martipan','marzotto-expresso-bar-grani','masline-cu-samburi',
+  'miere-salcam','miez-fistic','migdale','mix-4-seminte','mix-bomboane','mix-nuci-fructe-seminte','negresa-migdale','nuca-pecan',
+  'nuci-braziliene','nuci-cedru','nuci-grecesti','olive-cu-samburi','prune-ciocolata','quinoa','rachitele','seminte-chia',
+  'seminte-dovleac','seminte-floarea-soarelui','seminte-in-cafenii','seminte-susan','stafide-negre','ulei-olive-extra-virgin',
+  'visina-suc-propriu','visina-uscata','zamos-uscat',
+]);
+
+const PRODUCT_IMAGE_FALLBACKS: Record<string, string> = {
+  'alune-padure': '/products-ultra/migdale.jpg',
+  'miez-macadamia': '/products-ultra/macadamia-coaja.jpg',
+  'caise-uscate-portocalii': '/products-ultra/mango-uscat.jpg',
+  'caise-uscate-brune': '/products-ultra/cernosliv.jpg',
+  'stafide-deschise': '/products-ultra/stafide-negre.jpg',
+  'curmale-mazafati': '/products-ultra/curmale-regale.jpg',
+  'smochine-uscate': '/products-ultra/cernosliv.jpg',
+  'mix-caju-rachitele': '/products-ultra/mix-nuci-fructe-seminte.jpg',
+  'caise-ciocolata': '/products-ultra/prune-ciocolata.jpg',
+  'migdale-ciocolata-lapte': '/products-ultra/alune-ciocolata-lapte.jpg',
+  'inimioare-ciocolata-colorate': '/products-ultra/mix-bomboane.jpg',
+};
+
+const CATEGORY_IMAGE_FALLBACKS: Record<string, string> = {
+  Nuci: '/products-ultra/migdale.jpg',
+  Miere: '/products-ultra/miere-salcam.jpg',
+  'Fructe uscate': '/products-ultra/mango-uscat.jpg',
+  Conserve: '/products-ultra/visina-suc-propriu.jpg',
+  'Semințe': '/products-ultra/mix-4-seminte.jpg',
+  Mix: '/products-ultra/mix-nuci-fructe-seminte.jpg',
+  'Cafea boabe': '/products-ultra/marzotto-expresso-bar-grani.jpg',
+  'Olive conservate': '/products-ultra/olive-cu-samburi.jpg',
+  'Ulei de olive': '/products-ultra/ulei-olive-extra-virgin.jpg',
+  Bomboane: '/products-ultra/mix-bomboane.jpg',
+  Drajeuri: '/products-ultra/alune-ciocolata-lapte.jpg',
+};
+
 function productImage(product: Product) {
   if (product.imageUrl && !product.imageUrl.startsWith('/products/')) return product.imageUrl;
-  return `/products-ultra/${product.id}.jpg`;
+  if (LOCAL_PRODUCT_IMAGES.has(product.id)) return `/products-ultra/${product.id}.jpg`;
+  return PRODUCT_IMAGE_FALLBACKS[product.id] || CATEGORY_IMAGE_FALLBACKS[product.category] || '/catalog-hero.png';
+}
+
+function productImageFallback(product: Product) {
+  return PRODUCT_IMAGE_FALLBACKS[product.id] || CATEGORY_IMAGE_FALLBACKS[product.category] || '/catalog-hero.png';
 }
 
 function money(value: number) {
@@ -565,7 +608,10 @@ export default function OrderApp() {
               <div className="glass-scrollbar flex gap-3 overflow-x-auto pb-2">
                 {freshProducts.map((product) => (
                   <button key={product.id} onClick={() => { setActiveCategory(product.category); window.setTimeout(() => document.getElementById(`product-${product.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 80); }} className="glass interactive-glass group relative w-56 shrink-0 overflow-hidden rounded-[22px] text-left" onPointerMove={glassMove}>
-                    <div className="relative h-28 overflow-hidden bg-[#dce7d7]"><img src={productImage(product)} alt={product.name} className="size-full object-cover transition duration-500 group-hover:scale-105" loading="lazy" onError={(event) => { event.currentTarget.src = getCategoryExperience(product.category).photoUrl; }} /><div className="absolute inset-0 bg-gradient-to-t from-[#173d2c]/70 to-transparent" /><span className="absolute bottom-2 left-2 rounded-full bg-[#f5dcae]/90 px-2.5 py-1 text-[11px] font-bold text-[#714b20] backdrop-blur-md">NOU</span></div>
+                    <div className="relative h-28 overflow-hidden bg-[#dce7d7]"><img src={productImage(product)} alt={product.name} className="size-full object-cover transition duration-500 group-hover:scale-105" loading="lazy" onError={(event) => {
+  const fallback = productImageFallback(product);
+  if (!event.currentTarget.src.endsWith(fallback)) event.currentTarget.src = fallback;
+}} /><div className="absolute inset-0 bg-gradient-to-t from-[#173d2c]/70 to-transparent" /><span className="absolute bottom-2 left-2 rounded-full bg-[#f5dcae]/90 px-2.5 py-1 text-[11px] font-bold text-[#714b20] backdrop-blur-md">NOU</span></div>
                     <div className="p-3"><strong className="line-clamp-2 block text-sm">{product.name}</strong><span className="mt-1 block text-xs text-[#7a8880]">{priceLabel(product)}</span></div>
                   </button>
                 ))}
