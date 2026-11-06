@@ -7,79 +7,91 @@ export type CategoryExperience = {
   photoAlt: string;
 };
 
-const photo = (id: string) => `https://unsplash.com/photos/${id}/download?force=true&w=900`;
+const localPhoto: Record<string, string> = {
+  nuts: '/products-ultra/migdale.jpg',
+  honey: '/products-ultra/miere-salcam.jpg',
+  dried: '/products-ultra/mango-uscat.jpg',
+  conserve: '/products-ultra/visina-suc-propriu.jpg',
+  seeds: '/products-ultra/mix-4-seminte.jpg',
+  mix: '/products-ultra/mix-nuci-fructe-seminte.jpg',
+  coffee: '/products-ultra/marzotto-expresso-bar-grani.jpg',
+  olives: '/products-ultra/olive-cu-samburi.jpg',
+  oil: '/products-ultra/ulei-olive-extra-virgin.jpg',
+  sweets: '/products-ultra/mix-bomboane.jpg',
+  dragee: '/products-ultra/alune-ciocolata-lapte.jpg',
+};
 
 export const categoryExperience: Record<string, CategoryExperience> = {
   Nuci: {
     icon: '🥜',
     note: 'nuci crude, prăjite și sortimente speciale',
-    photoUrl: photo('PYBmNk304G4'),
+    photoUrl: localPhoto.nuts,
     photoAlt: 'Migdale și nuci',
   },
   Miere: {
     icon: '🍯',
     note: 'miere naturală de salcâm',
-    photoUrl: photo('Asj5DFw8UAw'),
+    photoUrl: localPhoto.honey,
     photoAlt: 'Miere naturală',
   },
   'Fructe uscate': {
     icon: '🍑',
     note: 'fructe uscate, aromate și gustoase',
-    photoUrl: photo('qWQEeqrEsmw'),
+    photoUrl: localPhoto.dried,
     photoAlt: 'Fructe uscate',
   },
   Conserve: {
     icon: '🍒',
     note: 'fructe conservate în suc propriu',
-    photoUrl: photo('qWQEeqrEsmw'),
+    photoUrl: localPhoto.conserve,
     photoAlt: 'Fructe pentru conserve',
   },
   'Semințe': {
     icon: '🌱',
     note: 'semințe, chia, quinoa și mixuri',
-    photoUrl: photo('J8_U_vokuKk'),
+    photoUrl: localPhoto.seeds,
     photoAlt: 'Semințe',
   },
   Mix: {
     icon: '🥣',
     note: 'mix de nuci, fructe uscate și semințe',
-    photoUrl: photo('PYBmNk304G4'),
+    photoUrl: localPhoto.mix,
     photoAlt: 'Mix de nuci',
   },
   'Cafea boabe': {
     icon: '☕',
     note: 'cafea boabe din Italia',
-    photoUrl: photo('TD4DBagg2wE'),
+    photoUrl: localPhoto.coffee,
     photoAlt: 'Cafea boabe',
   },
   'Olive conservate': {
     icon: '🫒',
     note: 'olive și măsline · producător Grecia',
-    photoUrl: photo('RuqOeMvPlzQ'),
+    photoUrl: localPhoto.olives,
     photoAlt: 'Olive',
   },
   'Ulei de olive': {
     icon: '🫗',
     note: 'extra virgin, prima presare, pentru salate',
-    photoUrl: photo('RuqOeMvPlzQ'),
+    photoUrl: localPhoto.oil,
     photoAlt: 'Olive pentru ulei extra virgin',
   },
   Bomboane: {
     icon: '🍬',
     note: 'ambalaj de 0,5 kg · producător Ucraina',
-    photoUrl: photo('H22N-9s8AUw'),
+    photoUrl: localPhoto.sweets,
     photoAlt: 'Ciocolată',
   },
   Drajeuri: {
     icon: '🍫',
     note: 'porții de 250 g',
-    photoUrl: photo('H22N-9s8AUw'),
+    photoUrl: localPhoto.dragee,
     photoAlt: 'Ciocolată și cacao',
   },
   'Produse de casă': {
     icon: '🧺',
     note: 'produse locale, direct de la gospodărie',
-    photoUrl: photo('PYBmNk304G4'),
+    photoUrl: localPhoto.nuts,
     photoAlt: 'Produse de casă',
   },
 };
@@ -87,7 +99,7 @@ export const categoryExperience: Record<string, CategoryExperience> = {
 const fallbackExperience: CategoryExperience = {
   icon: '🛍️',
   note: 'produse speciale adăugate în catalog',
-  photoUrl: photo('PYBmNk304G4'),
+  photoUrl: localPhoto.nuts,
   photoAlt: 'Produs din catalog',
 };
 
