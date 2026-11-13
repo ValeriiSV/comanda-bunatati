@@ -10,6 +10,7 @@ import { auth } from '@/lib/firebase';
 import { adminLogin, clearAdminSession, deleteDocument, getAdminSession, getDocument, listCollection, saveExternalAdminSession, setDocument, updateDocument } from '@/lib/firebaseRest';
 import AdminLayout, { type AdminSection } from '@/components/AdminLayout';
 import AdminWowDashboard from '@/components/AdminWowDashboard';
+import RoundSeparationPanel from '@/components/RoundSeparationPanel';
 import OrderDeadlineTimeEditor from '@/components/OrderDeadlineTimeEditor';
 import SellerExcelExport from '@/components/SellerExcelExport';
 import PackingModePanel from '@/components/PackingModePanel';
@@ -18,7 +19,7 @@ import CollectiveGoalsPanel from '@/components/CollectiveGoalsPanel';
 import { effectiveRound, roundMeta } from '@/lib/orderRounds';
 
 type OrderItem = { productId?: string; productName?: string; category?: string; grams?: number; quantityUnit?: string; lineTotalBani?: number };
-type Order = { id: string; orderCode?: string; customerName?: string; phone?: string; totalBani?: number; paid?: boolean; createdAt?: Date | string | null; scheduledOrderDates?: string[]; roundId?: string; roundLabel?: string; roundSequence?: number; items?: OrderItem[] };
+type Order = { id: string; orderCode?: string; customerName?: string; phone?: string; totalBani?: number; paid?: boolean; status?: string; createdAt?: Date | string | null; scheduledOrderDates?: string[]; roundId?: string; roundLabel?: string; roundSequence?: number; items?: OrderItem[] };
 type Product = CatalogProduct & { active?: boolean; isNew?: boolean; promo?: boolean; sortOrder?: number; createdAt?: unknown; updatedAt?: unknown };
 type ProductDraft = { name: string; category: string; priceLei: string; baseGrams: string; stepGrams: string; quantityUnit: QuantityUnit; stockLimit: string; imageUrl: string; active: boolean; isNew: boolean; promo: boolean };
 type OrderDraftItem = { productId: string; productName: string; category: string; grams: number };
@@ -264,7 +265,7 @@ export default function AdminStablePage({ section = 'dashboard' }: { section?: A
   };
 
   const monthOptions = useMemo(() => {
-    const keys = new Set(orders.map((o) => monthKey(orderDate(o))));
+    const keys = new Set(orders.map((o) => effectiveRound(o).roundMonth));
     keys.add(monthKey(new Date()));
     if (roundMonth) keys.add(roundMonth);
     return [...keys].sort().reverse();
@@ -273,7 +274,7 @@ export default function AdminStablePage({ section = 'dashboard' }: { section?: A
   const roundOptions = useMemo(() => {
     const map = new Map<string, { id: string; label: string; sequence: number }>();
     orders
-      .filter((order) => monthKey(orderDate(order)) === selectedMonth)
+      .filter((order) => effectiveRound(order).roundMonth === selectedMonth)
       .forEach((order) => {
         const round = effectiveRound(order);
         map.set(round.roundId, { id: round.roundId, label: round.roundLabel, sequence: round.roundSequence });
@@ -295,7 +296,7 @@ export default function AdminStablePage({ section = 'dashboard' }: { section?: A
   }, [roundOptions, selectedRoundId, roundId]);
 
   const visibleOrders = useMemo(() => orders.filter((order) => {
-    if (monthKey(orderDate(order)) !== selectedMonth) return false;
+    if (effectiveRound(order).roundMonth !== selectedMonth) return false;
     if (!selectedRoundId) return true;
     return effectiveRound(order).roundId === selectedRoundId;
   }), [orders, selectedMonth, selectedRoundId]);
@@ -562,7 +563,7 @@ export default function AdminStablePage({ section = 'dashboard' }: { section?: A
     </div>
   </section>}
 
-  {section === 'orders' && <><section className="rounded-[22px] border bg-white p-4">
+  {section === 'orders' && <><RoundSeparationPanel orders={orders} activeRoundId={roundId} onComplete={async (nextRoundId) => { setSelectedMonth('2026-11'); setSelectedRoundId(nextRoundId); await loadAll(); }} /><section className="rounded-[22px] border bg-white p-4">
     <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
       <div>
         <p className="font-semibold">Perioada comenzilor</p>
@@ -573,11 +574,11 @@ export default function AdminStablePage({ section = 'dashboard' }: { section?: A
           {monthOptions.map((k) => <option key={k} value={k}>{monthLabel(k)}</option>)}
         </select>
         <select value={selectedRoundId} onChange={(e) => setSelectedRoundId(e.target.value)} className="h-11 min-w-56 rounded-xl border px-3">
-          {roundOptions.map((option) => <option key={option.id} value={option.id}>{option.label}</option>)}
+          {roundOptions.map((option) => <option key={option.id} value={option.id}>{option.label}{option.id === roundId ? ' · Activă' : ' · Închisă'}</option>)}
         </select>
       </div>
     </div>
-    {roundOptions.length > 1 && <p className="mt-3 rounded-xl bg-[#fff7e8] px-3 py-2 text-xs text-[#7a5b2d]">Pentru comenzile primite după redeschiderea din noiembrie, alege Runda #2 în coloana „Rundă”. Prima comandă rămâne în #1.</p>}
+    {roundOptions.length > 1 && <p className="mt-3 rounded-xl bg-[#fff7e8] px-3 py-2 text-xs text-[#7a5b2d]">Comenzile sunt păstrate în runda lor. Selectează Runda #1 pentru istoric sau runda activă pentru comenzile noi.</p>}
   </section>
 
 
@@ -625,7 +626,7 @@ export default function AdminStablePage({ section = 'dashboard' }: { section?: A
       </div>
     </div>}
 
-    <div className="overflow-x-auto"><Table><TableHeader><TableRow><TableHead>Nume</TableHead><TableHead>Rundă</TableHead><TableHead>Telefon</TableHead><TableHead>Produse</TableHead><TableHead>Total</TableHead><TableHead>Plată</TableHead><TableHead className="text-right">Acțiuni</TableHead></TableRow></TableHeader><TableBody>{visibleOrders.map((o) => <TableRow key={o.id} className={editingOrderId === o.id ? 'bg-[#f7faf4]' : ''}><TableCell><strong>{o.customerName || 'Fără nume'}</strong><span className="block text-xs text-[#829087]">{o.orderCode || '—'} · {orderDate(o).toLocaleDateString('ro-MD')}</span></TableCell><TableCell><select value={effectiveRound(o).roundId} onChange={(event) => void moveOrderToRound(o, event.target.value)} className="h-9 min-w-44 rounded-lg border bg-white px-2 text-xs">{roundOptions.map((option) => <option key={option.id} value={option.id}>{option.label}</option>)}</select></TableCell><TableCell>{o.phone || '—'}</TableCell><TableCell className="min-w-72">{(o.items || []).map((i, idx) => <span key={`${i.productId}-${idx}`} className="mr-1.5 mb-1.5 inline-flex rounded-full bg-[#eef3e8] px-2.5 py-1 text-xs">{i.productName} · {orderQuantityLabel(i.productId, i.grams || 0, products)}</span>)}</TableCell><TableCell className="font-semibold">{lei(o.totalBani || 0)} lei</TableCell><TableCell><Button size="sm" variant={o.paid ? 'secondary' : 'outline'} onClick={() => togglePaid(o)}>{o.paid && <Check />} {o.paid ? 'Achitat' : 'Neachitat'}</Button></TableCell><TableCell className="text-right"><div className="flex justify-end gap-1"><Button variant="ghost" size="icon" onClick={() => startOrderEdit(o)} title="Modifică această comandă"><Pencil /></Button><Button variant="ghost" size="icon" onClick={() => removeOrder(o)} className="text-red-600" title="Șterge comanda"><Trash2 /></Button></div></TableCell></TableRow>)}{visibleOrders.length === 0 && <TableRow><TableCell colSpan={7} className="py-10 text-center text-[#74837b]">Nu există comenzi în această rundă.</TableCell></TableRow>}</TableBody></Table></div>
+    <div className="overflow-x-auto"><Table><TableHeader><TableRow><TableHead>Nume</TableHead><TableHead>Rundă</TableHead><TableHead>Telefon</TableHead><TableHead>Produse</TableHead><TableHead>Total</TableHead><TableHead>Plată</TableHead><TableHead className="text-right">Acțiuni</TableHead></TableRow></TableHeader><TableBody>{visibleOrders.map((o) => <TableRow key={o.id} className={editingOrderId === o.id ? 'bg-[#f7faf4]' : ''}><TableCell><strong>{o.customerName || 'Fără nume'}</strong><span className="block text-xs text-[#829087]">{o.orderCode || '—'} · {orderDate(o).toLocaleDateString('ro-MD')} · {o.status || 'Trimisă'}</span></TableCell><TableCell><select value={effectiveRound(o).roundId} onChange={(event) => void moveOrderToRound(o, event.target.value)} className="h-9 min-w-44 rounded-lg border bg-white px-2 text-xs">{roundOptions.map((option) => <option key={option.id} value={option.id}>{option.label}</option>)}</select></TableCell><TableCell>{o.phone || '—'}</TableCell><TableCell className="min-w-72">{(o.items || []).map((i, idx) => <span key={`${i.productId}-${idx}`} className="mr-1.5 mb-1.5 inline-flex rounded-full bg-[#eef3e8] px-2.5 py-1 text-xs">{i.productName} · {orderQuantityLabel(i.productId, i.grams || 0, products)}</span>)}</TableCell><TableCell className="font-semibold">{lei(o.totalBani || 0)} lei</TableCell><TableCell><Button size="sm" variant={o.paid ? 'secondary' : 'outline'} onClick={() => togglePaid(o)}>{o.paid && <Check />} {o.paid ? 'Achitat' : 'Neachitat'}</Button></TableCell><TableCell className="text-right"><div className="flex justify-end gap-1"><Button variant="ghost" size="icon" onClick={() => startOrderEdit(o)} title="Modifică această comandă"><Pencil /></Button><Button variant="ghost" size="icon" onClick={() => removeOrder(o)} className="text-red-600" title="Șterge comanda"><Trash2 /></Button></div></TableCell></TableRow>)}{visibleOrders.length === 0 && <TableRow><TableCell colSpan={7} className="py-10 text-center text-[#74837b]">Nu există comenzi în această rundă.</TableCell></TableRow>}</TableBody></Table></div>
   </section></>}
 
   {section === 'schedule' && <div className="space-y-5">
