@@ -107,6 +107,9 @@ export default function RoundSeparationPanel({
   const current = roundMeta(TARGET_MONTH, 2);
   const preview = splitOrders(orders);
 
+  // This one-time migration must never appear for unrelated months.
+  if (activeRoundId !== history.roundId && activeRoundId !== current.roundId) return null;
+
   if (activeRoundId === current.roundId) {
     return <div className="rounded-[22px] border border-[#cfe0cf] bg-[#f5faf2] p-4 text-sm text-[#315b32]">
       <div className="flex items-center gap-2 font-bold"><CheckCircle2 className="size-5" /> Runda nouă este activă</div>
