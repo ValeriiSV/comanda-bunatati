@@ -3,13 +3,13 @@ import { Camera, CheckCircle2, PackageCheck, ScanLine, Search, Truck, WalletCard
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import SimpleQrCode from '@/components/SimpleQrCode';
-import { listCollection, setDocument, updateDocument } from '@/lib/firebaseRest';
+import { getDocument, listCollection, setDocument, updateDocument } from '@/lib/firebaseRest';
+import { effectiveRound, roundMeta } from '@/lib/orderRounds';
 
 type OrderItem = { productName?: string; grams?: number; quantityUnit?: string };
-type Order = { id: string; orderCode?: string; customerName?: string; phone?: string; totalBani?: number; paid?: boolean; status?: string; createdAt?: Date | string | null; items?: OrderItem[] };
+type Order = { id: string; orderCode?: string; customerName?: string; phone?: string; totalBani?: number; paid?: boolean; status?: string; createdAt?: Date | string | null; scheduledOrderDates?: string[]; roundId?: string; roundLabel?: string; roundSequence?: number; items?: OrderItem[] };
 
 function dateOf(order: Order) { const value = order.createdAt instanceof Date ? order.createdAt : new Date(order.createdAt || 0); return Number.isNaN(value.getTime()) ? new Date(0) : value; }
-function monthKey(date: Date) { return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}`; }
 function money(bani=0){ return new Intl.NumberFormat('ro-MD',{maximumFractionDigits:2}).format(bani/100); }
 function normalizeCode(value:string){ let candidate=value.trim(); try{ const parsed=new URL(candidate); candidate=parsed.searchParams.get('code')||candidate; }catch{} const upper=candidate.toUpperCase(); return upper ? (upper.startsWith('CMD-')?upper:`CMD-${upper.replace(/^CMD-?/i,'')}`) : ''; }
 
@@ -27,16 +27,35 @@ function CameraScanner({onScan,onClose}:{onScan:(value:string)=>void;onClose:()=
 
 export default function PackingModePanel(){
   const [orders,setOrders]=useState<Order[]>([]); const [query,setQuery]=useState(''); const [scanOpen,setScanOpen]=useState(false); const [busyId,setBusyId]=useState(''); const [notice,setNotice]=useState('');
-  const currentMonth=monthKey(new Date());
-  const load=async()=>{const data=await listCollection('groupOrders') as Order[]; setOrders(data.sort((a,b)=>dateOf(b).getTime()-dateOf(a).getTime()));};
+  const [activeRound,setActiveRound]=useState(()=>roundMeta(`${new Date().getFullYear()}-${String(new Date().getMonth()+1).padStart(2,'0')}`,1));
+  const load=async()=>{
+    const [data,schedule]=await Promise.all([
+      listCollection('groupOrders') as Promise<Order[]>,
+      getDocument('settings/orderSchedule'),
+    ]);
+    const month=typeof schedule?.roundMonth==='string'&&schedule.roundMonth
+      ? schedule.roundMonth
+      : Array.isArray(schedule?.dates)&&typeof schedule.dates[0]==='string'
+        ? schedule.dates[0].slice(0,7)
+        : `${new Date().getFullYear()}-${String(new Date().getMonth()+1).padStart(2,'0')}`;
+    const sequence=Number(schedule?.roundSequence)||1;
+    const fallback=roundMeta(month,sequence);
+    setActiveRound({
+      roundId:typeof schedule?.roundId==='string'&&schedule.roundId?schedule.roundId:fallback.roundId,
+      roundLabel:typeof schedule?.roundLabel==='string'&&schedule.roundLabel?schedule.roundLabel:fallback.roundLabel,
+      roundSequence:sequence,
+      roundMonth:month,
+    });
+    setOrders(data.sort((a,b)=>dateOf(b).getTime()-dateOf(a).getTime()));
+  };
   useEffect(()=>{void load();},[]);
-  const monthOrders=useMemo(()=>orders.filter(o=>monthKey(dateOf(o))===currentMonth),[orders,currentMonth]);
-  const filtered=useMemo(()=>{const q=query.trim().toLowerCase(); if(!q)return monthOrders; return monthOrders.filter(o=>(o.orderCode||'').toLowerCase().includes(q)||(o.customerName||'').toLowerCase().includes(q)||(o.phone||'').toLowerCase().includes(q));},[monthOrders,query]);
+  const roundOrders=useMemo(()=>orders.filter(o=>effectiveRound(o).roundId===activeRound.roundId),[orders,activeRound.roundId]);
+  const filtered=useMemo(()=>{const q=query.trim().toLowerCase(); if(!q)return roundOrders; return roundOrders.filter(o=>(o.orderCode||'').toLowerCase().includes(q)||(o.customerName||'').toLowerCase().includes(q)||(o.phone||'').toLowerCase().includes(q));},[roundOrders,query]);
   const publishStatuses=async(next:Order[])=>setDocument('settings/publicStatuses',{statuses:Object.fromEntries(next.filter(o=>o.orderCode).map(o=>[String(o.orderCode).toUpperCase(),o.status||'Trimisă'])),updatedAt:new Date()});
   const setStage=async(order:Order,status:string)=>{setBusyId(order.id);try{await updateDocument(`groupOrders/${order.id}`,{status,updatedAt:new Date()});const next=orders.map(o=>o.id===order.id?{...o,status}:o);setOrders(next);await publishStatuses(next);setNotice(`${order.orderCode||'Comanda'} → ${status}`);}finally{setBusyId('');}};
   const scanned=(value:string)=>{setScanOpen(false);setQuery(value);setNotice(value?`QR detectat: ${value}`:'QR invalid.');};
-  const prepared=monthOrders.filter(o=>o.status==='Gata de ridicare').length, delivered=monthOrders.filter(o=>o.status==='Predată').length;
-  return <div className="space-y-5">{scanOpen&&<CameraScanner onScan={scanned} onClose={()=>setScanOpen(false)}/>}<section className="rounded-[26px] bg-gradient-to-br from-[#173d2c] to-[#315b32] p-5 text-white shadow-xl"><div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between"><div><p className="text-xs font-bold uppercase tracking-[.14em] text-white/60">Packing mode</p><h2 className="mt-1 font-serif text-3xl font-semibold">Pregătire & ridicare</h2><p className="mt-2 text-sm text-white/70">Pregătește pungile, scanează QR-ul și marchează predarea.</p></div><Button onClick={()=>setScanOpen(true)} className="h-12 bg-white text-[#173d2c] hover:bg-white/90"><Camera/>Scanează QR</Button></div><div className="mt-5 grid grid-cols-3 gap-2"><div className="rounded-2xl bg-white/10 p-3"><strong className="block text-2xl">{monthOrders.length}</strong><span className="text-xs text-white/60">comenzi</span></div><div className="rounded-2xl bg-white/10 p-3"><strong className="block text-2xl">{prepared}</strong><span className="text-xs text-white/60">gata</span></div><div className="rounded-2xl bg-white/10 p-3"><strong className="block text-2xl">{delivered}</strong><span className="text-xs text-white/60">predate</span></div></div></section>
+  const prepared=roundOrders.filter(o=>o.status==='Gata de ridicare').length, delivered=roundOrders.filter(o=>o.status==='Predată').length;
+  return <div className="space-y-5">{scanOpen&&<CameraScanner onScan={scanned} onClose={()=>setScanOpen(false)}/>}<section className="rounded-[26px] bg-gradient-to-br from-[#173d2c] to-[#315b32] p-5 text-white shadow-xl"><div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between"><div><p className="text-xs font-bold uppercase tracking-[.14em] text-white/60">Packing mode</p><h2 className="mt-1 font-serif text-3xl font-semibold">Pregătire & ridicare</h2><p className="mt-1 text-sm font-semibold text-white/90">{activeRound.roundLabel}</p><p className="mt-2 text-sm text-white/70">Pregătește pungile, scanează QR-ul și marchează predarea.</p></div><Button onClick={()=>setScanOpen(true)} className="h-12 bg-white text-[#173d2c] hover:bg-white/90"><Camera/>Scanează QR</Button></div><div className="mt-5 grid grid-cols-3 gap-2"><div className="rounded-2xl bg-white/10 p-3"><strong className="block text-2xl">{roundOrders.length}</strong><span className="text-xs text-white/60">comenzi</span></div><div className="rounded-2xl bg-white/10 p-3"><strong className="block text-2xl">{prepared}</strong><span className="text-xs text-white/60">gata</span></div><div className="rounded-2xl bg-white/10 p-3"><strong className="block text-2xl">{delivered}</strong><span className="text-xs text-white/60">predate</span></div></div></section>
   <section className="rounded-[24px] border bg-white p-4"><div className="flex gap-2"><div className="relative flex-1"><Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[#839088]"/><Input value={query} onChange={e=>setQuery(e.target.value)} className="h-11 pl-10" placeholder="Cod, nume sau telefon"/></div><Button variant="outline" onClick={()=>setScanOpen(true)}><ScanLine/>Scanner</Button></div>{notice&&<p className="mt-3 rounded-xl bg-[#eef6e9] px-3 py-2 text-sm text-[#315b32]">{notice}</p>}</section>
   <div className="grid gap-4 xl:grid-cols-2">{filtered.map(order=><article key={order.id} className="rounded-[26px] border bg-white p-5 shadow-sm"><div className="grid gap-4 sm:grid-cols-[124px_1fr]"><div className="rounded-2xl border p-2"><SimpleQrCode value={order.orderCode||order.id.slice(0,12)} className="size-full"/></div><div><div className="flex flex-wrap items-start justify-between gap-2"><div><p className="text-xs font-bold uppercase text-[#829087]">{order.orderCode||'Fără cod'}</p><h3 className="text-xl font-bold">{order.customerName||'Fără nume'}</h3></div><span className="rounded-full bg-[#edf2ea] px-3 py-1 text-xs font-bold">{order.status||'Trimisă'}</span></div><p className="mt-2 text-sm text-[#74837b]">{order.phone||'—'} · <strong>{money(order.totalBani)} lei</strong></p><div className="mt-3 flex flex-wrap gap-1.5">{(order.items||[]).slice(0,5).map((i,index)=><span key={index} className="rounded-full bg-[#f2f6ee] px-2.5 py-1 text-xs">{i.productName} · {i.grams||0}{i.quantityUnit||'g'}</span>)}</div><div className="mt-4 flex flex-wrap gap-2"><Button size="sm" variant="outline" disabled={busyId===order.id} onClick={()=>void setStage(order,'Confirmată')}><CheckCircle2/>Confirmată</Button><Button size="sm" variant="outline" disabled={busyId===order.id} onClick={()=>void setStage(order,'Gata de ridicare')}><PackageCheck/>Gata</Button><Button size="sm" disabled={busyId===order.id} onClick={()=>void setStage(order,'Predată')} className="bg-[#173d2c]"><Truck/>Predată</Button><span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-bold ${order.paid?'bg-[#dff1d8] text-[#315b32]':'bg-[#fff1e8] text-[#a15328]'}`}><WalletCards className="size-3.5"/>{order.paid?'Achitat':'Neachitat'}</span></div></div></div></article>)}</div>{!filtered.length&&<div className="rounded-[24px] border border-dashed bg-white/60 p-10 text-center text-[#74837b]">Nu am găsit comanda.</div>}</div>;
 }
