@@ -2,7 +2,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { BarChart3, CheckCircle2, PackageCheck, RefreshCw, ShoppingBag, Truck, Users, WalletCards } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { getAdminSession, listCollection, setDocument } from '@/lib/firebaseRest';
+import { getAdminSession, getDocument, listCollection, setDocument } from '@/lib/firebaseRest';
+import { effectiveRound, roundMeta } from '@/lib/orderRounds';
 
 const ORDER_STAGES = ['Trimisă', 'Confirmată', 'Comandată furnizorului', 'Gata de ridicare', 'Predată'] as const;
 
@@ -22,27 +23,16 @@ type Order = {
   paid?: boolean;
   status?: string;
   createdAt?: Date | string | null;
+  scheduledOrderDates?: string[];
+  roundId?: string;
+  roundLabel?: string;
+  roundSequence?: number;
   items?: OrderItem[];
 };
 
 function orderDate(order: Order) {
   const value = order.createdAt instanceof Date ? order.createdAt : new Date(order.createdAt || 0);
   return Number.isNaN(value.getTime()) ? new Date(0) : value;
-}
-
-function currentMonthKey() {
-  const now = new Date();
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-}
-
-function monthKey(date: Date) {
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-}
-
-function roundLabel() {
-  const now = new Date();
-  const month = new Intl.DateTimeFormat('ro-MD', { month: 'long' }).format(now);
-  return `Comanda #${String(now.getMonth() + 1).padStart(2, '0')} · ${month.charAt(0).toUpperCase()}${month.slice(1)}`;
 }
 
 function lei(bani = 0) {
@@ -54,10 +44,10 @@ export default function AdminWowDashboard() {
   const [authorized, setAuthorized] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [activeRound, setActiveRound] = useState(() => roundMeta(`${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`, 1));
 
-  const publishPublicMeta = async (allOrders: Order[]) => {
-    const month = currentMonthKey();
-    const visible = allOrders.filter((order) => monthKey(orderDate(order)) === month);
+  const publishPublicMeta = async (allOrders: Order[], currentRound = activeRound) => {
+    const visible = allOrders.filter((order) => effectiveRound(order).roundId === currentRound.roundId);
     const statuses = Object.fromEntries(
       allOrders
         .filter((order) => order.orderCode)
@@ -92,7 +82,7 @@ export default function AdminWowDashboard() {
         orderCount: visible.length,
         totalBani: visible.reduce((sum, order) => sum + (Number(order.totalBani) || 0), 0),
         paidCount: visible.filter((order) => order.paid).length,
-        roundLabel: roundLabel(),
+        roundLabel: currentRound.roundLabel,
         totalGrams,
         lastOrderAt: last ? orderDate(last) : null,
         topProductName: top?.name || '',
@@ -114,10 +104,27 @@ export default function AdminWowDashboard() {
     setAuthorized(true);
     if (!silent) setBusy(true);
     try {
-      const loaded = (await listCollection('groupOrders')) as Order[];
+      const [loaded, schedule] = await Promise.all([
+        listCollection('groupOrders') as Promise<Order[]>,
+        getDocument('settings/orderSchedule'),
+      ]);
       const sorted = loaded.sort((a, b) => orderDate(b).getTime() - orderDate(a).getTime());
+      const month = typeof schedule?.roundMonth === 'string' && schedule.roundMonth
+        ? schedule.roundMonth
+        : Array.isArray(schedule?.dates) && typeof schedule.dates[0] === 'string'
+          ? schedule.dates[0].slice(0, 7)
+          : `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
+      const sequence = Number(schedule?.roundSequence) || 1;
+      const fallback = roundMeta(month, sequence);
+      const currentRound = {
+        roundId: typeof schedule?.roundId === 'string' && schedule.roundId ? schedule.roundId : fallback.roundId,
+        roundLabel: typeof schedule?.roundLabel === 'string' && schedule.roundLabel ? schedule.roundLabel : fallback.roundLabel,
+        roundSequence: sequence,
+        roundMonth: month,
+      };
+      setActiveRound(currentRound);
       setOrders(sorted);
-      await publishPublicMeta(sorted);
+      await publishPublicMeta(sorted, currentRound);
       setError('');
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Nu am putut încărca dashboardul.');
@@ -132,26 +139,26 @@ export default function AdminWowDashboard() {
     return () => window.clearInterval(timer);
   }, []);
 
-  const monthOrders = useMemo(
-    () => orders.filter((order) => monthKey(orderDate(order)) === currentMonthKey()),
-    [orders],
+  const roundOrders = useMemo(
+    () => orders.filter((order) => effectiveRound(order).roundId === activeRound.roundId),
+    [orders, activeRound.roundId],
   );
 
   const stats = useMemo(() => {
-    const totalBani = monthOrders.reduce((sum, order) => sum + (Number(order.totalBani) || 0), 0);
-    const paidBani = monthOrders.filter((order) => order.paid).reduce((sum, order) => sum + (Number(order.totalBani) || 0), 0);
+    const totalBani = roundOrders.reduce((sum, order) => sum + (Number(order.totalBani) || 0), 0);
+    const paidBani = roundOrders.filter((order) => order.paid).reduce((sum, order) => sum + (Number(order.totalBani) || 0), 0);
     return {
       totalBani,
       paidBani,
-      unpaid: monthOrders.filter((order) => !order.paid).length,
-      ready: monthOrders.filter((order) => order.status === 'Gata de ridicare').length,
-      delivered: monthOrders.filter((order) => order.status === 'Predată').length,
+      unpaid: roundOrders.filter((order) => !order.paid).length,
+      ready: roundOrders.filter((order) => order.status === 'Gata de ridicare').length,
+      delivered: roundOrders.filter((order) => order.status === 'Predată').length,
     };
-  }, [monthOrders]);
+  }, [roundOrders]);
 
   const topProducts = useMemo(() => {
     const totals = new Map<string, { name: string; bani: number }>();
-    monthOrders.forEach((order) => {
+    roundOrders.forEach((order) => {
       (order.items || []).forEach((item) => {
         const key = item.productId || item.productName || 'produs';
         const current = totals.get(key) || { name: item.productName || 'Produs', bani: 0 };
@@ -160,14 +167,14 @@ export default function AdminWowDashboard() {
       });
     });
     return [...totals.values()].sort((a, b) => b.bani - a.bani).slice(0, 5);
-  }, [monthOrders]);
+  }, [roundOrders]);
 
   const stageCounts = useMemo(
     () => ORDER_STAGES.map((stage) => ({
       stage,
-      count: monthOrders.filter((order) => (order.status || 'Trimisă') === stage).length,
+      count: roundOrders.filter((order) => (order.status || 'Trimisă') === stage).length,
     })),
-    [monthOrders],
+    [roundOrders],
   );
 
   const maxTop = Math.max(1, ...topProducts.map((product) => product.bani));
@@ -179,7 +186,7 @@ export default function AdminWowDashboard() {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <p className="text-xs font-bold uppercase tracking-[.14em] text-[#8b6b3f]">Control center</p>
-          <h2 className="font-serif text-3xl font-semibold">{roundLabel()}</h2>
+          <h2 className="font-serif text-3xl font-semibold">{activeRound.roundLabel}</h2>
           <p className="mt-1 text-sm text-[#74837b]">Doar sumar. Administrarea se face din meniurile dedicate.</p>
         </div>
         <Button variant="outline" onClick={() => void load()} disabled={busy}>
@@ -190,7 +197,7 @@ export default function AdminWowDashboard() {
       {error && <p className="rounded-2xl bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p>}
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <Stat icon={<Users />} label="Comenzi" value={String(monthOrders.length)} />
+        <Stat icon={<Users />} label="Comenzi" value={String(roundOrders.length)} />
         <Stat icon={<WalletCards />} label="Total comandat" value={`${lei(stats.totalBani)} lei`} />
         <Stat icon={<CheckCircle2 />} label="Încasat" value={`${lei(stats.paidBani)} lei`} />
         <Stat icon={<PackageCheck />} label="Gata de ridicare" value={String(stats.ready)} />
@@ -204,7 +211,7 @@ export default function AdminWowDashboard() {
               <div className="mb-1 flex justify-between gap-3 text-sm"><span className="truncate">{product.name}</span><strong>{lei(product.bani)} lei</strong></div>
               <div className="h-2 overflow-hidden rounded-full bg-[#dfe8dc]"><div className="h-full rounded-full bg-[#63865d]" style={{ width: `${Math.max(8, product.bani / maxTop * 100)}%` }} /></div>
             </div>
-          ))}</div> : <p className="text-sm text-[#74837b]">Încă nu sunt comenzi în luna curentă.</p>}
+          ))}</div> : <p className="text-sm text-[#74837b]">Încă nu sunt comenzi în runda curentă.</p>}
         </section>
 
         <section className="rounded-[26px] border bg-white p-5">
