@@ -15,9 +15,10 @@ import SellerExcelExport from '@/components/SellerExcelExport';
 import PackingModePanel from '@/components/PackingModePanel';
 import ViberCampaignPanel from '@/components/ViberCampaignPanel';
 import CollectiveGoalsPanel from '@/components/CollectiveGoalsPanel';
+import { effectiveRound, roundMeta } from '@/lib/orderRounds';
 
 type OrderItem = { productId?: string; productName?: string; category?: string; grams?: number; quantityUnit?: string; lineTotalBani?: number };
-type Order = { id: string; orderCode?: string; customerName?: string; phone?: string; totalBani?: number; paid?: boolean; createdAt?: Date | string | null; items?: OrderItem[] };
+type Order = { id: string; orderCode?: string; customerName?: string; phone?: string; totalBani?: number; paid?: boolean; createdAt?: Date | string | null; scheduledOrderDates?: string[]; roundId?: string; roundLabel?: string; roundSequence?: number; items?: OrderItem[] };
 type Product = CatalogProduct & { active?: boolean; isNew?: boolean; promo?: boolean; sortOrder?: number; createdAt?: unknown; updatedAt?: unknown };
 type ProductDraft = { name: string; category: string; priceLei: string; baseGrams: string; stepGrams: string; quantityUnit: QuantityUnit; stockLimit: string; imageUrl: string; active: boolean; isNew: boolean; promo: boolean };
 type OrderDraftItem = { productId: string; productName: string; category: string; grams: number };
@@ -124,6 +125,7 @@ export default function AdminStablePage({ section = 'dashboard' }: { section?: A
   const [orders, setOrders] = useState<Order[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [selectedMonth, setSelectedMonth] = useState(monthKey(new Date()));
+  const [selectedRoundId, setSelectedRoundId] = useState('');
   const [dates, setDates] = useState<string[]>([]);
   const [scheduleMessage, setScheduleMessage] = useState('');
   const [newDate, setNewDate] = useState('');
@@ -131,6 +133,10 @@ export default function AdminStablePage({ section = 'dashboard' }: { section?: A
   const [collectorPhone, setCollectorPhone] = useState('');
   const [collectorPaymentLink, setCollectorPaymentLink] = useState('');
   const [scheduleClosed, setScheduleClosed] = useState(false);
+  const [roundId, setRoundId] = useState('');
+  const [roundLabel, setRoundLabel] = useState('');
+  const [roundSequence, setRoundSequence] = useState(1);
+  const [roundMonth, setRoundMonth] = useState(monthKey(new Date()));
   const [draft, setDraft] = useState<ProductDraft>(emptyDraft);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [imageBusy, setImageBusy] = useState(false);
@@ -153,6 +159,22 @@ export default function AdminStablePage({ section = 'dashboard' }: { section?: A
       setDates(Array.isArray(schedule?.dates) ? schedule.dates : []);
       setScheduleMessage(typeof schedule?.message === 'string' ? schedule.message : '');
       setScheduleClosed(Boolean(schedule?.closed));
+      const scheduleMonth = typeof schedule?.roundMonth === 'string' && schedule.roundMonth
+        ? schedule.roundMonth
+        : (Array.isArray(schedule?.dates) && typeof schedule.dates[0] === 'string' ? schedule.dates[0].slice(0, 7) : monthKey(new Date()));
+      const scheduleSequence = typeof schedule?.roundSequence === 'number'
+        ? schedule.roundSequence
+        : typeof schedule?.roundSequence === 'string'
+          ? Number(schedule.roundSequence) || 1
+          : 1;
+      const fallbackRound = roundMeta(scheduleMonth, scheduleSequence);
+      const activeRoundId = typeof schedule?.roundId === 'string' && schedule.roundId ? schedule.roundId : fallbackRound.roundId;
+      const activeRoundLabel = typeof schedule?.roundLabel === 'string' && schedule.roundLabel ? schedule.roundLabel : fallbackRound.roundLabel;
+      setRoundId(activeRoundId);
+      setRoundLabel(activeRoundLabel);
+      setRoundSequence(scheduleSequence);
+      setRoundMonth(scheduleMonth);
+      setSelectedRoundId((current) => current || activeRoundId);
       setCollectorName(
         typeof miaCollector?.name === 'string' && miaCollector.name
           ? miaCollector.name
@@ -241,8 +263,42 @@ export default function AdminStablePage({ section = 'dashboard' }: { section?: A
     window.location.replace('/admin?loggedout=1');
   };
 
-  const monthOptions = useMemo(() => { const keys = new Set(orders.map((o) => monthKey(orderDate(o)))); keys.add(monthKey(new Date())); return [...keys].sort().reverse(); }, [orders]);
-  const visibleOrders = useMemo(() => orders.filter((o) => monthKey(orderDate(o)) === selectedMonth), [orders, selectedMonth]);
+  const monthOptions = useMemo(() => {
+    const keys = new Set(orders.map((o) => monthKey(orderDate(o))));
+    keys.add(monthKey(new Date()));
+    if (roundMonth) keys.add(roundMonth);
+    return [...keys].sort().reverse();
+  }, [orders, roundMonth]);
+
+  const roundOptions = useMemo(() => {
+    const map = new Map<string, { id: string; label: string; sequence: number }>();
+    orders
+      .filter((order) => monthKey(orderDate(order)) === selectedMonth)
+      .forEach((order) => {
+        const round = effectiveRound(order);
+        map.set(round.roundId, { id: round.roundId, label: round.roundLabel, sequence: round.roundSequence });
+      });
+    if (roundMonth === selectedMonth && roundId) {
+      map.set(roundId, { id: roundId, label: roundLabel || roundMeta(roundMonth, roundSequence).roundLabel, sequence: roundSequence });
+    }
+    return [...map.values()].sort((a, b) => a.sequence - b.sequence);
+  }, [orders, selectedMonth, roundId, roundLabel, roundSequence, roundMonth]);
+
+  useEffect(() => {
+    if (!roundOptions.length) {
+      setSelectedRoundId('');
+      return;
+    }
+    if (roundOptions.some((option) => option.id === selectedRoundId)) return;
+    const active = roundOptions.find((option) => option.id === roundId);
+    setSelectedRoundId((active || roundOptions[roundOptions.length - 1]).id);
+  }, [roundOptions, selectedRoundId, roundId]);
+
+  const visibleOrders = useMemo(() => orders.filter((order) => {
+    if (monthKey(orderDate(order)) !== selectedMonth) return false;
+    if (!selectedRoundId) return true;
+    return effectiveRound(order).roundId === selectedRoundId;
+  }), [orders, selectedMonth, selectedRoundId]);
 
   const editingOrder = editingOrderId ? orders.find((order) => order.id === editingOrderId) : undefined;
   const orderDraftTotalBani = useMemo(() => orderDraftItems.reduce((sum, item) => {
@@ -253,6 +309,23 @@ export default function AdminStablePage({ section = 'dashboard' }: { section?: A
   const productCategories = [...new Set([...categories, ...products.map((product) => product.category)])];
 
   const togglePaid = async (o: Order) => { try { await updateDocument(`groupOrders/${o.id}`, { paid: !o.paid, updatedAt: new Date() }); await loadAll(); } catch (e) { setError(friendly((e as Error).message)); } };
+
+  const moveOrderToRound = async (order: Order, nextRoundId: string) => {
+    const option = roundOptions.find((candidate) => candidate.id === nextRoundId);
+    if (!option) return;
+    try {
+      await updateDocument(`groupOrders/${order.id}`, {
+        roundId: option.id,
+        roundLabel: option.label,
+        roundSequence: option.sequence,
+        updatedAt: new Date(),
+      });
+      setNotice(`${order.customerName || order.orderCode || 'Comanda'} a fost mutată în ${option.label}.`);
+      await loadAll();
+    } catch (e) {
+      setError(friendly((e as Error).message));
+    }
+  };
   const removeOrder = async (o: Order) => { if (!window.confirm(`Ștergi comanda lui ${o.customerName || 'acest coleg'}?`)) return; try { await deleteDocument(`groupOrders/${o.id}`); setNotice('Comanda a fost ștearsă.'); await loadAll(); } catch (e) { setError(friendly((e as Error).message)); } };
   const startOrderEdit = (order: Order) => {
     const combined = new Map<string, OrderDraftItem>();
@@ -341,18 +414,60 @@ export default function AdminStablePage({ section = 'dashboard' }: { section?: A
   const saveSchedule = async (nextDates = dates, nextMessage = scheduleMessage, nextClosed = scheduleClosed) => {
     try {
       const normalizedDates = [...new Set(nextDates)].sort();
+      const fallback = roundMeta(roundMonth || (normalizedDates[0]?.slice(0, 7) || monthKey(new Date())), roundSequence || 1);
+      const activeRoundId = roundId || fallback.roundId;
+      const activeRoundLabel = roundLabel || fallback.roundLabel;
       await updateDocument('settings/orderSchedule', {
         dates: normalizedDates,
         message: nextMessage.trim(),
         closed: nextClosed,
+        roundId: activeRoundId,
+        roundLabel: activeRoundLabel,
+        roundSequence: roundSequence || 1,
+        roundMonth: roundMonth || fallback.roundMonth,
         updatedAt: new Date(),
       });
       setDates(normalizedDates);
       setScheduleMessage(nextMessage);
       setScheduleClosed(nextClosed);
-      setNotice(nextClosed ? 'Runda a fost închisă.' : 'Programul comenzii a fost actualizat.');
+      setRoundId(activeRoundId);
+      setRoundLabel(activeRoundLabel);
+      setNotice(nextClosed ? `${activeRoundLabel} a fost închisă.` : 'Programul comenzii a fost actualizat.');
     } catch (e) {
       setError(friendly((e as Error).message));
+    }
+  };
+
+  const startNewRound = async () => {
+    if (!window.confirm('Creezi o rundă nouă? Comenzile rundei vechi rămân separate și nu vor intra în noile totaluri.')) return;
+    const targetMonth = roundMonth || dates[0]?.slice(0, 7) || monthKey(new Date());
+    const next = roundMeta(targetMonth, (roundSequence || 1) + 1);
+    setBusy(true);
+    setError('');
+    try {
+      await updateDocument('settings/orderSchedule', {
+        dates: [],
+        message: scheduleMessage.trim(),
+        closed: false,
+        roundId: next.roundId,
+        roundLabel: next.roundLabel,
+        roundSequence: next.roundSequence,
+        roundMonth: next.roundMonth,
+        updatedAt: new Date(),
+      });
+      setRoundId(next.roundId);
+      setRoundLabel(next.roundLabel);
+      setRoundSequence(next.roundSequence);
+      setRoundMonth(next.roundMonth);
+      setSelectedMonth(next.roundMonth);
+      setSelectedRoundId(next.roundId);
+      setDates([]);
+      setScheduleClosed(false);
+      setNotice(`${next.roundLabel} a fost creată. Setează noul termen și trimite linkul colegilor.`);
+    } catch (e) {
+      setError(friendly((e as Error).message));
+    } finally {
+      setBusy(false);
     }
   };
   const startEdit = (p: Product) => { setEditingId(p.id); setDraft({ name: p.name, category: p.category, priceLei: String(p.priceLei), baseGrams: String(p.baseGrams), stepGrams: String(p.stepGrams), quantityUnit: p.quantityUnit || 'g', stockLimit: p.stockLimit ? String(p.stockLimit) : '', imageUrl: p.imageUrl || '', active: p.active !== false, isNew: !!p.isNew, promo: !!p.promo }); };
@@ -400,7 +515,7 @@ export default function AdminStablePage({ section = 'dashboard' }: { section?: A
   const toggleProduct = async (p: Product) => { try { await setDocument(`products/${p.id}`, { ...p, active: p.active === false, updatedAt: new Date() }); await loadAll(); } catch (e) { setError(friendly((e as Error).message)); } };
   const removeProduct = async (p: Product) => { if (!window.confirm(`Ștergi produsul „${p.name}”?`)) return; try { const isCatalogProduct = catalogProducts.some((item) => item.id === p.id); if (isCatalogProduct) { await setDocument(`products/${p.id}`, { ...p, active: false, updatedAt: new Date() }); setNotice('Produsul standard a fost ascuns din catalog.'); } else { await deleteDocument(`products/${p.id}`); } await loadAll(); } catch (e) { setError(friendly((e as Error).message)); } };
 
-  const exportCsv = () => { const rows = [['Cod','Data','Nume','Telefon','Achitat','Produs','Categorie','Cantitate','Produs (lei)','Total persoană (lei)']]; visibleOrders.forEach((o) => (o.items || []).forEach((i) => rows.push([o.orderCode || '', orderDate(o).toLocaleString('ro-MD'), o.customerName || '', o.phone || '', o.paid ? 'Da' : 'Nu', i.productName || '', i.category || '', orderQuantityLabel(i.productId, i.grams || 0, products), lei(i.lineTotalBani || 0), lei(o.totalBani || 0)]))); const csv = '\uFEFF' + rows.map((r) => r.map((c) => `"${String(c).replaceAll('"','""')}"`).join(';')).join('\n'); const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' })); a.download = `comenzi-bunatati-${selectedMonth}.csv`; a.click(); URL.revokeObjectURL(a.href); };
+  const exportCsv = () => { const rows = [['Rundă','Cod','Data','Nume','Telefon','Achitat','Produs','Categorie','Cantitate','Produs (lei)','Total persoană (lei)']]; visibleOrders.forEach((o) => (o.items || []).forEach((i) => rows.push([effectiveRound(o).roundLabel, o.orderCode || '', orderDate(o).toLocaleString('ro-MD'), o.customerName || '', o.phone || '', o.paid ? 'Da' : 'Nu', i.productName || '', i.category || '', orderQuantityLabel(i.productId, i.grams || 0, products), lei(i.lineTotalBani || 0), lei(o.totalBani || 0)]))); const csv = '\uFEFF' + rows.map((r) => r.map((c) => `"${String(c).replaceAll('"','""')}"`).join(';')).join('\n'); const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' })); a.download = `comenzi-bunatati-${selectedRoundId || selectedMonth}.csv`; a.click(); URL.revokeObjectURL(a.href); };
 
   if (!authorized) return <main className="grid min-h-screen place-items-center bg-[#f2f5ed] p-5 text-[#173d2c]"><section className="w-full max-w-md rounded-[28px] border border-[#d9e3d7] bg-white p-8 shadow-xl"><Link to="/" className="mb-7 flex items-center gap-2 text-sm text-[#607269]"><ArrowLeft className="size-4" /> Înapoi la catalog</Link><img src="/valera-logo.svg?v=8" alt="Bunătăți împreună cu Valera" className="mb-5 size-20 rounded-full border border-[#d9e3d7] bg-white object-cover" /><h1 className="font-serif text-3xl font-semibold">Panoul managerului</h1><form onSubmit={login} className="mt-7 space-y-3"><Input type="email" autoComplete="username" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Email" className="h-12 rounded-xl" /><Input type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Parolă" className="h-12 rounded-xl" /><Button disabled={busy || !email || !password} className="h-12 w-full rounded-xl bg-[#173d2c]">{busy ? 'Se autentifică…' : 'Intră în panou'}</Button></form><div className="my-4 flex items-center gap-3 text-xs text-[#8a968f]"><span className="h-px flex-1 bg-[#dfe7df]" />sau<span className="h-px flex-1 bg-[#dfe7df]" /></div><Button type="button" variant="outline" onClick={loginGoogle} disabled={busy} className="h-12 w-full rounded-xl">{busy ? 'Se conectează…' : 'Continuă cu Google'}</Button>{error && <p className="mt-4 rounded-xl bg-red-50 p-3 text-sm text-red-700">{error}</p>}</section></main>;
 
@@ -432,13 +547,29 @@ export default function AdminStablePage({ section = 'dashboard' }: { section?: A
     </div>
   </section>}
 
-  {section === 'orders' && <><section className="rounded-[22px] border bg-white p-4"><div className="flex items-center justify-between"><div><p className="font-semibold">Perioada comenzilor</p><p className="text-xs text-[#74837b]">Istoric separat pe luni</p></div><select value={selectedMonth} onChange={(e) => setSelectedMonth(e.target.value)} className="h-11 rounded-xl border px-3">{monthOptions.map((k) => <option key={k} value={k}>{monthLabel(k)}</option>)}</select></div></section>
+  {section === 'orders' && <><section className="rounded-[22px] border bg-white p-4">
+    <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+      <div>
+        <p className="font-semibold">Perioada comenzilor</p>
+        <p className="text-xs text-[#74837b]">Luna și runda sunt separate. Comenzile vechi fără rundă sunt considerate automat Runda #1.</p>
+      </div>
+      <div className="flex flex-col gap-2 sm:flex-row">
+        <select value={selectedMonth} onChange={(e) => { setSelectedMonth(e.target.value); setSelectedRoundId(''); }} className="h-11 rounded-xl border px-3">
+          {monthOptions.map((k) => <option key={k} value={k}>{monthLabel(k)}</option>)}
+        </select>
+        <select value={selectedRoundId} onChange={(e) => setSelectedRoundId(e.target.value)} className="h-11 min-w-56 rounded-xl border px-3">
+          {roundOptions.map((option) => <option key={option.id} value={option.id}>{option.label}</option>)}
+        </select>
+      </div>
+    </div>
+    {roundOptions.length > 1 && <p className="mt-3 rounded-xl bg-[#fff7e8] px-3 py-2 text-xs text-[#7a5b2d]">Pentru comenzile primite după redeschiderea din noiembrie, alege Runda #2 în coloana „Rundă”. Prima comandă rămâne în #1.</p>}
+  </section>
 
 
   <section className="overflow-hidden rounded-[24px] border bg-white">
     <div className="flex flex-col gap-3 border-b p-5 sm:flex-row sm:items-center sm:justify-between">
       <div>
-        <h2 className="font-serif text-2xl font-semibold">Comenzi individuale · {monthLabel(selectedMonth)}</h2>
+        <h2 className="font-serif text-2xl font-semibold">Comenzi individuale · {roundOptions.find((option) => option.id === selectedRoundId)?.label || monthLabel(selectedMonth)}</h2>
         <p className="mt-1 text-sm text-[#74837b]">Modifică produsele și cantitățile direct din fiecare comandă.</p>
       </div>
       <span className="rounded-full bg-[#eef3e8] px-3 py-1.5 text-sm font-semibold">{visibleOrders.length} comenzi</span>
@@ -479,7 +610,7 @@ export default function AdminStablePage({ section = 'dashboard' }: { section?: A
       </div>
     </div>}
 
-    <div className="overflow-x-auto"><Table><TableHeader><TableRow><TableHead>Nume</TableHead><TableHead>Telefon</TableHead><TableHead>Produse</TableHead><TableHead>Total</TableHead><TableHead>Plată</TableHead><TableHead className="text-right">Acțiuni</TableHead></TableRow></TableHeader><TableBody>{visibleOrders.map((o) => <TableRow key={o.id} className={editingOrderId === o.id ? 'bg-[#f7faf4]' : ''}><TableCell><strong>{o.customerName || 'Fără nume'}</strong><span className="block text-xs text-[#829087]">{o.orderCode || '—'} · {orderDate(o).toLocaleDateString('ro-MD')}</span></TableCell><TableCell>{o.phone || '—'}</TableCell><TableCell className="min-w-72">{(o.items || []).map((i, idx) => <span key={`${i.productId}-${idx}`} className="mr-1.5 mb-1.5 inline-flex rounded-full bg-[#eef3e8] px-2.5 py-1 text-xs">{i.productName} · {orderQuantityLabel(i.productId, i.grams || 0, products)}</span>)}</TableCell><TableCell className="font-semibold">{lei(o.totalBani || 0)} lei</TableCell><TableCell><Button size="sm" variant={o.paid ? 'secondary' : 'outline'} onClick={() => togglePaid(o)}>{o.paid && <Check />} {o.paid ? 'Achitat' : 'Neachitat'}</Button></TableCell><TableCell className="text-right"><div className="flex justify-end gap-1"><Button variant="ghost" size="icon" onClick={() => startOrderEdit(o)} title="Modifică această comandă"><Pencil /></Button><Button variant="ghost" size="icon" onClick={() => removeOrder(o)} className="text-red-600" title="Șterge comanda"><Trash2 /></Button></div></TableCell></TableRow>)}{visibleOrders.length === 0 && <TableRow><TableCell colSpan={6} className="py-10 text-center text-[#74837b]">Nu există comenzi în această lună.</TableCell></TableRow>}</TableBody></Table></div>
+    <div className="overflow-x-auto"><Table><TableHeader><TableRow><TableHead>Nume</TableHead><TableHead>Rundă</TableHead><TableHead>Telefon</TableHead><TableHead>Produse</TableHead><TableHead>Total</TableHead><TableHead>Plată</TableHead><TableHead className="text-right">Acțiuni</TableHead></TableRow></TableHeader><TableBody>{visibleOrders.map((o) => <TableRow key={o.id} className={editingOrderId === o.id ? 'bg-[#f7faf4]' : ''}><TableCell><strong>{o.customerName || 'Fără nume'}</strong><span className="block text-xs text-[#829087]">{o.orderCode || '—'} · {orderDate(o).toLocaleDateString('ro-MD')}</span></TableCell><TableCell><select value={effectiveRound(o).roundId} onChange={(event) => void moveOrderToRound(o, event.target.value)} className="h-9 min-w-44 rounded-lg border bg-white px-2 text-xs">{roundOptions.map((option) => <option key={option.id} value={option.id}>{option.label}</option>)}</select></TableCell><TableCell>{o.phone || '—'}</TableCell><TableCell className="min-w-72">{(o.items || []).map((i, idx) => <span key={`${i.productId}-${idx}`} className="mr-1.5 mb-1.5 inline-flex rounded-full bg-[#eef3e8] px-2.5 py-1 text-xs">{i.productName} · {orderQuantityLabel(i.productId, i.grams || 0, products)}</span>)}</TableCell><TableCell className="font-semibold">{lei(o.totalBani || 0)} lei</TableCell><TableCell><Button size="sm" variant={o.paid ? 'secondary' : 'outline'} onClick={() => togglePaid(o)}>{o.paid && <Check />} {o.paid ? 'Achitat' : 'Neachitat'}</Button></TableCell><TableCell className="text-right"><div className="flex justify-end gap-1"><Button variant="ghost" size="icon" onClick={() => startOrderEdit(o)} title="Modifică această comandă"><Pencil /></Button><Button variant="ghost" size="icon" onClick={() => removeOrder(o)} className="text-red-600" title="Șterge comanda"><Trash2 /></Button></div></TableCell></TableRow>)}{visibleOrders.length === 0 && <TableRow><TableCell colSpan={7} className="py-10 text-center text-[#74837b]">Nu există comenzi în această rundă.</TableCell></TableRow>}</TableBody></Table></div>
   </section></>}
 
   {section === 'schedule' && <div className="space-y-5">
@@ -487,12 +618,15 @@ export default function AdminStablePage({ section = 'dashboard' }: { section?: A
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <p className="text-xs font-bold uppercase tracking-[.12em] text-[#74837b]">Starea rundei</p>
-          <h2 className="mt-1 font-serif text-2xl font-semibold">{scheduleClosed ? 'Comanda este închisă' : 'Comanda este deschisă'}</h2>
-          <p className="mt-1 text-sm text-[#74837b]">Doar aici deschizi sau închizi runda curentă.</p>
+          <h2 className="mt-1 font-serif text-2xl font-semibold">{roundLabel || roundMeta(roundMonth, roundSequence).roundLabel}</h2>
+          <p className="mt-1 text-sm text-[#74837b]">{scheduleClosed ? 'Runda este închisă.' : 'Runda este deschisă.'} Pentru o comandă suplimentară în aceeași lună, creează o rundă nouă — nu redeschide runda veche.</p>
         </div>
-        <Button type="button" variant={scheduleClosed ? 'default' : 'outline'} onClick={() => void saveSchedule(dates, scheduleMessage, !scheduleClosed)} className={scheduleClosed ? 'bg-[#173d2c]' : ''}>
-          {scheduleClosed ? 'Deschide runda' : 'Închide runda'}
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button type="button" variant="outline" onClick={() => void startNewRound()} disabled={busy}><Plus /> Rundă nouă</Button>
+          <Button type="button" variant={scheduleClosed ? 'default' : 'outline'} onClick={() => void saveSchedule(dates, scheduleMessage, !scheduleClosed)} className={scheduleClosed ? 'bg-[#173d2c]' : ''}>
+            {scheduleClosed ? 'Redeschide aceeași rundă' : 'Închide runda'}
+          </Button>
+        </div>
       </div>
     </section>
 
