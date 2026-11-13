@@ -13,6 +13,9 @@ export type PublicOrderPayload = {
   phone: string;
   totalBani: number;
   scheduledOrderDates: string[];
+  roundId: string;
+  roundLabel: string;
+  roundSequence: number;
   items: PublicOrderItem[];
 };
 
@@ -45,6 +48,9 @@ export async function submitPublicOrder(order: PublicOrderPayload) {
           values: order.scheduledOrderDates.map(stringValue),
         },
       },
+      roundId: stringValue(order.roundId),
+      roundLabel: stringValue(order.roundLabel),
+      roundSequence: integerValue(order.roundSequence),
       items: {
         arrayValue: {
           values: order.items.map((item) => ({
