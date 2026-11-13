@@ -440,8 +440,11 @@ export default function AdminStablePage({ section = 'dashboard' }: { section?: A
 
   const startNewRound = async () => {
     if (!window.confirm('Creezi o rundă nouă? Comenzile rundei vechi rămân separate și nu vor intra în noile totaluri.')) return;
-    const targetMonth = roundMonth || dates[0]?.slice(0, 7) || monthKey(new Date());
-    const next = roundMeta(targetMonth, (roundSequence || 1) + 1);
+    const nowMonth = monthKey(new Date());
+    const requestedMonth = newDate?.slice(0, 7) || dates[0]?.slice(0, 7) || '';
+    const targetMonth = requestedMonth || (roundMonth && roundMonth !== nowMonth ? nowMonth : roundMonth) || nowMonth;
+    const nextSequence = targetMonth === roundMonth ? (roundSequence || 1) + 1 : 1;
+    const next = roundMeta(targetMonth, nextSequence);
     setBusy(true);
     setError('');
     try {
