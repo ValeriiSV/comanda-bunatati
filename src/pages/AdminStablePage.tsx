@@ -455,6 +455,18 @@ export default function AdminStablePage({ section = 'dashboard' }: { section?: A
         roundMonth: next.roundMonth,
         updatedAt: new Date(),
       });
+      await setDocument('settings/publicStats', {
+        orderCount: 0,
+        totalBani: 0,
+        paidCount: 0,
+        roundLabel: next.roundLabel,
+        totalGrams: 0,
+        topProductName: '',
+        topProductAmount: 0,
+        topProductUnit: '',
+        productTotals: {},
+        updatedAt: new Date(),
+      });
       setRoundId(next.roundId);
       setRoundLabel(next.roundLabel);
       setRoundSequence(next.roundSequence);
