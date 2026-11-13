@@ -1,10 +1,15 @@
 import { useEffect, useState } from 'react';
+import { roundMeta, roundMonthFromDateValue } from '@/lib/orderRounds';
 
 export type OrderSchedule = {
   dates: string[];
   cutoffTime?: string;
   message?: string;
   closed?: boolean;
+  roundId?: string;
+  roundLabel?: string;
+  roundSequence?: number;
+  roundMonth?: string;
 };
 
 const SCHEDULE_URL = 'https://firestore.googleapis.com/v1/projects/comanda-bunatati/databases/(default)/documents/settings/orderSchedule';
@@ -13,6 +18,14 @@ function readString(value: unknown): string {
   if (!value || typeof value !== 'object') return '';
   const candidate = value as { stringValue?: unknown };
   return typeof candidate.stringValue === 'string' ? candidate.stringValue : '';
+}
+
+function readInteger(value: unknown): number {
+  if (!value || typeof value !== 'object') return 0;
+  const candidate = value as { integerValue?: unknown; doubleValue?: unknown };
+  if (typeof candidate.integerValue === 'string') return Number(candidate.integerValue) || 0;
+  if (typeof candidate.doubleValue === 'number') return candidate.doubleValue;
+  return 0;
 }
 
 function readBoolean(value: unknown): boolean {
@@ -45,11 +58,21 @@ function parseSchedule(data: unknown): OrderSchedule {
   const datesField = fields.dates as { arrayValue?: { values?: unknown[] } } | undefined;
   const values = datesField?.arrayValue?.values || [];
 
+  const dates = values.map(readString).filter(Boolean).sort();
+  const storedRoundId = readString(fields.roundId);
+  const storedSequence = readInteger(fields.roundSequence) || 1;
+  const storedMonth = readString(fields.roundMonth) || roundMonthFromDateValue(dates[0]);
+  const fallback = roundMeta(storedMonth, storedSequence);
+
   return {
-    dates: values.map(readString).filter(Boolean).sort(),
+    dates,
     cutoffTime: readString(fields.cutoffTime),
     message: readString(fields.message),
     closed: readBoolean(fields.closed),
+    roundId: storedRoundId || fallback.roundId,
+    roundLabel: readString(fields.roundLabel) || fallback.roundLabel,
+    roundSequence: storedSequence,
+    roundMonth: storedMonth,
   };
 }
 
