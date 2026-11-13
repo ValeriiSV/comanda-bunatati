@@ -206,6 +206,7 @@ function useDeadlineNotifications(schedule: OrderSchedule) {
 }
 
 function currentRoundLabel(schedule: OrderSchedule, publicLabel: string) {
+  if (schedule.roundLabel) return schedule.roundLabel;
   if (schedule.dates[0]) {
     const [year, month] = schedule.dates[0].split('-').map(Number);
     const label = new Intl.DateTimeFormat('ro-MD', { month: 'long' }).format(new Date(year, month - 1, 1));
@@ -386,6 +387,9 @@ function CartPanel({ cart, setCart, products, schedule, lastOrder, onSubmitted }
         phone: phone.trim(),
         totalBani: Math.round(total * 100),
         scheduledOrderDates: schedule.dates,
+        roundId: schedule.roundId || '',
+        roundLabel: schedule.roundLabel || '',
+        roundSequence: schedule.roundSequence || 1,
         items: lines.map((product) => ({
           productId: product.id,
           productName: product.name,
