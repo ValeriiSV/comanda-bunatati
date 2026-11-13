@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Download } from 'lucide-react';
 import { listCollection } from '@/lib/firebaseRest';
+import { effectiveRound } from '@/lib/orderRounds';
 
 type OrderItem = {
   productId?: string;
@@ -12,6 +13,10 @@ type OrderItem = {
 
 type Order = {
   createdAt?: Date | string | null;
+  scheduledOrderDates?: string[];
+  roundId?: string;
+  roundLabel?: string;
+  roundSequence?: number;
   items?: OrderItem[];
 };
 
@@ -39,7 +44,7 @@ function amountLabel(amount: number, unit = 'g') {
   return `${amount} ${unit}`;
 }
 
-export default function SellerExcelExport({ selectedMonth }: { selectedMonth: string }) {
+export default function SellerExcelExport({ selectedMonth, selectedRoundId }: { selectedMonth: string; selectedRoundId?: string }) {
   const [busy, setBusy] = useState(false);
 
   const exportExcel = async () => {
@@ -47,7 +52,10 @@ export default function SellerExcelExport({ selectedMonth }: { selectedMonth: st
     try {
       const month = selectedMonth || monthKey(new Date());
       const orders = (await listCollection('groupOrders')) as Order[];
-      const monthOrders = orders.filter((order) => monthKey(orderDate(order)) === month);
+      const monthOrders = orders.filter((order) =>
+        monthKey(orderDate(order)) === month &&
+        (!selectedRoundId || effectiveRound(order).roundId === selectedRoundId)
+      );
 
       const grouped = new Map<string, { name: string; grams: number; unit: string; sumBani: number }>();
       monthOrders.forEach((order) => {
@@ -77,7 +85,7 @@ export default function SellerExcelExport({ selectedMonth }: { selectedMonth: st
       const html = `<!doctype html>
 <html><head><meta charset="UTF-8"></head><body>
 <table border="1">
-  <tr><th colspan="3">Lista pentru vânzător — ${escapeHtml(month)}</th></tr>
+  <tr><th colspan="3">Lista pentru vânzător — ${escapeHtml(selectedRoundId || month)}</th></tr>
   <tr><th>Produs</th><th>Cantitate</th><th>Sumă (lei)</th></tr>
   ${tableRows}
   <tr><th>TOTAL GENERAL</th><th></th><th>${(totalBani / 100).toFixed(2)}</th></tr>
@@ -88,7 +96,7 @@ export default function SellerExcelExport({ selectedMonth }: { selectedMonth: st
       const url = URL.createObjectURL(blob);
       const anchor = document.createElement('a');
       anchor.href = url;
-      anchor.download = `lista-vanzator-${month}.xls`;
+      anchor.download = `lista-vanzator-${selectedRoundId || month}.xls`;
       document.body.appendChild(anchor);
       anchor.click();
       anchor.remove();
