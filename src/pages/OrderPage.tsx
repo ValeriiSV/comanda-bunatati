@@ -57,42 +57,28 @@ const LOCAL_PRODUCT_IMAGES = new Set([
   'visina-suc-propriu','visina-uscata','zamos-uscat',
 ]);
 
-const PRODUCT_IMAGE_FALLBACKS: Record<string, string> = {
-  'alune-padure': '/products-ultra/migdale.jpg',
-  'miez-macadamia': '/products-ultra/macadamia-coaja.jpg',
-  'caise-uscate-portocalii': '/products-ultra/mango-uscat.jpg',
-  'caise-uscate-brune': '/products-ultra/cernosliv.jpg',
-  'stafide-deschise': '/products-ultra/stafide-negre.jpg',
-  'curmale-mazafati': '/products-ultra/curmale-regale.jpg',
-  'smochine-uscate': '/products-ultra/cernosliv.jpg',
-  'mix-caju-rachitele': '/products-ultra/mix-nuci-fructe-seminte.jpg',
-  'caise-ciocolata': '/products-ultra/prune-ciocolata.jpg',
-  'migdale-ciocolata-lapte': '/products-ultra/alune-ciocolata-lapte.jpg',
-  'inimioare-ciocolata-colorate': '/products-ultra/mix-bomboane.jpg',
-};
-
-const CATEGORY_IMAGE_FALLBACKS: Record<string, string> = {
-  Nuci: '/products-ultra/migdale.jpg',
-  Miere: '/products-ultra/miere-salcam.jpg',
-  'Fructe uscate': '/products-ultra/mango-uscat.jpg',
-  Conserve: '/products-ultra/visina-suc-propriu.jpg',
-  'Semințe': '/products-ultra/mix-4-seminte.jpg',
-  Mix: '/products-ultra/mix-nuci-fructe-seminte.jpg',
-  'Cafea boabe': '/products-ultra/marzotto-expresso-bar-grani.jpg',
-  'Olive conservate': '/products-ultra/olive-cu-samburi.jpg',
-  'Ulei de olive': '/products-ultra/ulei-olive-extra-virgin.jpg',
-  Bomboane: '/products-ultra/mix-bomboane.jpg',
-  Drajeuri: '/products-ultra/alune-ciocolata-lapte.jpg',
-};
+// A product without its own verified photo must not display a different product.
+// These placeholders are intentionally neutral until the correct photo is uploaded.
+const PHOTO_UNAVAILABLE = `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="800" height="450" viewBox="0 0 800 450">
+  <rect width="800" height="450" fill="#eef3e9"/>
+  <rect x="16" y="16" width="768" height="418" rx="28" fill="#f8faf5" stroke="#d5e2d0" stroke-width="3"/>
+  <g stroke="#93a78e" stroke-width="12" fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="341" y="83" width="118" height="95" rx="12"/>
+    <circle cx="428" cy="109" r="12"/>
+    <path d="m349 165 28-31 23 22 18-14 34 28"/>
+  </g>
+  <text x="400" y="243" font-family="Arial, sans-serif" font-size="28" font-weight="bold" fill="#315b32" text-anchor="middle">Fotografie indisponibilă</text>
+  <text x="400" y="282" font-family="Arial, sans-serif" font-size="20" fill="#718371" text-anchor="middle">Imaginea produsului va fi actualizată</text>
+</svg>`)}`;
 
 function productImage(product: Product) {
   if (product.imageUrl && !product.imageUrl.startsWith('/products/')) return product.imageUrl;
   if (LOCAL_PRODUCT_IMAGES.has(product.id)) return `/products-ultra/${product.id}.jpg`;
-  return PRODUCT_IMAGE_FALLBACKS[product.id] || CATEGORY_IMAGE_FALLBACKS[product.category] || '/catalog-hero.png';
+  return PHOTO_UNAVAILABLE;
 }
 
-function productImageFallback(product: Product) {
-  return PRODUCT_IMAGE_FALLBACKS[product.id] || CATEGORY_IMAGE_FALLBACKS[product.category] || '/catalog-hero.png';
+function productImageFallback(_product: Product) {
+  return PHOTO_UNAVAILABLE;
 }
 
 function money(value: number) {
