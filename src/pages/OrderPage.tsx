@@ -48,6 +48,10 @@ const LAST_ORDER_KEY = 'bunatati_last_order_v2';
 const ORDER_HISTORY_KEY = 'bunatati_order_history_v1';
 
 const LOCAL_PRODUCT_IMAGES = new Set([
+  // Fotografii noi pregătite pentru Bunătăți — colecția noiembrie 2026.
+  'alune-padure','miez-macadamia','caise-uscate-portocalii','caise-uscate-brune',
+  'stafide-deschise','curmale-mazafati','smochine-uscate','mix-caju-rachitele',
+  'caise-ciocolata','migdale-ciocolata-lapte',
   'alune-ciocolata-lapte','ananas-uscat','arahide-crude','banana-ciocolata','caju-fara-coaja-prajit','caju-prajit','caju',
   'caramel-sarat','cernosliv','cipsuri-banane','cipsuri-mere','cocos-ciocolata','cuburi-cocos','curmale-regale','curmale-tunis',
   'finic-nuci-ciocolata','fistic-american','macadamia-coaja','mango-uscat','martipan','marzotto-expresso-bar-grani','masline-cu-samburi',
