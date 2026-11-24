@@ -226,7 +226,7 @@ export default function AdminWowDashboard() {
         <p className="mt-2 text-xs text-[#74837b]">{stats.ready+stats.delivered} din {orderCount} comenzi pregătite sau predate</p>
       </section>
 
-      <div className="grid gap-4 xl:grid-cols-2">
+      <div className="manager-two-columns">
         <section className="rounded-[26px] border bg-white p-5">
           <div className="mb-4 flex items-center gap-2"><BarChart3 className="size-5" /><h3 className="font-serif text-xl font-semibold">Top produse</h3></div>
           {topProducts.length ? <div className="space-y-3">{topProducts.map((product) => (

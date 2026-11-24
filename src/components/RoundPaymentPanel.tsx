@@ -160,22 +160,22 @@ export default function RoundPaymentPanel({ onClosed }: { onClosed?: () => Promi
     <div className="rounded-[24px] border bg-white p-4">
       <div className="flex items-center justify-between gap-2"><h2 className="font-serif text-xl font-semibold">Lista de achitare</h2><Button variant="outline" onClick={()=>void load()} disabled={busy}><RefreshCw/> Actualizează</Button></div>
       <p className="mt-2 text-xs text-[#74837b]">O singură poziție per telefon și rundă. Plățile deja înregistrate se scad.</p>
-      {groups.map(g=>{
+      <div className="manager-payment-grid mt-4">{groups.map(g=>{
         const locked=g.entries.filter(o=>o.paid).reduce((sum,o)=>sum+orderDiscountBani(o),0);
         const max=locked+g.entries.filter(o=>!o.paid).reduce((sum,o)=>sum+grossOrderBani(o),0);
         const draft=drafts[g.key];
         const parsed=draft===undefined?g.discountBani:parseDiscountLei(draft);
         const valid=parsed!==null&&parsed>=locked&&parsed<=max;
-        return <div key={g.key} className="space-y-3 border-b py-4 last:border-b-0">
+        return <div key={g.key} className="min-w-0 space-y-3 rounded-2xl border bg-[#f7faf4] p-4">
           <div className="flex justify-between gap-2"><strong className="break-words">{g.entries[0].customerName || 'Client'}</strong><span className="text-xs text-[#74837b]">{g.paid ? 'Achitat integral' : g.paidBani ? `Achitat: ${money(g.paidBani)} lei` : 'Neachitat'}</span></div>
           <div className="grid grid-cols-3 gap-2 text-xs"><div>Total inițial<strong className="block text-sm">{money(g.grossBani)} lei</strong></div><div>Reducere<strong className="block text-sm text-[#315b32]">−{money(g.discountBani)} lei</strong></div><div>Total final<strong className="block text-sm">{money(g.totalBani)} lei</strong></div></div>
-          <div className="flex items-end gap-2"><label className="min-w-0 flex-1 text-xs font-semibold">Reducere (lei)<input className="mt-1 h-11 w-full rounded-xl border bg-[#f7faf4] px-3 text-base" inputMode="decimal" value={draft ?? (g.discountBani/100).toFixed(2)} disabled={busy||g.paid} onChange={e=>{setPrepared(false);setDrafts(prev=>({...prev,[g.key]:e.target.value}));}}/></label><Button type="button" variant="outline" disabled={busy||g.paid||draft===undefined||!valid} onClick={()=>void saveDiscount(g.key)}>Salvează</Button>{draft!==undefined&&<Button type="button" variant="ghost" onClick={()=>setDrafts(prev=>{const next={...prev};delete next[g.key];return next;})}>Anulează</Button>}</div>
+          <div className="manager-pay-actions"><label className="min-w-0 flex-1 text-xs font-semibold">Reducere (lei)<input className="mt-1 h-11 w-full rounded-xl border bg-[#f7faf4] px-3 text-base" inputMode="decimal" value={draft ?? (g.discountBani/100).toFixed(2)} disabled={busy||g.paid} onChange={e=>{setPrepared(false);setDrafts(prev=>({...prev,[g.key]:e.target.value}));}}/></label><Button type="button" variant="outline" disabled={busy||g.paid||draft===undefined||!valid} onClick={()=>void saveDiscount(g.key)}>Salvează</Button>{draft!==undefined&&<Button type="button" variant="ghost" onClick={()=>setDrafts(prev=>{const next={...prev};delete next[g.key];return next;})}>Anulează</Button>}</div>
           {!valid&&<p className="text-xs text-red-600">Reducere permisă: {money(locked)} – {money(max)} lei.</p>}
           {g.paid&&<p className="text-xs text-[#74837b]">Reducerea este blocată pentru plata deja înregistrată.</p>}
           <p className="text-sm font-semibold text-[#173d2c]">Rest de achitat: {money(g.totalBani-g.paidBani)} lei {draft!==undefined&&valid&&parsed!==null&&<span className="ml-2 text-xs font-normal">După salvare: {money(g.grossBani-parsed-g.paidBani)} lei</span>}</p>
           <Button type="button" variant={g.paid?'outline':'default'} className="w-full" disabled={busy||!snapshot?.closed||Object.keys(drafts).length>0} onClick={()=>void changePayment(g.key,!g.paid)}><CheckCircle2/> {g.paid?'Anulează confirmarea plății':'Confirmă achitarea'}</Button>
         </div>;
-      })}
+      })}</div>
       {!groups.length && <p className="py-4 text-sm text-[#74837b]">Nu există comenzi în runda curentă.</p>}
       <Button className="mt-4 h-auto min-h-12 w-full whitespace-normal bg-[#173d2c] py-3" disabled={busy || !snapshot || !groups.length || !snapshot.paymentLink || snapshot.roundId!==snapshot.activeRoundId || Object.keys(drafts).length>0} onClick={()=>void prepare()}><CheckCircle2/> {snapshot?.closed ? 'Confirmă lista pentru achitare' : 'Confirmă cu vânzătorul și închide runda'}</Button>
       {snapshot && snapshot.roundId!==snapshot.activeRoundId && <p className="mt-3 text-xs text-[#74837b]">Rundă istorică: poți gestiona achitările, dar nu genera un nou anunț pentru runda activă.</p>}

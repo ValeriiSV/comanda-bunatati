@@ -4,7 +4,6 @@ import { ArrowLeft, Download, Eye, EyeOff, ImagePlus, LogOut, Minus, Pencil, Plu
 import { GoogleAuthProvider, signInWithPopup, signOut } from 'firebase/auth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { categories, priceLabel, products as catalogProducts, quantityLabel, type Product as CatalogProduct, type QuantityUnit } from '@/lib/products';
 import { auth } from '@/lib/firebase';
 import { adminLogin, clearAdminSession, deleteDocument, getAdminSession, getDocument, listCollection, saveExternalAdminSession, setDocument, updateDocument } from '@/lib/firebaseRest';
@@ -596,7 +595,7 @@ export default function AdminStablePage({ section = 'dashboard' }: { section?: A
         <select value={selectedMonth} onChange={(e) => { setSelectedMonth(e.target.value); setSelectedRoundId(''); }} className="h-11 rounded-xl border px-3">
           {monthOptions.map((k) => <option key={k} value={k}>{monthLabel(k)}</option>)}
         </select>
-        <select value={selectedRoundId} onChange={(e) => setSelectedRoundId(e.target.value)} className="h-11 min-w-56 rounded-xl border px-3">
+        <select value={selectedRoundId} onChange={(e) => setSelectedRoundId(e.target.value)} className="h-11 w-full min-w-0 rounded-xl border px-3 sm:w-auto">
           {roundOptions.map((option) => <option key={option.id} value={option.id}>{option.label}{option.id === roundId ? ' · Activă' : ' · Închisă'}</option>)}
         </select>
       </div>
@@ -649,7 +648,7 @@ export default function AdminStablePage({ section = 'dashboard' }: { section?: A
       </div>
     </div>}
 
-    <div className="grid gap-3 p-3 sm:p-5 xl:grid-cols-2">
+    <div className="manager-order-grid p-3 sm:p-5">
       {groupedOrders.map(group => {
         const customer=group.entries[0];
         const multiple=group.entries.length>1;
@@ -660,7 +659,7 @@ export default function AdminStablePage({ section = 'dashboard' }: { section?: A
             <div className="text-right"><span className="block text-xs text-[#74837b]">Valoare produse</span><strong className="text-lg tabular-nums">{lei(group.grossBani)} lei</strong></div>
           </div>
           <div className="mt-3 flex flex-wrap gap-1.5">{group.items.map((item,idx)=><span key={idx} className="max-w-full break-words rounded-xl bg-[#e9f0e3] px-2.5 py-1.5 text-xs">{item.productName} · {orderQuantityLabel(item.productId,item.grams||0,products)}</span>)}</div>
-          {!multiple ? <div className="mt-4 grid grid-cols-2 gap-2">
+          {!multiple ? <div className="manager-action-pair mt-4">
             <Button variant="outline" onClick={()=>startOrderEdit(customer)}><Pencil/> Modifică</Button>
             <Button variant="outline" className="text-red-600" onClick={()=>void removeOrder(customer)}><Trash2/> Șterge</Button>
           </div> : <>
@@ -669,7 +668,7 @@ export default function AdminStablePage({ section = 'dashboard' }: { section?: A
               <div className="flex justify-between gap-2 text-sm"><strong>{o.orderCode || 'Comandă'}</strong><strong>{lei(o.totalBani||0)} lei</strong></div>
               <p className="mt-1 text-xs text-[#74837b]">{orderDate(o).toLocaleDateString('ro-MD')}</p>
               <div className="mt-2 flex flex-wrap gap-1">{(o.items||[]).map((i,idx)=><span key={idx} className="rounded-lg bg-[#eef3e8] px-2 py-1 text-xs">{i.productName} · {orderQuantityLabel(i.productId,i.grams||0,products)}</span>)}</div>
-              <div className="mt-3 grid grid-cols-2 gap-2"><Button size="sm" variant="outline" onClick={()=>startOrderEdit(o)}><Pencil/> Modifică</Button><Button size="sm" variant="outline" className="text-red-600" onClick={()=>void removeOrder(o)}><Trash2/> Șterge</Button></div>
+              <div className="manager-action-pair mt-3"><Button size="sm" variant="outline" onClick={()=>startOrderEdit(o)}><Pencil/> Modifică</Button><Button size="sm" variant="outline" className="text-red-600" onClick={()=>void removeOrder(o)}><Trash2/> Șterge</Button></div>
             </div>)}</div>}
           </>}
         </article>;
@@ -707,7 +706,7 @@ export default function AdminStablePage({ section = 'dashboard' }: { section?: A
   {section === 'products' && <section className="rounded-[24px] border bg-white p-5">
     <div><h2 className="font-serif text-2xl font-semibold">Produse</h2><p className="mt-1 text-sm text-[#74837b]">Adaugă orice produs, inclusiv produse la bucată, cofraj sau borcan.</p></div>
 
-    <form onSubmit={saveProduct} className="mt-5 rounded-2xl border border-[#dce7d7] bg-[#f5f8f1] p-4 sm:p-5">
+    <form onSubmit={saveProduct} id="manager-product-editor" className="mt-5 scroll-mt-4 rounded-2xl border border-[#dce7d7] bg-[#f5f8f1] p-4 sm:p-5">
       <div className="mb-4 flex items-center justify-between gap-3"><h3 className="font-semibold">{editingId ? 'Modifică produsul' : 'Adaugă un produs nou'}</h3>{editingId && <span className="rounded-full bg-white px-3 py-1 text-xs text-[#74837b]">Editare</span>}</div>
       <div className="grid gap-4 lg:grid-cols-[180px_minmax(0,1fr)]">
         <div>
@@ -741,7 +740,14 @@ export default function AdminStablePage({ section = 'dashboard' }: { section?: A
       </div>
     </form>
 
-    {products.length > 0 && <div className="mt-5 overflow-x-auto rounded-2xl border"><Table><TableHeader><TableRow><TableHead>Produs</TableHead><TableHead>Categorie</TableHead><TableHead>Preț</TableHead><TableHead>Limită</TableHead><TableHead>Status</TableHead><TableHead className="text-right">Acțiuni</TableHead></TableRow></TableHeader><TableBody>{products.map((p) => <TableRow key={p.id}><TableCell><div className="flex min-w-48 items-center gap-3">{p.imageUrl && <img src={p.imageUrl} alt="" className="size-10 rounded-xl object-cover" />}<strong>{p.name}</strong></div></TableCell><TableCell>{p.category}</TableCell><TableCell>{priceLabel(p)}</TableCell><TableCell>{p.stockLimit ? quantityLabel(p, p.stockLimit) : 'Fără limită'}</TableCell><TableCell>{p.active === false ? 'Ascuns' : 'Activ'}</TableCell><TableCell><div className="flex justify-end gap-1"><Button variant="ghost" size="icon" onClick={() => toggleProduct(p)} title={p.active === false ? 'Afișează produsul' : 'Ascunde produsul'}>{p.active === false ? <Eye /> : <EyeOff />}</Button><Button variant="ghost" size="icon" onClick={() => startEdit(p)} title="Modifică produsul"><Pencil /></Button><Button variant="ghost" size="icon" onClick={() => removeProduct(p)} title="Șterge sau ascunde produsul"><Trash2 /></Button></div></TableCell></TableRow>)}</TableBody></Table></div>}
+    {products.length > 0 && <div className="manager-product-grid mt-5">{products.map(p=><article key={p.id} className="min-w-0 rounded-2xl border bg-[#f7faf4] p-4">
+      <div className="flex items-start gap-3">
+        {p.imageUrl ? <img src={p.imageUrl} alt="" className="size-16 shrink-0 rounded-xl object-cover" loading="lazy"/> : <div className="grid size-16 shrink-0 place-items-center rounded-xl bg-[#e6ede1]"><ImagePlus className="size-5 text-[#74837b]"/></div>}
+        <div className="min-w-0 flex-1"><h3 className="break-words font-semibold">{p.name}</h3><p className="text-xs text-[#74837b]">{p.category}</p><strong className="mt-1 block text-sm">{priceLabel(p)}</strong></div>
+      </div>
+      <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs"><span>{p.stockLimit ? `Limită: ${quantityLabel(p,p.stockLimit)}` : 'Fără limită'}</span><span className="rounded-full bg-white px-2 py-1 font-semibold">{p.active===false?'Ascuns':'Activ'}</span></div>
+      <div className="manager-action-pair mt-4"><Button variant="outline" size="sm" onClick={()=>{startEdit(p);window.setTimeout(()=>document.getElementById('manager-product-editor')?.scrollIntoView({block:'start'}),0);}}><Pencil/> Modifică</Button><Button variant="outline" size="sm" onClick={()=>toggleProduct(p)}>{p.active===false?<Eye/>:<EyeOff/>}{p.active===false?'Afișează':'Ascunde'}</Button><Button variant="outline" size="sm" className="text-red-600" onClick={()=>removeProduct(p)}><Trash2/> Șterge</Button></div>
+    </article>)}</div>}
   </section>}
 
   {section === 'goals' && <CollectiveGoalsPanel products={products} />}

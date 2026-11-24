@@ -469,9 +469,9 @@ export default function OrderApp() {
   };
 
   return (
-    <main className="liquid-page min-h-screen pb-28 text-[#173d2c] lg:pb-0">
+    <main className="liquid-page responsive-catalog min-h-screen pb-28 text-[#173d2c] lg:pb-0">
       <header className="page-enter sticky top-0 z-40 bg-[#f3f5ed]/30 px-2 backdrop-blur-xl">
-        <div className="glass glass-shine mx-auto my-2 flex h-16 max-w-[1440px] items-center justify-between rounded-[24px] px-3 sm:px-6">
+        <div className="glass glass-shine mx-auto my-2 flex h-16 w-full items-center justify-between rounded-[24px] px-3 sm:px-6">
           <div className="flex min-w-0 items-center gap-3">
             <img src="/valera-logo.svg?v=7" alt="Bunătăți împreună cu Valera" className="size-12 shrink-0 rounded-full border border-white/70 bg-white/65 object-cover shadow-sm" />
             <div className="min-w-0"><p className="truncate font-serif text-lg font-bold leading-none sm:text-2xl">Bunătăți împreună cu Valera</p><p className="mt-1 truncate text-xs text-[#74837b]">{round}</p></div>
@@ -482,7 +482,7 @@ export default function OrderApp() {
         </div>
       </header>
 
-      <div className="mx-auto max-w-[1440px] lg:grid lg:grid-cols-[minmax(0,1fr)_390px]">
+      <div className="catalog-layout mx-auto w-full">
         <section className="min-w-0 px-4 py-5 sm:px-8 lg:py-7">
           <div className="hero-wow relative mb-5 overflow-hidden rounded-[32px] bg-[#173d2c] text-white shadow-[0_28px_80px_rgba(23,61,44,.2)] ring-1 ring-white/35">
             <img src="/catalog-hero.png" alt="Nuci și fructe uscate" className="hero-parallax absolute inset-0 size-full object-cover object-center" />
@@ -518,10 +518,10 @@ export default function OrderApp() {
 
           {freshProducts.length > 0 && (
             <section className="mb-6">
-              <div className="mb-3 flex items-end justify-between gap-3"><div><p className="text-xs font-bold uppercase tracking-[.13em] text-[#9a6222]">Descoperă</p><h2 className="font-serif text-2xl font-semibold">Nou în catalog</h2></div><span className="text-xs text-[#819087]">Swipe →</span></div>
-              <div className="glass-scrollbar flex gap-3 overflow-x-auto pb-2">
+              <div className="mb-3 flex items-end justify-between gap-3"><div><p className="text-xs font-bold uppercase tracking-[.13em] text-[#9a6222]">Descoperă</p><h2 className="font-serif text-2xl font-semibold">Nou în catalog</h2></div><span className="text-xs text-[#819087]">Produse noi</span></div>
+              <div className="catalog-new-grid grid gap-3 pb-2">
                 {freshProducts.map((product) => (
-                  <button key={product.id} onClick={() => { setActiveCategory(product.category); window.setTimeout(() => document.getElementById(`product-${product.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 80); }} className="glass interactive-glass group relative w-56 shrink-0 overflow-hidden rounded-[22px] text-left" onPointerMove={glassMove}>
+                  <button key={product.id} onClick={() => { setActiveCategory(product.category); window.setTimeout(() => document.getElementById(`product-${product.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 80); }} className="glass interactive-glass group relative min-w-0 overflow-hidden rounded-[22px] text-left" onPointerMove={glassMove}>
                     <div className="relative h-28 overflow-hidden bg-[#dce7d7]"><img src={productImage(product)} alt={product.name} className="size-full object-cover transition duration-500 group-hover:scale-105" loading="lazy" onError={(event) => {
   const fallback = productImageFallback(product);
   if (!event.currentTarget.src.endsWith(fallback)) event.currentTarget.src = fallback;
@@ -533,8 +533,8 @@ export default function OrderApp() {
             </section>
           )}
 
-          <div className="category-dock glass-strong sticky top-[76px] z-30 mb-6 rounded-[26px] p-2.5">
-            <div className="glass-scrollbar flex gap-2 overflow-x-auto pb-1 sm:flex-wrap sm:overflow-visible sm:pb-0">
+          <div className="category-dock glass-strong lg:sticky lg:top-[76px] z-30 mb-6 rounded-[26px] p-2.5">
+            <div className="flex flex-wrap gap-2 pb-1">
               {displayCategories.map((category) => (
                 <button
                   key={category}
@@ -560,7 +560,7 @@ export default function OrderApp() {
 
           <div className="mb-3 flex justify-end"><span className="text-sm text-[#839087]">{loading ? 'Se încarcă…' : `${filtered.length} produse`}</span></div>
 
-          <div ref={catalogGrid} className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          <div ref={catalogGrid} className="catalog-product-grid grid gap-4">
             {filtered.map((product: ManagedProduct) => {
               const amount = cart[product.id] || 0;
               const favorite = favorites.has(product.id);
@@ -588,7 +588,7 @@ export default function OrderApp() {
                     <h3 className="min-h-12 text-[17px] font-semibold leading-6">{product.name}</h3>
                     <CollectiveGoalBadge product={product} goal={goals[product.id]} total={productTotals[product.id]} />
                     {amount ? (
-                      <div className="mt-4 flex items-center justify-between gap-3"><div className="glass-chip flex items-center gap-1 rounded-full p-1"><Button variant="ghost" size="icon-sm" className="rounded-full" onClick={() => change(product.id, -product.stepGrams)}><Minus /></Button><strong key={amount} className="cart-feedback min-w-14 rounded-lg px-1.5 py-1 text-center text-sm">{quantityLabel(product, amount)}</strong><Button variant="ghost" size="icon-sm" className="rounded-full" onClick={() => change(product.id, product.stepGrams)}><Plus /></Button></div><strong className="shrink-0">{money(linePrice(product, amount))} lei</strong></div>
+                      <div className="mt-4 flex flex-wrap items-center justify-between gap-3"><div className="glass-chip flex items-center gap-1 rounded-full p-1"><Button variant="ghost" size="icon-sm" className="rounded-full" onClick={() => change(product.id, -product.stepGrams)}><Minus /></Button><strong key={amount} className="cart-feedback min-w-14 rounded-lg px-1.5 py-1 text-center text-sm">{quantityLabel(product, amount)}</strong><Button variant="ghost" size="icon-sm" className="rounded-full" onClick={() => change(product.id, product.stepGrams)}><Plus /></Button></div><strong className="shrink-0">{money(linePrice(product, amount))} lei</strong></div>
                     ) : (
                       <Button onClick={() => change(product.id, product.stepGrams)} variant="outline" className="add-to-cart glass-chip mt-4 h-10 w-full rounded-xl border-white/60 text-[#315b32] hover:bg-white/75"><Plus /> Adaugă {quantityLabel(product, product.stepGrams)}</Button>
                     )}
@@ -601,7 +601,7 @@ export default function OrderApp() {
           {!filtered.length && <div className="glass mt-4 rounded-[24px] p-8 text-center text-sm text-[#74837b]">Nu am găsit produse după filtrul ales.</div>}
         </section>
 
-        <aside className="sticky top-20 hidden h-[calc(100vh-5rem)] p-3 pl-0 lg:block">
+        <aside className="sticky top-20 hidden h-[calc(100dvh-5rem)] min-w-0 p-3 pl-0 lg:block">
           <div className="glass-strong glass-shine flex h-full min-h-0 flex-col overflow-hidden rounded-[28px]">
             <div className="border-b border-white/60 px-5 py-5"><h2 className="font-serif text-2xl font-semibold">Comanda mea</h2><p className="mt-1 text-sm text-[#74837b]">{itemCount ? `${itemCount} produse alese` : 'Alege produsele din catalog'}</p></div>
             <div className="min-h-0 flex-1"><CartPanel cart={cart} setCart={setCart} products={products} schedule={schedule} lastOrder={lastOrder} onSubmitted={handleSubmitted} /></div>
@@ -609,10 +609,10 @@ export default function OrderApp() {
         </aside>
       </div>
 
-      <div className={`glass fixed inset-x-3 bottom-3 z-40 rounded-[24px] p-2 lg:hidden ${itemCount ? 'cart-dock--active' : ''}`}>
+      <div className={`glass catalog-mobile-cart fixed inset-x-3 z-40 rounded-[24px] p-2 lg:hidden ${itemCount ? 'cart-dock--active' : ''}`}>
         <Sheet>
           <SheetTrigger render={<Button className="glass-dark h-13 w-full rounded-[20px] px-5 text-base text-white" />}><ShoppingBag /> Vezi comanda <span key={total} className={`ml-auto rounded-full px-2 py-1 ${total > 0 ? 'cart-feedback cart-feedback--total' : ''}`}>{money(total)} lei</span></SheetTrigger>
-          <SheetContent side="bottom" className="glass-strong max-h-[90vh] rounded-t-[30px] border-white/70 bg-white/68"><SheetHeader className="border-b border-white/60 px-5 py-4"><SheetTitle className="font-serif text-2xl">Comanda mea</SheetTitle><SheetDescription>{itemCount ? `${itemCount} produse alese` : 'Coșul este gol'}</SheetDescription></SheetHeader><CartPanel cart={cart} setCart={setCart} products={products} schedule={schedule} lastOrder={lastOrder} onSubmitted={handleSubmitted} /></SheetContent>
+          <SheetContent side="bottom" className="glass-strong max-h-[90dvh] rounded-t-[30px] border-white/70 bg-white/68"><SheetHeader className="border-b border-white/60 px-5 py-4"><SheetTitle className="font-serif text-2xl">Comanda mea</SheetTitle><SheetDescription>{itemCount ? `${itemCount} produse alese` : 'Coșul este gol'}</SheetDescription></SheetHeader><CartPanel cart={cart} setCart={setCart} products={products} schedule={schedule} lastOrder={lastOrder} onSubmitted={handleSubmitted} /></SheetContent>
         </Sheet>
       </div>
     </main>

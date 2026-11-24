@@ -66,7 +66,7 @@ const navigationGroups = [
 
 const sectionCopy: Record<AdminSection, { eyebrow: string; title: string; description: string }> = {
   dashboard: { eyebrow: 'Privire de ansamblu', title: 'Dashboard', description: 'Cifrele importante și starea rundei curente.' },
-  orders: { eyebrow: 'Administrare', title: 'Comenzi', description: 'Editează comenzile, plata și exporturile.' },
+  orders: { eyebrow: 'Administrare', title: 'Comenzi', description: 'Editează comenzile și descarcă exporturile.' },
   packing: { eyebrow: 'Operațiuni', title: 'Pregătire & ridicare', description: 'Pregătește comenzile, scanează QR și marchează predarea.' },
   products: { eyebrow: 'Catalog', title: 'Produse', description: 'Adaugă, modifică sau ascunde produsele din catalog.' },
   goals: { eyebrow: 'Catalog', title: 'Praguri colective', description: 'Configurează ținte de cantitate și prețuri de grup.' },
@@ -114,8 +114,8 @@ export default function AdminLayout({
 
   return (
     <main className="manager-shell min-h-screen bg-[#f2f5ed] text-[#173d2c]">
-      <div className="mx-auto grid min-h-screen max-w-[1600px] lg:grid-cols-[260px_minmax(0,1fr)]">
-        <aside className="manager-aside border-b border-[#d9e3d7] bg-white/90 lg:sticky lg:top-0 lg:flex lg:h-screen lg:flex-col lg:border-b-0 lg:border-r">
+      <div className="manager-frame grid min-h-screen w-full min-w-0 lg:grid-cols-[260px_minmax(0,1fr)]">
+        <aside className="manager-aside border-b border-[#d9e3d7] bg-white/90 lg:sticky lg:top-0 lg:flex lg:h-dvh lg:flex-col lg:border-b-0 lg:border-r">
           <div className="flex items-center justify-between gap-3 px-4 py-4 lg:px-5 lg:py-6">
             <Link to="/admin" className="flex min-w-0 items-center gap-3">
               <img src="/manager-icon.svg" alt="Bunătăți cu Valera" className="size-11 shrink-0 rounded-full border border-[#d9e3d7] bg-white object-cover" />
@@ -129,7 +129,7 @@ export default function AdminLayout({
             </Link>
           </div>
 
-          <nav aria-label="Navigare panou manager" className="hidden gap-2 overflow-x-auto px-4 pb-4 lg:block lg:space-y-4 lg:overflow-visible lg:px-3">
+          <nav aria-label="Navigare panou manager" className="hidden gap-2 overflow-x-auto px-4 pb-4 lg:block lg:space-y-4 lg:min-h-0 lg:flex-1 lg:overflow-y-auto lg:px-3">
             {navigationGroups.map((group) => (
               <div key={group.label} className="contents lg:block">
                 <p className="mb-1 hidden px-3 text-[10px] font-bold uppercase tracking-[.14em] text-[#9aa59f] lg:block">{group.label}</p>
@@ -153,7 +153,7 @@ export default function AdminLayout({
             ))}
           </nav>
 
-          <div className="mt-auto hidden px-5 pb-6 pt-5 lg:block">
+          <div className="mt-auto hidden shrink-0 px-5 pb-6 pt-5 lg:block">
             {!standalone && <button onClick={() => setInstallOpen(true)} className="mb-2 flex w-full items-center gap-2 rounded-xl bg-[#e8efe3] px-3.5 py-3 text-sm font-semibold"><Smartphone className="size-4" /> Instalează aplicația</button>}
             <Link to="/" className="flex items-center gap-2 rounded-xl border border-[#d9e3d7] px-3.5 py-2.5 text-sm font-semibold text-[#607269] hover:bg-[#f2f5ed]">
               <ExternalLink className="size-4" /> Deschide catalogul
@@ -163,7 +163,7 @@ export default function AdminLayout({
 
         <div className="min-w-0">
           <header className="manager-header border-b border-[#d9e3d7] bg-white/75 px-4 py-5 backdrop-blur sm:px-7 lg:px-8">
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex flex-wrap items-start justify-between gap-4">
               <div>
                 <p className="text-xs font-bold uppercase tracking-[.12em] text-[#8b6b3f]">{copy.eyebrow}</p>
                 <h1 className="mt-1 font-serif text-3xl font-semibold">{copy.title}</h1>
@@ -173,7 +173,7 @@ export default function AdminLayout({
             </div>
           </header>
 
-          <div className="manager-content p-4 sm:p-7 lg:p-8" key={section}>{children}</div>
+          <div className="manager-content min-w-0 p-3 sm:p-6 lg:p-8" key={section}>{children}</div>
         </div>
       </div>
       <nav className="manager-tabbar lg:hidden" aria-label="Navigare rapidă">

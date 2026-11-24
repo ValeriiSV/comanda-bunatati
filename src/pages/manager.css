@@ -1,6 +1,6 @@
 
 .manager-shell { min-height:100dvh; background:radial-gradient(ellipse at 100% 0%,#e6eddf 0,transparent 50%),#f2f5ed; }
-.manager-content { animation:manager-enter .28s cubic-bezier(.2,.8,.2,1) both; }
+.manager-content { animation:manager-enter .28s cubic-bezier(.2,.8,.2,1) backwards; }
 .manager-shell button,.manager-shell a { transition:background-color .18s,transform .18s,box-shadow .18s; }
 .manager-shell button:active,.manager-shell a:active { transform:scale(.98); }
 .manager-tabbar { position:fixed; bottom:0; left:0; right:0; z-index:70; display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); padding:9px 8px calc(8px + env(safe-area-inset-bottom,0px)); background:rgba(255,255,255,.94); backdrop-filter:blur(22px) saturate(145%); -webkit-backdrop-filter:blur(22px) saturate(145%); border-top:1px solid #d9e3d7; box-shadow:0 -8px 36px #173d2c12; }
@@ -20,7 +20,31 @@
 .manager-progress { transition:width .65s cubic-bezier(.2,.8,.2,1); }
 @media(max-width:1023px) { .manager-aside {padding-top:env(safe-area-inset-top,0px);} .manager-content { padding-bottom:calc(100px + env(safe-area-inset-bottom,0px)); } .manager-header h1 {font-size:1.6rem;} .manager-header {padding-top:12px;padding-bottom:12px;} .manager-shell .overflow-x-auto { -webkit-overflow-scrolling:touch; } .manager-shell input,.manager-shell select,.manager-shell textarea {font-size:16px;} }
 @media(min-width:1024px) { .manager-tabbar {display:none;} .manager-overlay {align-items:center;} }
-@keyframes manager-enter { from {opacity:0;transform:translateY(7px)} to {opacity:1;transform:translateY(0)} }
+@keyframes manager-enter { from {opacity:0;transform:translateY(7px)} to {opacity:1;transform:none} }
 @keyframes manager-sheet { from {opacity:0;transform:translateY(25px)} to {opacity:1;transform:translateY(0)} }
 @keyframes manager-fade {from{opacity:0}to{opacity:1}}
 @media(prefers-reduced-motion:reduce) { .manager-content,.manager-stat,.manager-overlay,.manager-sheet {animation:none!important;} .manager-shell button,.manager-shell a,.manager-tab span,.manager-progress {transition:none!important;transform:none!important;} }
+
+/* Fluid layouts: grids respond to available content width, including split-screen. */
+.manager-frame { grid-template-columns:minmax(0,1fr); }
+.manager-content,.manager-header,.manager-content section,.manager-content article { min-width:0; }
+.manager-content :is(input,select,textarea) { min-width:0;max-width:100%; }
+.manager-content :is(button,a) { max-width:100%; }
+.manager-content button { white-space:normal; }
+.manager-content :is(h1,h2,h3,p,strong) { overflow-wrap:anywhere; }
+.manager-content .manager-order-grid { display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,360px),1fr));gap:16px; }
+.manager-content .manager-product-grid { display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,270px),1fr));gap:12px; }
+.manager-content .manager-payment-grid { display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,340px),1fr));gap:12px; }
+.manager-content .manager-packing-grid { display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,420px),1fr));gap:16px; }
+.manager-content .manager-goal-form { display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,180px),1fr));gap:12px; }
+.manager-content .manager-two-columns { display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,340px),1fr));gap:16px; }
+.manager-content .manager-action-pair { display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,120px),1fr));gap:8px; }
+.manager-content .manager-pay-actions { display:flex;flex-wrap:wrap;align-items:flex-end;gap:8px; }
+.manager-content .manager-pay-actions label { flex:1 1 145px; }
+@media(min-width:1024px) { .manager-frame {grid-template-columns:260px minmax(0,1fr);} }
+@media(max-width:639px) {
+ .manager-content .manager-product-grid,.manager-content .manager-order-grid,.manager-content .manager-payment-grid,.manager-content .manager-packing-grid {grid-template-columns:minmax(0,1fr);}
+ .manager-header,.manager-content {padding-left:12px;padding-right:12px;}
+ .manager-content section {max-width:100%;}
+ .manager-content .manager-packing-qr {width:min(100%,160px);margin-inline:auto;}
+}
