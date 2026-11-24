@@ -27,7 +27,7 @@ import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTr
 import { categories, linePrice, priceLabel, quantityLabel, type Category, type Product } from '@/lib/products';
 import { getCategoryExperience, isNewProduct, recommendProducts } from '@/lib/catalogExperience';
 import { useProducts, type ManagedProduct } from '@/hooks/useProducts';
-import { formatOrderDate, useOrderSchedule, type OrderSchedule } from '@/hooks/useOrderSchedule';
+import { formatOrderDate, useOrderSchedule, fetchCurrentOrderSchedule, type OrderSchedule } from '@/hooks/useOrderSchedule';
 import { usePublicOrderMeta } from '@/hooks/usePublicOrderMeta';
 import { useMiaPayment } from '@/hooks/useMiaPayment';
 import { submitPublicOrder } from '@/lib/orderApi';
@@ -371,15 +371,20 @@ function CartPanel({ cart, setCart, products, schedule, lastOrder, onSubmitted }
     const orderCode = `CMD-${crypto.randomUUID().slice(0, 6).toUpperCase()}`;
     const snapshot = { ...cart };
     try {
+      const currentSchedule = await fetchCurrentOrderSchedule();
+      if (currentSchedule.closed || !currentSchedule.roundId || currentSchedule.roundId !== schedule.roundId) {
+        setSubmitError('Runda s-a închis sau s-a schimbat. Reîncarcă pagina și verifică programul.');
+        return;
+      }
       await submitPublicOrder({
         orderCode,
         customerName: name.trim(),
         phone: phone.trim(),
         totalBani: Math.round(total * 100),
-        scheduledOrderDates: schedule.dates,
-        roundId: schedule.roundId || '',
-        roundLabel: schedule.roundLabel || '',
-        roundSequence: schedule.roundSequence || 1,
+        scheduledOrderDates: currentSchedule.dates,
+        roundId: currentSchedule.roundId,
+        roundLabel: currentSchedule.roundLabel || '',
+        roundSequence: currentSchedule.roundSequence || 1,
         items: lines.map((product) => ({
           productId: product.id,
           productName: product.name,
