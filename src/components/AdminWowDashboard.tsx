@@ -19,6 +19,7 @@ type Order = {
   id: string;
   orderCode?: string;
   customerName?: string;
+  phone?: string;
   totalBani?: number;
   paid?: boolean;
   status?: string;
@@ -29,6 +30,27 @@ type Order = {
   roundSequence?: number;
   items?: OrderItem[];
 };
+
+function customerGroups(orders: Order[]) {
+  const map = new Map<string, Order[]>();
+  for (const order of orders) {
+    const raw = (order.phone || '').trim();
+    let phone = /^[+\d\s().-]+$/.test(raw) ? raw.replace(/\D/g, '') : '';
+    if (phone.startsWith('00')) phone = phone.slice(2);
+    if (/^0\d{8}$/.test(phone)) phone = '373' + phone.slice(1);
+    if (/^[67]\d{7}$/.test(phone)) phone = '373' + phone;
+    const key = phone.length >= 8 && phone.length <= 15
+      ? JSON.stringify([effectiveRound(order).roundId, phone]) : order.id;
+    const group = map.get(key) || [];
+    group.push(order);
+    map.set(key, group);
+  }
+  return [...map.values()];
+}
+function groupStage(group: Order[]) {
+  const earliest = Math.min(...group.map(order => Math.max(0, ORDER_STAGES.indexOf((order.status || 'Trimisă') as typeof ORDER_STAGES[number]))));
+  return ORDER_STAGES[earliest];
+}
 
 function orderDate(order: Order) {
   const value = order.createdAt instanceof Date ? order.createdAt : new Date(order.createdAt || 0);
@@ -79,9 +101,9 @@ export default function AdminWowDashboard() {
 
     await Promise.all([
       setDocument('settings/publicStats', {
-        orderCount: visible.length,
+        orderCount: customerGroups(visible).length,
         totalBani: visible.reduce((sum, order) => sum + (Number(order.totalBani) || 0), 0),
-        paidCount: visible.filter((order) => order.paid).length,
+        paidCount: customerGroups(visible).filter(group => group.every(order => order.paid)).length,
         roundLabel: currentRound.roundLabel,
         totalGrams,
         lastOrderAt: last ? orderDate(last) : null,
@@ -150,9 +172,9 @@ export default function AdminWowDashboard() {
     return {
       totalBani,
       paidBani,
-      unpaid: roundOrders.filter((order) => !order.paid).length,
-      ready: roundOrders.filter((order) => order.status === 'Gata de ridicare').length,
-      delivered: roundOrders.filter((order) => order.status === 'Predată').length,
+      unpaid: customerGroups(roundOrders).filter(group => group.some(order => !order.paid)).length,
+      ready: customerGroups(roundOrders).filter(group => groupStage(group) === 'Gata de ridicare').length,
+      delivered: customerGroups(roundOrders).filter(group => groupStage(group) === 'Predată').length,
     };
   }, [roundOrders]);
 
@@ -172,7 +194,7 @@ export default function AdminWowDashboard() {
   const stageCounts = useMemo(
     () => ORDER_STAGES.map((stage) => ({
       stage,
-      count: roundOrders.filter((order) => (order.status || 'Trimisă') === stage).length,
+      count: customerGroups(roundOrders).filter(group => groupStage(group) === stage).length,
     })),
     [roundOrders],
   );
@@ -197,7 +219,7 @@ export default function AdminWowDashboard() {
       {error && <p className="rounded-2xl bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p>}
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <Stat icon={<Users />} label="Comenzi" value={String(roundOrders.length)} />
+        <Stat icon={<Users />} label="Comenzi" value={String(customerGroups(roundOrders).length)} />
         <Stat icon={<WalletCards />} label="Total comandat" value={`${lei(stats.totalBani)} lei`} />
         <Stat icon={<CheckCircle2 />} label="Încasat" value={`${lei(stats.paidBani)} lei`} />
         <Stat icon={<PackageCheck />} label="Gata de ridicare" value={String(stats.ready)} />
