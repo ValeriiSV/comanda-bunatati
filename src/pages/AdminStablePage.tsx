@@ -16,7 +16,7 @@ import SellerExcelExport from '@/components/SellerExcelExport';
 import PackingModePanel from '@/components/PackingModePanel';
 import ViberCampaignPanel from '@/components/ViberCampaignPanel';
 import CollectiveGoalsPanel from '@/components/CollectiveGoalsPanel';
-import { effectiveRound, roundMeta } from '@/lib/orderRounds';
+import { effectiveRound, roundMeta, groupRoundOrders } from '@/lib/orderRounds';
 
 type OrderItem = { productId?: string; productName?: string; category?: string; grams?: number; quantityUnit?: string; lineTotalBani?: number };
 type Order = { id: string; orderCode?: string; customerName?: string; phone?: string; totalBani?: number; paid?: boolean; status?: string; createdAt?: Date | string | null; scheduledOrderDates?: string[]; roundId?: string; roundLabel?: string; roundSequence?: number; items?: OrderItem[] };
@@ -37,39 +37,6 @@ const CATALOG_REFRESH_AT = Date.parse('2026-11-04T06:50:00Z');
 
 function lei(bani = 0) { return new Intl.NumberFormat('ro-MD', { maximumFractionDigits: 2 }).format(bani / 100); }
 function slugify(value: string) { return value.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''); }
-function normalizedOrderPhone(value?: string) {
-  const raw = (value || '').trim();
-  if (!raw || !/^[+\d\s().-]+$/.test(raw)) return '';
-  let digits = raw.replace(/\D/g, '');
-  if (digits.startsWith('00')) digits = digits.slice(2);
-  if (/^0\d{8}$/.test(digits)) digits = '373' + digits.slice(1);
-  if (/^[67]\d{7}$/.test(digits)) digits = '373' + digits;
-  return digits.length >= 8 && digits.length <= 15 ? digits : '';
-}
-function groupRoundOrders(orders: Order[]) {
-  const groups = new Map<string, Order[]>();
-  for (const order of orders) {
-    const phone = normalizedOrderPhone(order.phone);
-    const key = phone ? JSON.stringify([effectiveRound(order).roundId, phone]) : order.id;
-    const group = groups.get(key) || [];
-    group.push(order);
-    groups.set(key, group);
-  }
-  return [...groups].map(([key, entries]) => {
-    const items = new Map<string, OrderItem>();
-    for (const order of entries) for (const [index, item] of (order.items || []).entries()) {
-      const key = JSON.stringify([item.productId || item.productName || order.id + index, item.quantityUnit || 'g']);
-      const previous = items.get(key);
-      if (previous) {
-        previous.grams = (Number(previous.grams) || 0) + (Number(item.grams) || 0);
-        previous.lineTotalBani = (Number(previous.lineTotalBani) || 0) + (Number(item.lineTotalBani) || 0);
-      } else items.set(key, { ...item });
-    }
-    return { key, entries, items: [...items.values()],
-      totalBani: entries.reduce((sum, o) => sum + (Number(o.totalBani) || 0), 0),
-      paidBani: entries.reduce((sum, o) => sum + (o.paid ? Number(o.totalBani) || 0 : 0), 0) };
-  });
-}
 function orderDate(order: Order) { const d = order.createdAt instanceof Date ? order.createdAt : new Date(order.createdAt || Date.now()); return Number.isNaN(d.getTime()) ? new Date() : d; }
 function monthKey(date: Date) { return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`; }
 function monthLabel(key: string) { const [y, m] = key.split('-').map(Number); return new Intl.DateTimeFormat('ro-MD', { month: 'long', year: 'numeric' }).format(new Date(y, m - 1, 1)); }
@@ -566,7 +533,15 @@ export default function AdminStablePage({ section = 'dashboard' }: { section?: A
   const toggleProduct = async (p: Product) => { try { await setDocument(`products/${p.id}`, { ...p, active: p.active === false, updatedAt: new Date() }); await loadAll(); } catch (e) { setError(friendly((e as Error).message)); } };
   const removeProduct = async (p: Product) => { if (!window.confirm(`Ștergi produsul „${p.name}”?`)) return; try { const isCatalogProduct = catalogProducts.some((item) => item.id === p.id); if (isCatalogProduct) { await setDocument(`products/${p.id}`, { ...p, active: false, updatedAt: new Date() }); setNotice('Produsul standard a fost ascuns din catalog.'); } else { await deleteDocument(`products/${p.id}`); } await loadAll(); } catch (e) { setError(friendly((e as Error).message)); } };
 
-  const exportCsv = () => { const rows = [['Rundă','Cod','Data','Nume','Telefon','Achitat','Produs','Categorie','Cantitate','Produs (lei)','Total persoană (lei)']]; visibleOrders.forEach((o) => (o.items || []).forEach((i) => rows.push([effectiveRound(o).roundLabel, o.orderCode || '', orderDate(o).toLocaleString('ro-MD'), o.customerName || '', o.phone || '', o.paid ? 'Da' : 'Nu', i.productName || '', i.category || '', orderQuantityLabel(i.productId, i.grams || 0, products), lei(i.lineTotalBani || 0), lei(o.totalBani || 0)]))); const csv = '\uFEFF' + rows.map((r) => r.map((c) => `"${String(c).replaceAll('"','""')}"`).join(';')).join('\n'); const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' })); a.download = `comenzi-bunatati-${selectedRoundId || selectedMonth}.csv`; a.click(); URL.revokeObjectURL(a.href); };
+  const exportCsv = () => {
+    const rows = [['Rundă','Coduri','Data','Nume','Telefon','Achitat (lei)','Rest (lei)','Produs','Categorie','Cantitate','Produs (lei)','Total persoană (lei)']];
+    groupedOrders.forEach(group => {
+      const o = group.entries[0];
+      group.items.forEach(i => rows.push([effectiveRound(o).roundLabel, group.entries.map(entry => entry.orderCode || '').join(' / '), orderDate(o).toLocaleString('ro-MD'), o.customerName || '', o.phone || '', lei(group.paidBani), lei(group.totalBani-group.paidBani), i.productName || '', i.category || '', orderQuantityLabel(i.productId,i.grams || 0,products), lei(i.lineTotalBani || 0), lei(group.totalBani)]));
+    });
+    const csv = '\uFEFF' + rows.map(r => r.map(c => '"' + String(c).replaceAll('"','""') + '"').join(';')).join('\n');
+    const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv], {type:'text/csv;charset=utf-8'})); a.download = `comenzi-bunatati-${selectedRoundId || selectedMonth}.csv`; a.click(); URL.revokeObjectURL(a.href);
+  };
 
   if (!authorized) return <main className="grid min-h-screen place-items-center bg-[#f2f5ed] p-5 text-[#173d2c]"><section className="w-full max-w-md rounded-[28px] border border-[#d9e3d7] bg-white p-8 shadow-xl"><Link to="/" className="mb-7 flex items-center gap-2 text-sm text-[#607269]"><ArrowLeft className="size-4" /> Înapoi la catalog</Link><img src="/valera-logo.svg?v=8" alt="Bunătăți împreună cu Valera" className="mb-5 size-20 rounded-full border border-[#d9e3d7] bg-white object-cover" /><h1 className="font-serif text-3xl font-semibold">Panoul managerului</h1><form onSubmit={login} className="mt-7 space-y-3"><Input type="email" autoComplete="username" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Email" className="h-12 rounded-xl" /><Input type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Parolă" className="h-12 rounded-xl" /><Button disabled={busy || !email || !password} className="h-12 w-full rounded-xl bg-[#173d2c]">{busy ? 'Se autentifică…' : 'Intră în panou'}</Button></form><div className="my-4 flex items-center gap-3 text-xs text-[#8a968f]"><span className="h-px flex-1 bg-[#dfe7df]" />sau<span className="h-px flex-1 bg-[#dfe7df]" /></div><Button type="button" variant="outline" onClick={loginGoogle} disabled={busy} className="h-12 w-full rounded-xl">{busy ? 'Se conectează…' : 'Continuă cu Google'}</Button>{error && <p className="mt-4 rounded-xl bg-red-50 p-3 text-sm text-red-700">{error}</p>}</section></main>;
 
