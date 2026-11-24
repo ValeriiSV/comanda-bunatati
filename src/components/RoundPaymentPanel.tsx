@@ -2,8 +2,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { CheckCircle2, ClipboardCopy, RefreshCw, Share2, WalletCards } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import SimpleQrCode from '@/components/SimpleQrCode';
-import { getDocument, listCollection, updateDocument } from '@/lib/firebaseRest';
-import { effectiveRound, groupRoundOrders, type GroupableOrder } from '@/lib/orderRounds';
+import { getDocument, listCollection, updateDocument, updateDocumentsAtomically } from '@/lib/firebaseRest';
+import { effectiveRound, groupRoundOrders, allocateGroupDiscount, parseDiscountLei, orderDiscountBani, grossOrderBani, type GroupableOrder } from '@/lib/orderRounds';
 
 type Snapshot = { roundId: string; label: string; closed: boolean; orders: GroupableOrder[]; paymentLink: string; recipient: string };
 const money = (bani: number) => new Intl.NumberFormat('ro-MD', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(bani / 100);
@@ -34,9 +34,10 @@ export default function RoundPaymentPanel({ onClosed }: { onClosed?: () => Promi
   const [notice, setNotice] = useState('');
   const [error, setError] = useState('');
   const [prepared, setPrepared] = useState(false);
+  const [drafts, setDrafts] = useState<Record<string,string>>({});
 
   const load = async () => {
-    setBusy(true); setError(''); setPrepared(false); setNotice('');
+    setBusy(true); setError(''); setPrepared(false); setDrafts({}); setNotice('');
     try { setSnapshot(await readSnapshot()); }
     catch (e) { setSnapshot(null); setError(e instanceof Error ? e.message : String(e)); }
     finally { setBusy(false); }
@@ -44,6 +45,7 @@ export default function RoundPaymentPanel({ onClosed }: { onClosed?: () => Promi
   useEffect(() => { void load(); }, []);
 
   const groups = useMemo(() => groupRoundOrders(snapshot?.orders || []).sort((a,b) => (a.entries[0].customerName || '').localeCompare(b.entries[0].customerName || '', 'ro')), [snapshot]);
+  const discountTotal = groups.reduce((sum,g) => sum+g.discountBani,0);
   const total = groups.reduce((sum,g) => sum+g.totalBani,0);
   const paid = groups.reduce((sum,g) => sum+g.paidBani,0);
   const remaining = total-paid;
@@ -57,15 +59,37 @@ export default function RoundPaymentPanel({ onClosed }: { onClosed?: () => Promi
     'Deschideți linkul, verificați beneficiarul și introduceți suma indicată lângă numele vostru. Mulțumesc!',
   ].join('\n') : '';
 
+  const signature = (s: Snapshot) => JSON.stringify(s.orders.map(o => [o.id,o.customerName,o.phone,o.totalBani,o.discountBani || 0,o.paid,o.items]).sort((a,b)=>String(a[0]).localeCompare(String(b[0]))));
+  const saveDiscount = async (key: string) => {
+    if (!snapshot || busy) return;
+    const value = parseDiscountLei(drafts[key] || '0');
+    if (value === null) { setError('Introdu o reducere validă în lei, cu maximum 2 zecimale.'); return; }
+    setBusy(true); setError(''); setPrepared(false); setNotice('');
+    try {
+      const fresh = await readSnapshot();
+      const group = groupRoundOrders(fresh.orders).find(g => g.key === key);
+      if (fresh.roundId !== snapshot.roundId || signature(fresh) !== signature(snapshot) || !group) {
+        setSnapshot(fresh); setDrafts({}); throw new Error('Lista s-a modificat. Verifică și introdu din nou reducerea.');
+      }
+      const updates = allocateGroupDiscount(group.entries,value);
+      const changed = updates.filter(u => orderDiscountBani(group.entries.find(o=>o.id===u.id)!) !== u.discountBani);
+      if (changed.length) await updateDocumentsAtomically(changed.map(u=>({path:`groupOrders/${u.id}`,data:{discountBani:u.discountBani,updatedAt:new Date()}})));
+      setSnapshot(await readSnapshot());
+      setDrafts(prev=>{const next={...prev};delete next[key];return next;});
+      setNotice('Reducerea a fost salvată. Suma finală a fost recalculată.');
+      try { await onClosed?.(); } catch {}
+    } catch(e) {setError(e instanceof Error ? e.message : String(e));}
+    finally {setBusy(false);}
+  };
   const prepare = async () => {
     if (!snapshot || busy) return;
+    if (Object.keys(drafts).length) {setError('Salvează toate reducerile înainte de confirmare.');return;}
     setBusy(true);setError('');setPrepared(false);setNotice('');
     try {
       let fresh = await readSnapshot();
       if (fresh.roundId !== snapshot.roundId) { setSnapshot(fresh); throw new Error('Runda activă s-a schimbat. Verifică lista nouă.'); }
       if (!fresh.paymentLink) throw new Error('Salvează mai întâi linkul MIA oficial, generat de bancă.');
       if (!fresh.orders.length) throw new Error('Nu există comenzi în această rundă.');
-      const signature = (s: Snapshot) => JSON.stringify(s.orders.map(o => [o.id,o.customerName,o.phone,o.totalBani,o.paid,o.items]).sort((a,b)=>String(a[0]).localeCompare(String(b[0]))));
       if (signature(fresh) !== signature(snapshot)) { setSnapshot(fresh); throw new Error('Comenzile sau plățile s-au modificat. Verifică lista actualizată înainte de confirmare.'); }
       if (!window.confirm('Confirmi că vânzătorul a acceptat produsele și cantitățile, iar sumele sunt finale? Runda va fi închisă și se va pregăti mesajul Viber.')) return;
       if (!fresh.closed) {
@@ -106,16 +130,30 @@ export default function RoundPaymentPanel({ onClosed }: { onClosed?: () => Promi
       <div className="flex items-center justify-between gap-3"><WalletCards className="size-7"/><span className="rounded-full bg-white/15 px-3 py-1 text-xs">{snapshot ? snapshot.closed ? 'Rundă închisă' : 'În așteptarea confirmării' : 'Se încarcă'}</span></div>
       <p className="mt-4 text-sm text-white/75">{snapshot?.label || 'Runda curentă'} · Rest de încasat</p>
       <strong className="block text-3xl tabular-nums">{money(remaining)} lei</strong>
-      <div className="mt-4 grid grid-cols-2 gap-3 border-t border-white/20 pt-4"><div><p className="text-xs text-white/70">Total</p><strong>{money(total)} lei</strong></div><div><p className="text-xs text-white/70">Achitat</p><strong>{money(paid)} lei</strong></div></div>
+      <div className="mt-4 grid grid-cols-2 gap-3 border-t border-white/20 pt-4"><div><p className="text-xs text-white/70">Total inițial</p><strong>{money(total+discountTotal)} lei</strong></div><div><p className="text-xs text-white/70">Reduceri</p><strong>{money(discountTotal)} lei</strong></div><div><p className="text-xs text-white/70">Total final</p><strong>{money(total)} lei</strong></div><div><p className="text-xs text-white/70">Achitat</p><strong>{money(paid)} lei</strong></div></div>
     </div>
     {error && <p role="alert" className="rounded-2xl bg-red-50 p-3 text-sm text-red-700">{error}</p>}
     {notice && <p role="status" className="rounded-2xl bg-[#e8f3df] p-3 text-sm">{notice}</p>}
     <div className="rounded-[24px] border bg-white p-4">
       <div className="flex items-center justify-between gap-2"><h2 className="font-serif text-xl font-semibold">Lista de achitare</h2><Button variant="outline" onClick={()=>void load()} disabled={busy}><RefreshCw/> Actualizează</Button></div>
       <p className="mt-2 text-xs text-[#74837b]">O singură poziție per telefon și rundă. Plățile deja înregistrate se scad.</p>
-      {groups.map(g=><div key={g.key} className="flex items-center justify-between gap-3 border-b py-3 last:border-b-0"><div className="min-w-0"><strong className="block break-words text-sm">{g.entries[0].customerName || 'Client'}</strong><p className="text-xs text-[#74837b]">{g.paid ? 'Achitat integral' : g.paidBani ? `Achitat: ${money(g.paidBani)} lei` : 'Neachitat'}</p></div><strong className="shrink-0 tabular-nums">{money(g.totalBani-g.paidBani)} lei</strong></div>)}
+      {groups.map(g=>{
+        const locked=g.entries.filter(o=>o.paid).reduce((sum,o)=>sum+orderDiscountBani(o),0);
+        const max=locked+g.entries.filter(o=>!o.paid).reduce((sum,o)=>sum+grossOrderBani(o),0);
+        const draft=drafts[g.key];
+        const parsed=draft===undefined?g.discountBani:parseDiscountLei(draft);
+        const valid=parsed!==null&&parsed>=locked&&parsed<=max;
+        return <div key={g.key} className="space-y-3 border-b py-4 last:border-b-0">
+          <div className="flex justify-between gap-2"><strong className="break-words">{g.entries[0].customerName || 'Client'}</strong><span className="text-xs text-[#74837b]">{g.paid ? 'Achitat integral' : g.paidBani ? `Achitat: ${money(g.paidBani)} lei` : 'Neachitat'}</span></div>
+          <div className="grid grid-cols-3 gap-2 text-xs"><div>Total inițial<strong className="block text-sm">{money(g.grossBani)} lei</strong></div><div>Reducere<strong className="block text-sm text-[#315b32]">−{money(g.discountBani)} lei</strong></div><div>Total final<strong className="block text-sm">{money(g.totalBani)} lei</strong></div></div>
+          <div className="flex items-end gap-2"><label className="min-w-0 flex-1 text-xs font-semibold">Reducere (lei)<input className="mt-1 h-11 w-full rounded-xl border bg-[#f7faf4] px-3 text-base" inputMode="decimal" value={draft ?? (g.discountBani/100).toFixed(2)} disabled={busy||g.paid} onChange={e=>{setPrepared(false);setDrafts(prev=>({...prev,[g.key]:e.target.value}));}}/></label><Button type="button" variant="outline" disabled={busy||g.paid||draft===undefined||!valid} onClick={()=>void saveDiscount(g.key)}>Salvează</Button>{draft!==undefined&&<Button type="button" variant="ghost" onClick={()=>setDrafts(prev=>{const next={...prev};delete next[g.key];return next;})}>Anulează</Button>}</div>
+          {!valid&&<p className="text-xs text-red-600">Reducere permisă: {money(locked)} – {money(max)} lei.</p>}
+          {g.paid&&<p className="text-xs text-[#74837b]">Reducerea este blocată pentru plata deja înregistrată.</p>}
+          <p className="text-sm font-semibold text-[#173d2c]">Rest de achitat: {money(g.totalBani-g.paidBani)} lei {draft!==undefined&&valid&&parsed!==null&&<span className="ml-2 text-xs font-normal">După salvare: {money(g.grossBani-parsed-g.paidBani)} lei</span>}</p>
+        </div>;
+      })}
       {!groups.length && <p className="py-4 text-sm text-[#74837b]">Nu există comenzi în runda curentă.</p>}
-      <Button className="mt-4 h-auto min-h-12 w-full whitespace-normal bg-[#173d2c] py-3" disabled={busy || !snapshot || !groups.length || !snapshot.paymentLink} onClick={()=>void prepare()}><CheckCircle2/> {snapshot?.closed ? 'Confirmă lista pentru achitare' : 'Confirmă cu vânzătorul și închide runda'}</Button>
+      <Button className="mt-4 h-auto min-h-12 w-full whitespace-normal bg-[#173d2c] py-3" disabled={busy || !snapshot || !groups.length || !snapshot.paymentLink || Object.keys(drafts).length>0} onClick={()=>void prepare()}><CheckCircle2/> {snapshot?.closed ? 'Confirmă lista pentru achitare' : 'Confirmă cu vânzătorul și închide runda'}</Button>
       {snapshot && !snapshot.paymentLink && <p className="mt-3 text-xs text-[#a15328]">Pentru distribuire, configurează mai jos linkul MIA oficial. Nu folosim un link implicit.</p>}
     </div>
     {prepared && snapshot && <div className="space-y-4 rounded-[24px] border bg-white p-4">

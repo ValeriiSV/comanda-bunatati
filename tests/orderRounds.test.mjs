@@ -33,3 +33,22 @@ test('products with different units are not combined', () => {
   const group=groupRoundOrders([first,{...second,items:[{productId:'nuci',grams:1,quantityUnit:'buc',lineTotalBani:20000}]}])[0];
   assert.equal(group.items.length,2);
 });
+
+
+test('manual discounts respect existing payments and group totals', async () => {
+  const {allocateGroupDiscount,parseDiscountLei,netOrderBani}=await import('../src/lib/orderRounds.ts');
+  const rows=[{id:'a',phone:'069123456',roundId:'2026-11-r2',totalBani:15000,paid:true,discountBani:1000},{id:'b',phone:'+37369123456',roundId:'2026-11-r2',totalBani:20000,paid:false}];
+  const allocations=allocateGroupDiscount(rows,3000);
+  assert.deepEqual(allocations,[{id:'b',discountBani:2000}]);
+  const group=groupRoundOrders([rows[0],{...rows[1],discountBani:2000}])[0];
+  assert.equal(group.grossBani,35000);
+  assert.equal(group.discountBani,3000);
+  assert.equal(group.totalBani,32000);
+  assert.equal(group.paidBani,14000);
+  assert.equal(group.totalBani-group.paidBani,18000);
+  assert.throws(()=>allocateGroupDiscount(rows,500));
+  assert.throws(()=>allocateGroupDiscount(rows,22000));
+  assert.equal(parseDiscountLei('12,50'),1250);
+  assert.equal(parseDiscountLei('-2'),null);
+  assert.equal(netOrderBani({id:'x',totalBani:100,discountBani:999}),0);
+});

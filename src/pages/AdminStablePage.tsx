@@ -17,10 +17,10 @@ import PackingModePanel from '@/components/PackingModePanel';
 import ViberCampaignPanel from '@/components/ViberCampaignPanel';
 import RoundPaymentPanel from '@/components/RoundPaymentPanel';
 import CollectiveGoalsPanel from '@/components/CollectiveGoalsPanel';
-import { effectiveRound, roundMeta, groupRoundOrders } from '@/lib/orderRounds';
+import { effectiveRound, roundMeta, groupRoundOrders, netOrderBani, orderDiscountBani } from '@/lib/orderRounds';
 
 type OrderItem = { productId?: string; productName?: string; category?: string; grams?: number; quantityUnit?: string; lineTotalBani?: number };
-type Order = { id: string; orderCode?: string; customerName?: string; phone?: string; totalBani?: number; paid?: boolean; status?: string; createdAt?: Date | string | null; scheduledOrderDates?: string[]; roundId?: string; roundLabel?: string; roundSequence?: number; items?: OrderItem[] };
+type Order = { id: string; orderCode?: string; customerName?: string; phone?: string; totalBani?: number; discountBani?: number; paid?: boolean; status?: string; createdAt?: Date | string | null; scheduledOrderDates?: string[]; roundId?: string; roundLabel?: string; roundSequence?: number; items?: OrderItem[] };
 type Product = CatalogProduct & { active?: boolean; isNew?: boolean; promo?: boolean; sortOrder?: number; createdAt?: unknown; updatedAt?: unknown };
 type ProductDraft = { name: string; category: string; priceLei: string; baseGrams: string; stepGrams: string; quantityUnit: QuantityUnit; stockLimit: string; imageUrl: string; active: boolean; isNew: boolean; promo: boolean };
 type OrderDraftItem = { productId: string; productName: string; category: string; grams: number };
@@ -382,6 +382,8 @@ export default function AdminStablePage({ section = 'dashboard' }: { section?: A
     });
     if (items.length === 0) { setError('Comanda trebuie să conțină cel puțin un produs.'); return; }
     const totalBani = items.reduce((sum, item) => sum + item.lineTotalBani, 0);
+    if (editingOrder?.paid) {setError('Anulează confirmarea plății înainte de a modifica produsele.');return;}
+    if (editingOrder && orderDiscountBani(editingOrder)>totalBani) {setError('Redu mai întâi reducerea din Plăți.');return;}
     setBusy(true); setError('');
     try {
       await updateDocument(`groupOrders/${editingOrderId}`, { items, totalBani, updatedAt: new Date() });
@@ -541,10 +543,10 @@ export default function AdminStablePage({ section = 'dashboard' }: { section?: A
   const removeProduct = async (p: Product) => { if (!window.confirm(`Ștergi produsul „${p.name}”?`)) return; try { const isCatalogProduct = catalogProducts.some((item) => item.id === p.id); if (isCatalogProduct) { await setDocument(`products/${p.id}`, { ...p, active: false, updatedAt: new Date() }); setNotice('Produsul standard a fost ascuns din catalog.'); } else { await deleteDocument(`products/${p.id}`); } await loadAll(); } catch (e) { setError(friendly((e as Error).message)); } };
 
   const exportCsv = () => {
-    const rows = [['Rundă','Coduri','Data','Nume','Telefon','Achitat (lei)','Rest (lei)','Produs','Categorie','Cantitate','Produs (lei)','Total persoană (lei)']];
+    const rows = [['Rundă','Coduri','Data','Nume','Telefon','Achitat (lei)','Rest (lei)','Produs','Categorie','Cantitate','Produs (lei)','Total inițial (lei)','Reducere (lei)','Total final (lei)']];
     groupedOrders.forEach(group => {
       const o = group.entries[0];
-      group.items.forEach(i => rows.push([effectiveRound(o).roundLabel, group.entries.map(entry => entry.orderCode || '').join(' / '), orderDate(o).toLocaleString('ro-MD'), o.customerName || '', o.phone || '', lei(group.paidBani), lei(group.totalBani-group.paidBani), i.productName || '', i.category || '', orderQuantityLabel(i.productId,i.grams || 0,products), lei(i.lineTotalBani || 0), lei(group.totalBani)]));
+      group.items.forEach(i => rows.push([effectiveRound(o).roundLabel, group.entries.map(entry => entry.orderCode || '').join(' / '), orderDate(o).toLocaleString('ro-MD'), o.customerName || '', o.phone || '', lei(group.paidBani), lei(group.totalBani-group.paidBani), i.productName || '', i.category || '', orderQuantityLabel(i.productId,i.grams || 0,products), lei(i.lineTotalBani || 0), lei(group.grossBani), lei(group.discountBani), lei(group.totalBani)]));
     });
     const csv = '\uFEFF' + rows.map(r => r.map(c => '"' + String(c).replaceAll('"','""') + '"').join(';')).join('\n');
     const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv], {type:'text/csv;charset=utf-8'})); a.download = `comenzi-bunatati-${selectedRoundId || selectedMonth}.csv`; a.click(); URL.revokeObjectURL(a.href);
@@ -649,11 +651,11 @@ export default function AdminStablePage({ section = 'dashboard' }: { section?: A
       <TableCell>{effectiveRound(group.entries[0]).roundLabel}</TableCell>
       <TableCell>{group.entries[0].phone || '—'}</TableCell>
       <TableCell className="min-w-72">{group.items.map((item, idx) => <span key={idx} className="mr-1.5 mb-1.5 inline-flex rounded-full bg-[#eef3e8] px-2.5 py-1 text-xs">{item.productName} · {orderQuantityLabel(item.productId, item.grams || 0, products)}</span>)}</TableCell>
-      <TableCell className="font-semibold">{lei(group.totalBani)} lei</TableCell>
+      <TableCell className="font-semibold">{lei(group.totalBani)} lei{group.discountBani>0&&<span className="block text-xs text-[#74837b]">Reducere: {lei(group.discountBani)} lei</span>}</TableCell>
       <TableCell><strong className="block text-xs">{group.entries.every(o => o.paid) ? 'Achitat' : group.entries.some(o => o.paid) ? 'Achitat parțial' : 'Neachitat'}</strong><span className="block text-xs">Achitat: {lei(group.paidBani)} lei</span><span className="block text-xs">Rest: {lei(group.totalBani - group.paidBani)} lei</span></TableCell>
       <TableCell className="text-right"><Button size="sm" variant="outline" onClick={() => setExpandedGroups(current => current.includes(group.key) ? current.filter(key => key !== group.key) : [...current, group.key])}>{expandedGroups.includes(group.key) ? 'Ascunde' : 'Detalii'}</Button></TableCell>
     </TableRow>}
-    {(group.entries.length === 1 || expandedGroups.includes(group.key)) && group.entries.map((o) => <TableRow key={o.id} className={editingOrderId === o.id ? 'bg-[#f7faf4]' : ''}><TableCell><strong>{o.customerName || 'Fără nume'}</strong><span className="block text-xs text-[#829087]">{o.orderCode || '—'} · {orderDate(o).toLocaleDateString('ro-MD')} · {o.status || 'Trimisă'}</span></TableCell><TableCell><select value={effectiveRound(o).roundId} onChange={(event) => void moveOrderToRound(o, event.target.value)} className="h-9 min-w-44 rounded-lg border bg-white px-2 text-xs">{roundOptions.map((option) => <option key={option.id} value={option.id}>{option.label}</option>)}</select></TableCell><TableCell>{o.phone || '—'}</TableCell><TableCell className="min-w-72">{(o.items || []).map((i, idx) => <span key={`${i.productId}-${idx}`} className="mr-1.5 mb-1.5 inline-flex rounded-full bg-[#eef3e8] px-2.5 py-1 text-xs">{i.productName} · {orderQuantityLabel(i.productId, i.grams || 0, products)}</span>)}</TableCell><TableCell className="font-semibold">{lei(o.totalBani || 0)} lei</TableCell><TableCell><Button size="sm" variant={o.paid ? 'secondary' : 'outline'} onClick={() => togglePaid(o)}>{o.paid && <Check />} {o.paid ? 'Achitat' : 'Neachitat'}</Button></TableCell><TableCell className="text-right"><div className="flex justify-end gap-1"><Button variant="ghost" size="icon" onClick={() => startOrderEdit(o)} title="Modifică această comandă"><Pencil /></Button><Button variant="ghost" size="icon" onClick={() => removeOrder(o)} className="text-red-600" title="Șterge comanda"><Trash2 /></Button></div></TableCell></TableRow>)}
+    {(group.entries.length === 1 || expandedGroups.includes(group.key)) && group.entries.map((o) => <TableRow key={o.id} className={editingOrderId === o.id ? 'bg-[#f7faf4]' : ''}><TableCell><strong>{o.customerName || 'Fără nume'}</strong><span className="block text-xs text-[#829087]">{o.orderCode || '—'} · {orderDate(o).toLocaleDateString('ro-MD')} · {o.status || 'Trimisă'}</span></TableCell><TableCell><select value={effectiveRound(o).roundId} onChange={(event) => void moveOrderToRound(o, event.target.value)} className="h-9 min-w-44 rounded-lg border bg-white px-2 text-xs">{roundOptions.map((option) => <option key={option.id} value={option.id}>{option.label}</option>)}</select></TableCell><TableCell>{o.phone || '—'}</TableCell><TableCell className="min-w-72">{(o.items || []).map((i, idx) => <span key={`${i.productId}-${idx}`} className="mr-1.5 mb-1.5 inline-flex rounded-full bg-[#eef3e8] px-2.5 py-1 text-xs">{i.productName} · {orderQuantityLabel(i.productId, i.grams || 0, products)}</span>)}</TableCell><TableCell className="font-semibold">{lei(netOrderBani(o))} lei{orderDiscountBani(o)>0&&<span className="block text-xs text-[#74837b]">Reducere: {lei(orderDiscountBani(o))} lei</span>}</TableCell><TableCell><Button size="sm" variant={o.paid ? 'secondary' : 'outline'} onClick={() => togglePaid(o)}>{o.paid && <Check />} {o.paid ? 'Achitat' : 'Neachitat'}</Button></TableCell><TableCell className="text-right"><div className="flex justify-end gap-1"><Button variant="ghost" size="icon" onClick={() => startOrderEdit(o)} title="Modifică această comandă"><Pencil /></Button><Button variant="ghost" size="icon" onClick={() => removeOrder(o)} className="text-red-600" title="Șterge comanda"><Trash2 /></Button></div></TableCell></TableRow>)}
   </Fragment>)}{groupedOrders.length === 0 && <TableRow><TableCell colSpan={7} className="py-10 text-center text-[#74837b]">Nu există comenzi în această rundă.</TableCell></TableRow>}</TableBody></Table></div>
   </section></>}
 

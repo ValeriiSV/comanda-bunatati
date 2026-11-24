@@ -21,6 +21,7 @@ type Order = {
   customerName?: string;
   phone?: string;
   totalBani?: number;
+  discountBani?: number;
   paid?: boolean;
   status?: string;
   createdAt?: Date | string | null;
@@ -147,11 +148,14 @@ export default function AdminWowDashboard() {
   );
 
   const stats = useMemo(() => {
-    const totalBani = roundOrders.reduce((sum, order) => sum + (Number(order.totalBani) || 0), 0);
-    const paidBani = roundOrders.filter((order) => order.paid).reduce((sum, order) => sum + (Number(order.totalBani) || 0), 0);
+    const groups = groupRoundOrders(roundOrders);
+    const totalBani = groups.reduce((sum,g)=>sum+g.totalBani,0);
+    const paidBani = groups.reduce((sum,g)=>sum+g.paidBani,0);
+    const discountBani = groups.reduce((sum,g)=>sum+g.discountBani,0);
     return {
       totalBani,
       paidBani,
+      discountBani,
       unpaid: customerGroups(roundOrders).filter(group => group.some(order => !order.paid)).length,
       ready: customerGroups(roundOrders).filter(group => groupStage(group) === 'Gata de ridicare').length,
       delivered: customerGroups(roundOrders).filter(group => groupStage(group) === 'Predată').length,
@@ -202,8 +206,9 @@ export default function AdminWowDashboard() {
 
       <div className="relative overflow-hidden rounded-[28px] bg-gradient-to-br from-[#173d2c] to-[#315b32] p-5 text-white shadow-lg sm:p-7">
         <div aria-hidden="true" className="pointer-events-none absolute -right-12 -top-14 size-52 rounded-full border-[25px] border-white/5"/>
-        <p className="text-sm font-medium text-white/70">Valoarea totală a comenzilor</p>
+        <p className="text-sm font-medium text-white/70">Valoarea finală a comenzilor</p>
         <strong className="mt-2 block text-4xl font-semibold tracking-tight tabular-nums">{lei(stats.totalBani)} <span className="text-xl text-white/65">MDL</span></strong>
+        {stats.discountBani>0&&<p className="mt-2 text-xs text-white/75">Reduceri acordate: {lei(stats.discountBani)} lei</p>}
         <div className="mt-5 grid grid-cols-2 gap-4 border-t border-white/15 pt-4">
           <div><p className="text-xs text-white/65">Încasat</p><strong className="mt-1 block text-xl tabular-nums">{lei(stats.paidBani)} lei</strong></div>
           <div><p className="text-xs text-white/65">Rest de încasat</p><strong className="mt-1 block text-xl text-[#f4cf93] tabular-nums">{lei(stats.totalBani-stats.paidBani)} lei</strong></div>

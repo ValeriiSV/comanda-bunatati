@@ -63,7 +63,9 @@ service cloud.firestore {
         && request.resource.data.customerName is string
         && request.resource.data.phone is string
         && request.resource.data.totalBani is number
-        && request.resource.data.items is list;
+        && request.resource.data.items is list
+        && !('discountBani' in request.resource.data)
+        && request.resource.data.paid == false;
       allow read, update, delete: if isAdmin();
     }
 

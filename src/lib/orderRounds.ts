@@ -68,7 +68,7 @@ export function sameRound(order: RoundAwareOrder, roundId: string) {
 export const ORDER_STAGES = ['Trimisă', 'Confirmată', 'Comandată furnizorului', 'Gata de ridicare', 'Predată'] as const;
 export type OrderStage = typeof ORDER_STAGES[number];
 export type GroupableItem = { productId?: string; productName?: string; category?: string; grams?: number; quantityUnit?: string; lineTotalBani?: number };
-export type GroupableOrder = RoundAwareOrder & { id: string; phone?: string; customerName?: string; orderCode?: string; paid?: boolean; totalBani?: number; status?: string; items?: GroupableItem[] };
+export type GroupableOrder = RoundAwareOrder & { id: string; phone?: string; customerName?: string; orderCode?: string; paid?: boolean; totalBani?: number; discountBani?: number; status?: string; items?: GroupableItem[] };
 
 export function normalizedOrderPhone(value?: string) {
   const raw = (value || '').trim();
@@ -84,6 +84,35 @@ export function stageRank(status?: string) {
 }
 export function groupStage(orders: GroupableOrder[]): OrderStage {
   return ORDER_STAGES[orders.length ? Math.min(...orders.map(o => stageRank(o.status))) : 0];
+}
+export function grossOrderBani(order: GroupableOrder) {
+  return Math.max(0, Math.round(Number(order.totalBani) || 0));
+}
+export function orderDiscountBani(order: GroupableOrder) {
+  return Math.min(grossOrderBani(order), Math.max(0, Math.round(Number(order.discountBani) || 0)));
+}
+export function netOrderBani(order: GroupableOrder) {
+  return grossOrderBani(order) - orderDiscountBani(order);
+}
+export function parseDiscountLei(value: string): number | null {
+  const clean = value.trim().replace(',', '.');
+  if (!/^\d+(\.\d{1,2})?$/.test(clean)) return null;
+  const bani = Math.round(Number(clean) * 100);
+  return Number.isSafeInteger(bani) ? bani : null;
+}
+// Preserve amounts already recorded as paid. Allocate the remaining discount
+// deterministically over unpaid submissions in the same customer group.
+export function allocateGroupDiscount<T extends GroupableOrder>(entries: T[], requestedBani: number) {
+  const locked = entries.filter(o => o.paid).reduce((sum,o) => sum + orderDiscountBani(o), 0);
+  const unpaid = entries.filter(o => !o.paid).sort((a,b) => a.id.localeCompare(b.id));
+  const capacity = unpaid.reduce((sum,o) => sum + grossOrderBani(o), 0);
+  if (!Number.isSafeInteger(requestedBani) || requestedBani < locked || requestedBani > locked + capacity) throw new Error('Reducerea depășește suma disponibilă sau modifică o plată deja înregistrată.');
+  let remaining = requestedBani - locked;
+  return unpaid.map(o => {
+    const discountBani = Math.min(grossOrderBani(o), remaining);
+    remaining -= discountBani;
+    return { id: o.id, discountBani };
+  });
 }
 export function groupRoundOrders<T extends GroupableOrder>(orders: T[]) {
   const groups = new Map<string, T[]>();
@@ -105,8 +134,10 @@ export function groupRoundOrders<T extends GroupableOrder>(orders: T[]) {
       } else items.set(key, { ...item });
     }
     return { key, entries, items: [...items.values()],
-      totalBani: entries.reduce((sum, o) => sum + (Number(o.totalBani) || 0), 0),
-      paidBani: entries.reduce((sum, o) => sum + (o.paid ? Number(o.totalBani) || 0 : 0), 0),
+      grossBani: entries.reduce((sum,o) => sum + grossOrderBani(o),0),
+      discountBani: entries.reduce((sum,o) => sum + orderDiscountBani(o),0),
+      totalBani: entries.reduce((sum,o) => sum + netOrderBani(o),0),
+      paidBani: entries.reduce((sum,o) => sum + (o.paid ? netOrderBani(o) : 0),0),
       status: groupStage(entries), paid: entries.every(o => o.paid) };
   });
 }
