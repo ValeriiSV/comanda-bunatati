@@ -3,9 +3,9 @@ import { BarChart3, CheckCircle2, PackageCheck, RefreshCw, ShoppingBag, Truck, U
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { getAdminSession, getDocument, listCollection, setDocument } from '@/lib/firebaseRest';
-import { effectiveRound, roundMeta } from '@/lib/orderRounds';
+import { effectiveRound, roundMeta, groupRoundOrders, groupStage, ORDER_STAGES } from '@/lib/orderRounds';
 
-const ORDER_STAGES = ['Trimisă', 'Confirmată', 'Comandată furnizorului', 'Gata de ridicare', 'Predată'] as const;
+
 
 type OrderItem = {
   productId?: string;
@@ -31,26 +31,7 @@ type Order = {
   items?: OrderItem[];
 };
 
-function customerGroups(orders: Order[]) {
-  const map = new Map<string, Order[]>();
-  for (const order of orders) {
-    const raw = (order.phone || '').trim();
-    let phone = /^[+\d\s().-]+$/.test(raw) ? raw.replace(/\D/g, '') : '';
-    if (phone.startsWith('00')) phone = phone.slice(2);
-    if (/^0\d{8}$/.test(phone)) phone = '373' + phone.slice(1);
-    if (/^[67]\d{7}$/.test(phone)) phone = '373' + phone;
-    const key = phone.length >= 8 && phone.length <= 15
-      ? JSON.stringify([effectiveRound(order).roundId, phone]) : order.id;
-    const group = map.get(key) || [];
-    group.push(order);
-    map.set(key, group);
-  }
-  return [...map.values()];
-}
-function groupStage(group: Order[]) {
-  const earliest = Math.min(...group.map(order => Math.max(0, ORDER_STAGES.indexOf((order.status || 'Trimisă') as typeof ORDER_STAGES[number]))));
-  return ORDER_STAGES[earliest];
-}
+function customerGroups(orders: Order[]) { return groupRoundOrders(orders).map(group => group.entries); }
 
 function orderDate(order: Order) {
   const value = order.createdAt instanceof Date ? order.createdAt : new Date(order.createdAt || 0);
@@ -73,14 +54,13 @@ export default function AdminWowDashboard() {
     const statuses = Object.fromEntries(
       allOrders
         .filter((order) => order.orderCode)
-        .slice(0, 300)
-        .map((order) => [String(order.orderCode).toUpperCase(), order.status || 'Trimisă']),
+                .map((order) => [String(order.orderCode).toUpperCase(), order.status || 'Trimisă']),
     );
 
     const productTotals = new Map<string, { name: string; amount: number; unit: string; orders: number; bani: number }>();
     let totalGrams = 0;
 
-    visible.forEach((order) => (order.items || []).forEach((item) => {
+    groupRoundOrders(visible).forEach((order) => order.items.forEach((item) => {
       const id = item.productId || item.productName || 'produs';
       const current = productTotals.get(id) || {
         name: item.productName || 'Produs',
