@@ -63,3 +63,50 @@ export function effectiveRound(order: RoundAwareOrder): RoundMeta {
 export function sameRound(order: RoundAwareOrder, roundId: string) {
   return effectiveRound(order).roundId === roundId;
 }
+
+
+export const ORDER_STAGES = ['Trimisă', 'Confirmată', 'Comandată furnizorului', 'Gata de ridicare', 'Predată'] as const;
+export type OrderStage = typeof ORDER_STAGES[number];
+export type GroupableItem = { productId?: string; productName?: string; category?: string; grams?: number; quantityUnit?: string; lineTotalBani?: number };
+export type GroupableOrder = RoundAwareOrder & { id: string; phone?: string; customerName?: string; orderCode?: string; paid?: boolean; totalBani?: number; status?: string; items?: GroupableItem[] };
+
+export function normalizedOrderPhone(value?: string) {
+  const raw = (value || '').trim();
+  if (!raw || !/^[+\d\s().-]+$/.test(raw)) return '';
+  let digits = raw.replace(/\D/g, '');
+  if (digits.startsWith('00')) digits = digits.slice(2);
+  if (/^0\d{8}$/.test(digits)) digits = '373' + digits.slice(1);
+  if (/^[67]\d{7}$/.test(digits)) digits = '373' + digits;
+  return digits.length >= 8 && digits.length <= 15 ? digits : '';
+}
+export function stageRank(status?: string) {
+  return Math.max(0, ORDER_STAGES.indexOf((status || 'Trimisă') as OrderStage));
+}
+export function groupStage(orders: GroupableOrder[]): OrderStage {
+  return ORDER_STAGES[orders.length ? Math.min(...orders.map(o => stageRank(o.status))) : 0];
+}
+export function groupRoundOrders<T extends GroupableOrder>(orders: T[]) {
+  const groups = new Map<string, T[]>();
+  for (const order of orders) {
+    const phone = normalizedOrderPhone(order.phone);
+    const key = phone ? JSON.stringify([effectiveRound(order).roundId, phone]) : JSON.stringify(['id', order.id]);
+    const entries = groups.get(key) || [];
+    entries.push(order);
+    groups.set(key, entries);
+  }
+  return [...groups].map(([key, entries]) => {
+    const items = new Map<string, GroupableItem>();
+    for (const order of entries) for (const [index, item] of (order.items || []).entries()) {
+      const key = JSON.stringify([item.productId || item.productName || order.id + index, item.quantityUnit || 'g']);
+      const previous = items.get(key);
+      if (previous) {
+        previous.grams = (Number(previous.grams) || 0) + (Number(item.grams) || 0);
+        previous.lineTotalBani = (Number(previous.lineTotalBani) || 0) + (Number(item.lineTotalBani) || 0);
+      } else items.set(key, { ...item });
+    }
+    return { key, entries, items: [...items.values()],
+      totalBani: entries.reduce((sum, o) => sum + (Number(o.totalBani) || 0), 0),
+      paidBani: entries.reduce((sum, o) => sum + (o.paid ? Number(o.totalBani) || 0 : 0), 0),
+      status: groupStage(entries), paid: entries.every(o => o.paid) };
+  });
+}
