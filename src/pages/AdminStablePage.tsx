@@ -16,6 +16,7 @@ import PackingModePanel from '@/components/PackingModePanel';
 import SmartViberPanel from '@/components/SmartViberPanel';
 import ViberCampaignPanel from '@/components/ViberCampaignPanel';
 import {SupplierPanel,ClientsPanel,FinancePanel,HistoryPanel} from '@/components/ManagerOperations';
+import TelegramSettings from '@/components/TelegramSettings';
 import RoundPaymentPanel from '@/components/RoundPaymentPanel';
 import CollectiveGoalsPanel from '@/components/CollectiveGoalsPanel';
 import { effectiveRound, roundMeta, groupRoundOrders, orderDiscountBani, receivedOrderBani } from '@/lib/orderRounds';
@@ -758,7 +759,7 @@ export default function AdminStablePage({ section = 'dashboard' }: { section?: A
 
   {section === 'goals' && <CollectiveGoalsPanel products={products} />}
 
-  {section === 'settings' && <section className="rounded-[24px] border bg-white p-6">
+  {section === 'settings' && <><TelegramSettings/><section className="rounded-[24px] border bg-white p-6">
     <div className="flex items-start gap-4">
       <span className="grid size-12 shrink-0 place-items-center rounded-2xl bg-[#e8f0e2]"><ShieldCheck className="size-5" /></span>
       <div>
@@ -767,7 +768,7 @@ export default function AdminStablePage({ section = 'dashboard' }: { section?: A
         <p className="mt-3 text-xs leading-5 text-[#87928c]">Reîncărcarea datelor și ieșirea din cont sunt disponibile permanent în bara de sus, ca să nu fie duplicate aici.</p>
       </div>
     </div>
-  </section>}
+  </section></>}
 
   </div></AdminLayout>;
 }

@@ -8,3 +8,8 @@ next-env.d.ts
 *.log
 .env
 .env.local
+
+.dev.vars
+.dev.vars.*
+.env.local
+.env.*.local
