@@ -24,11 +24,6 @@ function monthKey(date: Date) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
 }
 
-function orderDate(order: Order) {
-  const date = order.createdAt instanceof Date ? order.createdAt : new Date(order.createdAt || Date.now());
-  return Number.isNaN(date.getTime()) ? new Date() : date;
-}
-
 function escapeHtml(value: unknown) {
   return String(value ?? '')
     .replaceAll('&', '&amp;')
@@ -37,11 +32,8 @@ function escapeHtml(value: unknown) {
     .replaceAll('"', '&quot;');
 }
 
-function amountLabel(amount: number, unit = 'g') {
-  if (unit === 'g') return amount >= 1000 && amount % 1000 === 0 ? `${amount / 1000} kg` : `${amount} g`;
-  if (unit === 'ml') return amount >= 1000 ? `${amount / 1000} L` : `${amount} ml`;
-  if (unit === 'buc') return `${amount} buc.`;
-  return `${amount} ${unit}`;
+function exportUnit(unit = 'g') {
+  return unit === 'g' ? 'gr' : unit;
 }
 
 export default function SellerExcelExport({ selectedMonth, selectedRoundId }: { selectedMonth: string; selectedRoundId?: string }) {
@@ -60,11 +52,12 @@ export default function SellerExcelExport({ selectedMonth, selectedRoundId }: { 
       const grouped = new Map<string, { name: string; grams: number; unit: string; sumBani: number }>();
       monthOrders.forEach((order) => {
         (order.items || []).forEach((item) => {
-          const key = item.productId || item.productName || 'produs';
+          const unit = item.quantityUnit || 'g';
+          const key = JSON.stringify([item.productId || item.productName || 'produs', unit]);
           const current = grouped.get(key) || {
             name: item.productName || 'Produs',
             grams: 0,
-            unit: item.quantityUnit || 'g',
+            unit,
             sumBani: 0,
           };
           current.grams += Number(item.grams) || 0;
@@ -78,17 +71,18 @@ export default function SellerExcelExport({ selectedMonth, selectedRoundId }: { 
       const tableRows = rows.map((row) => `
         <tr>
           <td>${escapeHtml(row.name)}</td>
-          <td>${escapeHtml(amountLabel(row.grams, row.unit))}</td>
-          <td>${(row.sumBani / 100).toFixed(2)}</td>
+          <td x:num="${row.grams}" style="mso-number-format:'0.###'">${row.grams}</td>
+          <td>${escapeHtml(exportUnit(row.unit))}</td>
+          <td x:num="${(row.sumBani / 100).toFixed(2)}" style="mso-number-format:'0.00'">${(row.sumBani / 100).toFixed(2)}</td>
         </tr>`).join('');
 
       const html = `<!doctype html>
-<html><head><meta charset="UTF-8"></head><body>
+<html xmlns:x="urn:schemas-microsoft-com:office:excel"><head><meta charset="UTF-8"></head><body>
 <table border="1">
-  <tr><th colspan="3">Lista pentru vânzător — ${escapeHtml(selectedRoundId || month)}</th></tr>
-  <tr><th>Produs</th><th>Cantitate</th><th>Sumă (lei)</th></tr>
+  <tr><th colspan="4">Lista pentru vânzător — ${escapeHtml(selectedRoundId || month)}</th></tr>
+  <tr><th>Produs</th><th>Cantitate</th><th>Unitate</th><th>Sumă (lei)</th></tr>
   ${tableRows}
-  <tr><th>TOTAL GENERAL</th><th></th><th>${(totalBani / 100).toFixed(2)}</th></tr>
+  <tr><th>TOTAL GENERAL</th><th></th><th></th><th x:num="${(totalBani / 100).toFixed(2)}" style="mso-number-format:'0.00'">${(totalBani / 100).toFixed(2)}</th></tr>
 </table>
 </body></html>`;
 
