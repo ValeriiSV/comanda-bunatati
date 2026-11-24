@@ -281,7 +281,7 @@ function MiaHeroPanel() {
             <div className="min-w-0">
               {payment.recipientName && <p className="truncate text-base font-semibold text-white">{payment.recipientName}</p>}
               {payment.phone && <p className="mt-1 text-sm text-white/65">{payment.phone}</p>}
-              <p className="mt-2 text-xs leading-5 text-white/60">Folosește QR-ul configurat în Manager → Plăți / MIA.</p>
+              <p className="mt-2 text-xs leading-5 text-white/60">Scanează codul QR pentru a achita comanda.</p>
 
               <div className="mt-3 flex flex-wrap gap-2">
                 {payment.paymentLink && (
@@ -308,7 +308,7 @@ function MiaHeroPanel() {
         </>
       ) : (
         <div className="mt-4 rounded-2xl bg-white/8 p-4 text-sm leading-5 text-white/65">
-          QR-ul MIA nu este configurat încă. Adaugă datele în Manager → Plăți / MIA.
+          Plata prin QR MIA nu este disponibilă momentan. Contactează organizatorul pentru detalii.
         </div>
       )}
     </div>
@@ -580,7 +580,6 @@ export default function OrderApp() {
           </div>
           <div className="ml-2 flex shrink-0 gap-1.5">
             <Link className="glass-chip inline-flex items-center gap-1.5 rounded-full px-3 py-2 text-xs font-semibold text-[#315b32] transition hover:bg-white/75 sm:text-sm" to="/status"><PackageCheck className="size-4" /><span className="hidden sm:inline">Status</span></Link>
-            <Link className="glass-chip rounded-full px-3 py-2 text-xs font-semibold text-[#315b32] transition hover:bg-white/75 sm:px-4 sm:text-sm" to="/admin">Manager</Link>
           </div>
         </div>
       </header>
