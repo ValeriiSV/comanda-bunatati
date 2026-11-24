@@ -15,6 +15,7 @@ import OrderDeadlineTimeEditor from '@/components/OrderDeadlineTimeEditor';
 import SellerExcelExport from '@/components/SellerExcelExport';
 import PackingModePanel from '@/components/PackingModePanel';
 import ViberCampaignPanel from '@/components/ViberCampaignPanel';
+import RoundPaymentPanel from '@/components/RoundPaymentPanel';
 import CollectiveGoalsPanel from '@/components/CollectiveGoalsPanel';
 import { effectiveRound, roundMeta, groupRoundOrders } from '@/lib/orderRounds';
 
@@ -396,6 +397,12 @@ export default function AdminStablePage({ section = 'dashboard' }: { section?: A
       setError('Introdu numărul de telefon MIA al persoanei care colectează banii.');
       return;
     }
+    if (collectorPaymentLink.trim()) {
+      try {
+        const link = new URL(collectorPaymentLink.trim());
+        if (link.protocol !== 'https:' || link.hostname !== 'mia-qr.bnm.md' || link.username || link.password || link.port || link.pathname.length <= 1) throw new Error('Link invalid');
+      } catch { setError('Introdu un link oficial HTTPS de la mia-qr.bnm.md.'); return; }
+    }
     setBusy(true);
     setError('');
     try {
@@ -406,7 +413,7 @@ export default function AdminStablePage({ section = 'dashboard' }: { section?: A
         updatedAt: new Date(),
       });
       try { await deleteDocument('settings/miaPayment'); } catch {}
-      setNotice('Setările MIA au fost salvate într-un singur loc.');
+      setNotice('Setările MIA au fost salvate. Apasă Actualizează în lista de achitare.');
     } catch (e) {
       setError(friendly((e as Error).message));
     } finally {
@@ -551,27 +558,27 @@ export default function AdminStablePage({ section = 'dashboard' }: { section?: A
   {section === 'packing' && <PackingModePanel />}
   {section === 'campaign' && <ViberCampaignPanel />}
 
-  {section === 'payments' && <section className="rounded-[24px] border border-[#cfe0cf] bg-white p-5 sm:p-6">
+  {section === 'payments' && <><RoundPaymentPanel onClosed={loadAll}/><section className="rounded-[24px] border border-[#cfe0cf] bg-white p-5 sm:p-6">
     <div className="flex items-start gap-4">
       <span className="grid size-12 shrink-0 place-items-center rounded-2xl bg-[#e8f0e2]"><WalletCards className="size-5" /></span>
       <div>
         <p className="text-xs font-bold uppercase tracking-[.12em] text-[#6d7f72]">Setare unică</p>
         <h2 className="font-serif text-2xl font-semibold">Plăți prin MIA</h2>
-        <p className="mt-1 text-sm text-[#74837b]">Acestea sunt singurele date MIA folosite în catalog și după trimiterea comenzii.</p>
+        <p className="mt-1 text-sm text-[#74837b]">Aceste date sunt folosite doar pentru mesajul de achitare pregătit după confirmarea rundei.</p>
       </div>
     </div>
 
     <div className="mt-5 grid gap-4 lg:grid-cols-2">
       <label className="block"><span className="mb-1.5 block text-xs font-semibold text-[#607269]">Numele beneficiarului</span><Input value={collectorName} onChange={(e) => setCollectorName(e.target.value)} placeholder="Ex.: Valeriu" className="bg-white" /></label>
       <label className="block"><span className="mb-1.5 block text-xs font-semibold text-[#607269]">Numărul asociat MIA</span><Input type="tel" inputMode="tel" value={collectorPhone} onChange={(e) => setCollectorPhone(e.target.value)} placeholder="+373 6X XXX XXX" className="bg-white" /></label>
-      <label className="block lg:col-span-2"><span className="mb-1.5 block text-xs font-semibold text-[#607269]">Link MIA <span className="font-normal text-[#87928c]">(opțional)</span></span><Input type="url" value={collectorPaymentLink} onChange={(e) => setCollectorPaymentLink(e.target.value)} placeholder="https://mia-qr.bnm.md/..." className="bg-white" /><span className="mt-1.5 block text-xs text-[#87928c]">Dacă există link, QR-ul public îl va deschide direct. Dacă nu, rămâne disponibil numărul de telefon.</span></label>
+      <label className="block lg:col-span-2"><span className="mb-1.5 block text-xs font-semibold text-[#607269]">Link MIA <span className="font-normal text-[#87928c]">(opțional)</span></span><Input type="url" value={collectorPaymentLink} onChange={(e) => setCollectorPaymentLink(e.target.value)} placeholder="https://mia-qr.bnm.md/..." className="bg-white" /><span className="mt-1.5 block text-xs text-[#87928c]">Introdu linkul oficial MIA generat de aplicația bancară; este necesar pentru mesajul de achitare.</span></label>
     </div>
 
     <div className="mt-5 flex flex-col gap-3 rounded-2xl bg-[#f5f8f1] p-4 sm:flex-row sm:items-center sm:justify-between">
       <div><p className="text-sm font-semibold">{collectorName || 'Beneficiar MIA'}</p><p className="text-xs text-[#74837b]">{collectorPhone || 'Numărul MIA nu este setat'}</p></div>
       <Button type="button" onClick={saveMiaCollector} disabled={busy || !collectorPhone.trim()} className="bg-[#173d2c]"><Save /> Salvează MIA</Button>
     </div>
-  </section>}
+  </section></>}
 
   {section === 'orders' && <><RoundSeparationPanel orders={orders} activeRoundId={roundId} onComplete={async (nextRoundId) => { setSelectedMonth('2026-11'); setSelectedRoundId(nextRoundId); await loadAll(); }} /><section className="rounded-[22px] border bg-white p-4">
     <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
