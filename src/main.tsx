@@ -32,6 +32,10 @@ createRoot(document.getElementById('root')!).render(
           <Route path="/admin/program" element={<AdminPage />} />
           <Route path="/admin/viber" element={<AdminPage />} />
           <Route path="/admin/plati" element={<AdminPage />} />
+          <Route path="/admin/furnizor" element={<AdminPage />} />
+          <Route path="/admin/clienti" element={<AdminPage />} />
+          <Route path="/admin/finante" element={<AdminPage />} />
+          <Route path="/admin/istoric" element={<AdminPage />} />
           <Route path="/admin/setari" element={<AdminPage />} />
           <Route path="/admin/mia" element={<Navigate to="/admin/plati" replace />} />
 

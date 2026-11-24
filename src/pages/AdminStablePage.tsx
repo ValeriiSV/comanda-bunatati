@@ -14,6 +14,7 @@ import OrderDeadlineTimeEditor from '@/components/OrderDeadlineTimeEditor';
 import SellerExcelExport from '@/components/SellerExcelExport';
 import PackingModePanel from '@/components/PackingModePanel';
 import ViberCampaignPanel from '@/components/ViberCampaignPanel';
+import {SupplierPanel,ClientsPanel,FinancePanel,HistoryPanel} from '@/components/ManagerOperations';
 import RoundPaymentPanel from '@/components/RoundPaymentPanel';
 import CollectiveGoalsPanel from '@/components/CollectiveGoalsPanel';
 import { effectiveRound, roundMeta, groupRoundOrders, orderDiscountBani, receivedOrderBani } from '@/lib/orderRounds';
@@ -560,6 +561,10 @@ export default function AdminStablePage({ section = 'dashboard' }: { section?: A
   return <AdminLayout section={section} actions={<><Button variant="outline" onClick={loadAll} disabled={busy}><RefreshCw /> Reîncarcă</Button>{section === 'orders' && <><Button onClick={exportCsv} className="bg-[#173d2c]"><Download /> CSV</Button><SellerExcelExport selectedMonth={selectedMonth} selectedRoundId={selectedRoundId} /></>}<Button type="button" variant="outline" size="icon" onClick={logout} disabled={busy} title="Ieșire"><LogOut /></Button></>}><div className="space-y-6">{error && <p className="rounded-xl bg-red-50 p-3 text-sm text-red-700">{error}</p>}{notice && <p className="rounded-xl bg-[#e8f3df] p-3 text-sm text-[#315b32]">{notice}</p>}
 
   {section === 'dashboard' && <AdminWowDashboard />}
+  {section === 'supplier' && <SupplierPanel/>}
+  {section === 'clients' && <ClientsPanel/>}
+  {section === 'finance' && <FinancePanel/>}
+  {section === 'history' && <HistoryPanel/>}
   {section === 'packing' && <PackingModePanel />}
   {section === 'campaign' && <ViberCampaignPanel />}
 

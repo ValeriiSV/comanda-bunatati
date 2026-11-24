@@ -16,6 +16,10 @@ const sectionByPath: Record<string, AdminSection> = {
   '/admin/program': 'schedule',
   '/admin/viber': 'campaign',
   '/admin/plati': 'payments',
+  '/admin/furnizor': 'supplier',
+  '/admin/clienti': 'clients',
+  '/admin/finante': 'finance',
+  '/admin/istoric': 'history',
   '/admin/setari': 'settings',
 };
 

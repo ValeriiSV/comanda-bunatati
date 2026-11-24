@@ -48,3 +48,13 @@
  .manager-content section {max-width:100%;}
  .manager-content .manager-packing-qr {width:min(100%,160px);margin-inline:auto;}
 }
+
+.manager-shell[data-manager-theme="dark"] {color-scheme:dark;color:#e6f1e5;background:#14231d;}
+.manager-shell[data-manager-theme="dark"] :is(.manager-aside,.manager-header,.manager-tabbar,.manager-sheet,.manager-content section,.manager-content article,.manager-content input,.manager-content select,.manager-content textarea) {background-color:#20342a;color:#e6f1e5;border-color:#3c5447;}
+.manager-shell[data-manager-theme="dark"] [class*="bg-white"],.manager-shell[data-manager-theme="dark"] [class*="bg-[#f7faf4]"],.manager-shell[data-manager-theme="dark"] [class*="bg-[#eef3e8]"] {background-color:#263b2f;color:#e6f1e5;}
+.manager-shell[data-manager-theme="dark"] :is(p,small,span,label)[class*="text-[#7"],.manager-shell[data-manager-theme="dark"] [class*="text-[#607269]"] {color:#b9cbbb;}
+@media(prefers-color-scheme:dark) {
+.manager-shell[data-manager-theme="auto"] {color-scheme:dark;color:#e6f1e5;background:#14231d;}
+.manager-shell[data-manager-theme="auto"] :is(.manager-aside,.manager-header,.manager-tabbar,.manager-sheet,.manager-content section,.manager-content article,.manager-content input,.manager-content select,.manager-content textarea) {background-color:#20342a;color:#e6f1e5;border-color:#3c5447;}
+.manager-shell[data-manager-theme="auto"] [class*="bg-white"],.manager-shell[data-manager-theme="auto"] [class*="bg-[#f7faf4]"],.manager-shell[data-manager-theme="auto"] [class*="bg-[#eef3e8]"] {background-color:#263b2f;color:#e6f1e5;}
+}

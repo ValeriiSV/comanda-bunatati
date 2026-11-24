@@ -14,6 +14,7 @@ import {
   ShoppingBag,
   Target,
   WalletCards,
+  ClipboardCheck, Users, BarChart3, History, Moon, Sun,
 } from 'lucide-react';
 
 export type AdminSection =
@@ -25,7 +26,7 @@ export type AdminSection =
   | 'schedule'
   | 'campaign'
   | 'payments'
-  | 'settings';
+  | 'settings' | 'supplier' | 'clients' | 'finance' | 'history';
 
 const navigationGroups = [
   {
@@ -38,6 +39,8 @@ const navigationGroups = [
     label: 'Comenzi',
     items: [
       { section: 'orders', to: '/admin/comenzi', label: 'Comenzi', icon: ShoppingBag },
+      { section: 'supplier', to: '/admin/furnizor', label: 'Furnizor', icon: ClipboardCheck },
+      { section: 'clients', to: '/admin/clienti', label: 'Clienți', icon: Users },
       { section: 'packing', to: '/admin/pregatire', label: 'Pregătire & ridicare', icon: ScanLine },
     ],
   },
@@ -59,6 +62,8 @@ const navigationGroups = [
     label: 'Finanțe & sistem',
     items: [
       { section: 'payments', to: '/admin/plati', label: 'Plăți / MIA', icon: WalletCards },
+      { section: 'finance', to: '/admin/finante', label: 'Finanțe', icon: BarChart3 },
+      { section: 'history', to: '/admin/istoric', label: 'Istoric', icon: History },
       { section: 'settings', to: '/admin/setari', label: 'Setări', icon: Settings },
     ],
   },
@@ -73,6 +78,10 @@ const sectionCopy: Record<AdminSection, { eyebrow: string; title: string; descri
   schedule: { eyebrow: 'Runda de comandă', title: 'Program și termen', description: 'Deschide sau închide runda și configurează termenul.' },
   campaign: { eyebrow: 'Comunicare', title: 'Campanie Viber', description: 'Generează și distribuie mesajul rundei în grupul colegilor.' },
   payments: { eyebrow: 'Încasări', title: 'Plăți și MIA', description: 'Unicul loc pentru beneficiarul și datele de plată MIA.' },
+  supplier: {eyebrow:'Operațiuni',title:'Furnizor',description:'Verifică disponibilitatea și cantitățile.'},
+  clients: {eyebrow:'Clienți',title:'Baza de clienți',description:'Istoricul comenzilor și reducerilor.'},
+  finance: {eyebrow:'Finanțe',title:'Reconciliere',description:'Încasări, costuri și diferențe.'},
+  history: {eyebrow:'Sistem',title:'Istoric',description:'Modificări și recuperarea comenzilor arhivate.'},
   settings: { eyebrow: 'Panou manager', title: 'Setări', description: 'Sesiune, acces și operațiuni tehnice.' },
 };
 
@@ -86,6 +95,8 @@ export default function AdminLayout({
   children: ReactNode;
 }) {
   const copy = sectionCopy[section];
+  const [theme,setTheme]=useState(()=>localStorage.getItem('manager-theme')||'auto');
+  const cycleTheme=()=>{const next=theme==='auto'?'dark':theme==='dark'?'light':'auto';setTheme(next);localStorage.setItem('manager-theme',next);};
   const [moreOpen, setMoreOpen] = useState(false);
   const [installOpen, setInstallOpen] = useState(false);
   const location = useLocation();
@@ -113,7 +124,7 @@ export default function AdminLayout({
   const secondary = navigationGroups.flatMap(group => [...group.items]).filter(item => !mobileTabs.some(tab => tab.section === item.section));
 
   return (
-    <main className="manager-shell min-h-screen bg-[#f2f5ed] text-[#173d2c]">
+    <main data-manager-theme={theme} className="manager-shell min-h-screen bg-[#f2f5ed] text-[#173d2c]">
       <div className="manager-frame grid min-h-screen w-full min-w-0 lg:grid-cols-[260px_minmax(0,1fr)]">
         <aside className="manager-aside border-b border-[#d9e3d7] bg-white/90 lg:sticky lg:top-0 lg:flex lg:h-dvh lg:flex-col lg:border-b-0 lg:border-r">
           <div className="flex items-center justify-between gap-3 px-4 py-4 lg:px-5 lg:py-6">
@@ -169,7 +180,7 @@ export default function AdminLayout({
                 <h1 className="mt-1 font-serif text-3xl font-semibold">{copy.title}</h1>
                 <p className="mt-1 text-sm text-[#74837b]">{copy.description}</p>
               </div>
-              {actions && <div className="flex flex-wrap gap-2">{actions}</div>}
+              <div className="flex flex-wrap gap-2">{actions}<button type="button" className="rounded-xl border bg-white p-2.5" title={"Temă: "+theme} aria-label={"Schimbă tema: "+theme} onClick={cycleTheme}>{theme==="dark"?<Moon size={18}/>:<Sun size={18}/>}</button></div>
             </div>
           </header>
 
