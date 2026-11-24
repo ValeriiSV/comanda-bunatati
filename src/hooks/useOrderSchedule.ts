@@ -76,8 +76,16 @@ function parseSchedule(data: unknown): OrderSchedule {
   };
 }
 
+export async function fetchCurrentOrderSchedule(): Promise<OrderSchedule> {
+  const response = await fetch(`${SCHEDULE_URL}?t=${Date.now()}`, { cache: 'no-store', signal: AbortSignal.timeout(10000) });
+  if (!response.ok) throw new Error(`HTTP_${response.status}`);
+  const data = await response.json();
+  if (!data?.fields) throw new Error('Programul nu este disponibil.');
+  return withAutomaticClosure(parseSchedule(data));
+}
+
 export function useOrderSchedule() {
-  const [schedule, setSchedule] = useState<OrderSchedule>({ dates: [] });
+  const [schedule, setSchedule] = useState<OrderSchedule>({ dates: [], closed: true });
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -85,12 +93,10 @@ export function useOrderSchedule() {
 
     const load = async () => {
       try {
-        const response = await fetch(`${SCHEDULE_URL}?t=${Date.now()}`, { cache: 'no-store' });
-        if (!response.ok) throw new Error(`HTTP_${response.status}`);
-        const data = await response.json();
-        if (active) setSchedule(withAutomaticClosure(parseSchedule(data)));
+        const current = await fetchCurrentOrderSchedule();
+        if (active) setSchedule(current);
       } catch {
-        if (active) setSchedule({ dates: [] });
+        if (active) setSchedule(current => ({ ...current, closed: true }));
       } finally {
         if (active) setLoading(false);
       }
