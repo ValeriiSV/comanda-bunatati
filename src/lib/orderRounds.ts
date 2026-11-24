@@ -68,7 +68,7 @@ export function sameRound(order: RoundAwareOrder, roundId: string) {
 export const ORDER_STAGES = ['Trimisă', 'Confirmată', 'Comandată furnizorului', 'Gata de ridicare', 'Predată'] as const;
 export type OrderStage = typeof ORDER_STAGES[number];
 export type GroupableItem = { productId?: string; productName?: string; category?: string; grams?: number; quantityUnit?: string; lineTotalBani?: number };
-export type GroupableOrder = RoundAwareOrder & { id: string; phone?: string; customerName?: string; orderCode?: string; paid?: boolean; totalBani?: number; discountBani?: number; status?: string; items?: GroupableItem[] };
+export type GroupableOrder = RoundAwareOrder & { id: string; phone?: string; customerName?: string; orderCode?: string; paid?: boolean; receivedBani?: number; totalBani?: number; discountBani?: number; status?: string; items?: GroupableItem[] };
 
 export function normalizedOrderPhone(value?: string) {
   const raw = (value || '').trim();
@@ -94,6 +94,22 @@ export function orderDiscountBani(order: GroupableOrder) {
 export function netOrderBani(order: GroupableOrder) {
   return grossOrderBani(order) - orderDiscountBani(order);
 }
+export function receivedOrderBani(order: GroupableOrder) {
+  if (typeof order.receivedBani === 'number' && Number.isFinite(order.receivedBani)) return Math.max(0,Math.min(netOrderBani(order),Math.round(order.receivedBani)));
+  return order.paid ? netOrderBani(order) : 0;
+}
+export function allocateReceipt<T extends GroupableOrder>(entries:T[], targetBani:number) {
+  const total=entries.reduce((s,o)=>s+netOrderBani(o),0);
+  if(!Number.isSafeInteger(targetBani)||targetBani<0||targetBani>total) throw new Error('Suma încasată trebuie să fie între zero și totalul final.');
+  let rest=targetBani;
+  return [...entries].sort((a,b)=>a.id.localeCompare(b.id)).map(o=>{
+    const receivedBani=Math.min(rest,netOrderBani(o));rest-=receivedBani;
+    return {id:o.id,receivedBani,paid:receivedBani===netOrderBani(o)};
+  });
+}
+export function supplierSignature(order: GroupableOrder) {
+  return JSON.stringify((order.items||[]).map(i=>[i.productId||i.productName||'',i.quantityUnit||'g',Number(i.grams)||0,Number(i.lineTotalBani)||0]).sort((a,b)=>JSON.stringify(a).localeCompare(JSON.stringify(b))));
+}
 export function parseDiscountLei(value: string): number | null {
   const clean = value.trim().replace(',', '.');
   if (!/^\d+(\.\d{1,2})?$/.test(clean)) return null;
@@ -103,8 +119,8 @@ export function parseDiscountLei(value: string): number | null {
 // Preserve amounts already recorded as paid. Allocate the remaining discount
 // deterministically over unpaid submissions in the same customer group.
 export function allocateGroupDiscount<T extends GroupableOrder>(entries: T[], requestedBani: number) {
-  const locked = entries.filter(o => o.paid).reduce((sum,o) => sum + orderDiscountBani(o), 0);
-  const unpaid = entries.filter(o => !o.paid).sort((a,b) => a.id.localeCompare(b.id));
+  const locked = entries.filter(o => o.paid || receivedOrderBani(o)>0).reduce((sum,o) => sum + orderDiscountBani(o), 0);
+  const unpaid = entries.filter(o => !o.paid && receivedOrderBani(o)===0).sort((a,b) => a.id.localeCompare(b.id));
   const capacity = unpaid.reduce((sum,o) => sum + grossOrderBani(o), 0);
   if (!Number.isSafeInteger(requestedBani) || requestedBani < locked || requestedBani > locked + capacity) throw new Error('Reducerea depășește suma disponibilă sau modifică o plată deja înregistrată.');
   let remaining = requestedBani - locked;
@@ -137,7 +153,7 @@ export function groupRoundOrders<T extends GroupableOrder>(orders: T[]) {
       grossBani: entries.reduce((sum,o) => sum + grossOrderBani(o),0),
       discountBani: entries.reduce((sum,o) => sum + orderDiscountBani(o),0),
       totalBani: entries.reduce((sum,o) => sum + netOrderBani(o),0),
-      paidBani: entries.reduce((sum,o) => sum + (o.paid ? netOrderBani(o) : 0),0),
-      status: groupStage(entries), paid: entries.every(o => o.paid) };
+      paidBani: entries.reduce((sum,o) => sum + receivedOrderBani(o),0),
+      status: groupStage(entries), paid: entries.every(o => receivedOrderBani(o)>=netOrderBani(o)) };
   });
 }

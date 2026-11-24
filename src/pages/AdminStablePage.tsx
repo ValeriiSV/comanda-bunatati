@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { categories, priceLabel, products as catalogProducts, quantityLabel, type Product as CatalogProduct, type QuantityUnit } from '@/lib/products';
 import { auth } from '@/lib/firebase';
-import { adminLogin, clearAdminSession, deleteDocument, getAdminSession, getDocument, listCollection, saveExternalAdminSession, setDocument, updateDocument } from '@/lib/firebaseRest';
+import { adminLogin, clearAdminSession, deleteDocument, getAdminSession, getDocument, listCollection, saveExternalAdminSession, setDocument, updateDocument, updateOrdersWithHistory } from '@/lib/firebaseRest';
 import AdminLayout, { type AdminSection } from '@/components/AdminLayout';
 import AdminWowDashboard from '@/components/AdminWowDashboard';
 import RoundSeparationPanel from '@/components/RoundSeparationPanel';
@@ -16,10 +16,10 @@ import PackingModePanel from '@/components/PackingModePanel';
 import ViberCampaignPanel from '@/components/ViberCampaignPanel';
 import RoundPaymentPanel from '@/components/RoundPaymentPanel';
 import CollectiveGoalsPanel from '@/components/CollectiveGoalsPanel';
-import { effectiveRound, roundMeta, groupRoundOrders, orderDiscountBani } from '@/lib/orderRounds';
+import { effectiveRound, roundMeta, groupRoundOrders, orderDiscountBani, receivedOrderBani } from '@/lib/orderRounds';
 
 type OrderItem = { productId?: string; productName?: string; category?: string; grams?: number; quantityUnit?: string; lineTotalBani?: number };
-type Order = { id: string; orderCode?: string; customerName?: string; phone?: string; totalBani?: number; discountBani?: number; paid?: boolean; status?: string; createdAt?: Date | string | null; scheduledOrderDates?: string[]; roundId?: string; roundLabel?: string; roundSequence?: number; items?: OrderItem[] };
+type Order = { id: string; orderCode?: string; customerName?: string; phone?: string; totalBani?: number; discountBani?: number; receivedBani?: number; paid?: boolean; status?: string; createdAt?: Date | string | null; scheduledOrderDates?: string[]; roundId?: string; roundLabel?: string; roundSequence?: number; items?: OrderItem[] };
 type Product = CatalogProduct & { active?: boolean; isNew?: boolean; promo?: boolean; sortOrder?: number; createdAt?: unknown; updatedAt?: unknown };
 type ProductDraft = { name: string; category: string; priceLei: string; baseGrams: string; stepGrams: string; quantityUnit: QuantityUnit; stockLimit: string; imageUrl: string; active: boolean; isNew: boolean; promo: boolean };
 type OrderDraftItem = { productId: string; productName: string; category: string; grams: number };
@@ -311,9 +311,9 @@ export default function AdminStablePage({ section = 'dashboard' }: { section?: A
   const availableOrderProducts = products.filter((product) => product.active !== false);
   const productCategories = [...new Set([...categories, ...products.map((product) => product.category)])];
 
-  const removeOrder = async (o: Order) => { if (o.paid) {setError('Anulează confirmarea plății din secțiunea Plăți înainte de ștergere.');return;} if (!window.confirm(`Ștergi comanda lui ${o.customerName || 'acest coleg'}?`)) return; try { await deleteDocument(`groupOrders/${o.id}`); setNotice('Comanda a fost ștearsă.'); await loadAll(); } catch (e) { setError(friendly((e as Error).message)); } };
+  const removeOrder = async (o: Order) => { if (o.paid || receivedOrderBani(o)>0) {setError('Anulează confirmarea plății din secțiunea Plăți înainte de ștergere.');return;} if (!window.confirm(`Ștergi comanda lui ${o.customerName || 'acest coleg'}?`)) return; try { await updateOrdersWithHistory([{path:`groupOrders/${o.id}`,data:{archivedAt:new Date()}}],'Arhivare'); setNotice('Comanda a fost arhivată. O poți recupera din Istoric.'); await loadAll(); } catch (e) { setError(friendly((e as Error).message)); } };
   const startOrderEdit = (order: Order) => {
-    if (order.paid) {setError('Anulează confirmarea plății din secțiunea Plăți înainte de a modifica această comandă.');return;}
+    if (order.paid || receivedOrderBani(order)>0) {setError('Anulează confirmarea plății din secțiunea Plăți înainte de a modifica această comandă.');return;}
     window.setTimeout(() => document.getElementById('manager-order-editor')?.scrollIntoView({behavior:'smooth',block:'start'}),0);
     const combined = new Map<string, OrderDraftItem>();
     (order.items || []).forEach((item, index) => {
@@ -365,11 +365,11 @@ export default function AdminStablePage({ section = 'dashboard' }: { section?: A
     });
     if (items.length === 0) { setError('Comanda trebuie să conțină cel puțin un produs.'); return; }
     const totalBani = items.reduce((sum, item) => sum + item.lineTotalBani, 0);
-    if (editingOrder?.paid) {setError('Anulează confirmarea plății înainte de a modifica produsele.');return;}
+    if (editingOrder && (editingOrder.paid || receivedOrderBani(editingOrder)>0)) {setError('Anulează confirmarea plății înainte de a modifica produsele.');return;}
     if (editingOrder && orderDiscountBani(editingOrder)>totalBani) {setError('Redu mai întâi reducerea din Plăți.');return;}
     setBusy(true); setError('');
     try {
-      await updateDocument(`groupOrders/${editingOrderId}`, { items, totalBani, updatedAt: new Date() });
+      await updateOrdersWithHistory([{path:`groupOrders/${editingOrderId}`,data:{items,totalBani,supplierConfirmedKey:null,packingChecks:[]}}],'Modificare produse');
       setNotice('Comanda a fost modificată și totalul a fost recalculat.');
       cancelOrderEdit();
       await loadAll();

@@ -2,10 +2,10 @@ import { useEffect, useMemo, useState } from 'react';
 import { CheckCircle2, ClipboardCopy, RefreshCw, Share2, WalletCards } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import SimpleQrCode from '@/components/SimpleQrCode';
-import { getDocument, listCollection, updateDocument, updateDocumentsAtomically } from '@/lib/firebaseRest';
-import { effectiveRound, groupRoundOrders, allocateGroupDiscount, parseDiscountLei, orderDiscountBani, grossOrderBani, type GroupableOrder } from '@/lib/orderRounds';
+import { getDocument, listCollection, updateDocument, updateOrdersWithHistory } from '@/lib/firebaseRest';
+import { effectiveRound, groupRoundOrders, allocateGroupDiscount, parseDiscountLei, orderDiscountBani, grossOrderBani, receivedOrderBani, allocateReceipt, supplierSignature, type GroupableOrder } from '@/lib/orderRounds';
 
-type Snapshot = { activeRoundId: string; rounds: {id:string;label:string}[]; roundId: string; label: string; closed: boolean; orders: GroupableOrder[]; paymentLink: string; recipient: string };
+type Snapshot = { activeRoundId: string; rounds: {id:string;label:string}[]; roundId: string; label: string; closed: boolean; orders: (GroupableOrder & {supplierConfirmedKey?:string})[]; paymentLink: string; recipient: string };
 const money = (bani: number) => new Intl.NumberFormat('ro-MD', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(bani / 100);
 function validMiaLink(value: unknown) {
   if (typeof value !== 'string') return '';
@@ -16,7 +16,7 @@ function validMiaLink(value: unknown) {
 }
 async function readSnapshot(selectedRoundId?: string): Promise<Snapshot> {
   const [schedule, rows, collector, legacy] = await Promise.all([
-    getDocument('settings/orderSchedule'), listCollection('groupOrders') as Promise<GroupableOrder[]>,
+    getDocument('settings/orderSchedule'), listCollection('groupOrders') as Promise<(GroupableOrder & {supplierConfirmedKey?:string})[]>,
     getDocument('settings/miaCollector'), getDocument('settings/miaPayment'),
   ]);
   if (!schedule || typeof schedule.roundId !== 'string' || !schedule.roundId) throw new Error('Runda activă nu este configurată.');
@@ -38,10 +38,11 @@ export default function RoundPaymentPanel({ onClosed }: { onClosed?: () => Promi
   const [notice, setNotice] = useState('');
   const [error, setError] = useState('');
   const [prepared, setPrepared] = useState(false);
+  const [receiptDrafts,setReceiptDrafts]=useState<Record<string,string>>({});
   const [drafts, setDrafts] = useState<Record<string,string>>({});
 
   const load = async (roundId = snapshot?.roundId) => {
-    setBusy(true); setError(''); setPrepared(false); setDrafts({}); setNotice('');
+    setBusy(true); setError(''); setPrepared(false); setDrafts({}); setReceiptDrafts({}); setNotice('');
     try { setSnapshot(await readSnapshot(roundId)); }
     catch (e) { setSnapshot(null); setError(e instanceof Error ? e.message : String(e)); }
     finally { setBusy(false); }
@@ -63,7 +64,7 @@ export default function RoundPaymentPanel({ onClosed }: { onClosed?: () => Promi
     'Deschideți linkul, verificați beneficiarul și introduceți suma indicată lângă numele vostru. Mulțumesc!',
   ].join('\n') : '';
 
-  const signature = (s: Snapshot) => JSON.stringify(s.orders.map(o => [o.id,o.customerName,o.phone,o.totalBani,o.discountBani || 0,o.paid,o.items]).sort((a,b)=>String(a[0]).localeCompare(String(b[0]))));
+  const signature = (s: Snapshot) => JSON.stringify(s.orders.map(o => [o.id,o.customerName,o.phone,o.totalBani,o.discountBani || 0,o.paid,o.receivedBani??null,o.supplierConfirmedKey??null,o.items]).sort((a,b)=>String(a[0]).localeCompare(String(b[0]))));
   const saveDiscount = async (key: string) => {
     if (!snapshot || busy) return;
     const value = parseDiscountLei(drafts[key] || '0');
@@ -77,7 +78,7 @@ export default function RoundPaymentPanel({ onClosed }: { onClosed?: () => Promi
       }
       const updates = allocateGroupDiscount(group.entries,value);
       const changed = updates.filter(u => orderDiscountBani(group.entries.find(o=>o.id===u.id)!) !== u.discountBani);
-      if (changed.length) await updateDocumentsAtomically(changed.map(u=>({path:`groupOrders/${u.id}`,data:{discountBani:u.discountBani,updatedAt:new Date()}})));
+      if (changed.length) await updateOrdersWithHistory(changed.map(u=>({path:`groupOrders/${u.id}`,data:{discountBani:u.discountBani}})),'Reducere');
       setSnapshot(await readSnapshot(snapshot.roundId));
       setDrafts(prev=>{const next={...prev};delete next[key];return next;});
       setNotice('Reducerea a fost salvată. Suma finală a fost recalculată.');
@@ -85,7 +86,7 @@ export default function RoundPaymentPanel({ onClosed }: { onClosed?: () => Promi
     } catch(e) {setError(e instanceof Error ? e.message : String(e));}
     finally {setBusy(false);}
   };
-  const changePayment = async (key:string, markPaid:boolean) => {
+  const changePayment = async (key:string, mode:'partial'|'full'|'reset') => {
     if (!snapshot || busy || Object.keys(drafts).length) return;
     setBusy(true);setError('');setNotice('');setPrepared(false);
     try {
@@ -95,10 +96,13 @@ export default function RoundPaymentPanel({ onClosed }: { onClosed?: () => Promi
         setSnapshot(fresh);throw new Error('Lista s-a modificat. Verifică din nou înainte de confirmare.');
       }
       if(!fresh.closed) throw new Error('Închide runda înainte de confirmarea încasărilor.');
-      if (!window.confirm(markPaid ? `Confirmi că ai primit ${money(group.totalBani-group.paidBani)} lei de la ${group.entries[0].customerName || 'client'}?` : 'Anulezi confirmarea plății pentru toate trimiterile acestui client?')) return;
-      const changes=group.entries.filter(o=>Boolean(o.paid)!==markPaid);
-      if(changes.length) await updateDocumentsAtomically(changes.map(o=>({path:`groupOrders/${o.id}`,data:{paid:markPaid,updatedAt:new Date()}})));
-      setSnapshot(await readSnapshot(snapshot.roundId));setNotice(markPaid?'Achitarea a fost confirmată.':'Confirmarea achitării a fost anulată.');
+      const addition=mode==='partial'?parseDiscountLei(receiptDrafts[key]||''):0;
+      if(addition===null||mode==='partial'&&addition<=0)throw new Error('Introdu suma transferului primit.');
+      const target=mode==='reset'?0:mode==='full'?group.totalBani:group.paidBani+addition;
+      const allocations=allocateReceipt(group.entries,target);
+      if(!window.confirm(mode==='reset'?'Anulezi toate încasările înregistrate pentru acest client?':`Confirmi încasarea de ${money(target-group.paidBani)} lei?`))return;
+      await updateOrdersWithHistory(allocations.map(a=>({path:`groupOrders/${a.id}`,data:{paid:a.paid,receivedBani:a.receivedBani}})),mode==='reset'?'Anulare încasări':'Încasare');
+      setSnapshot(await readSnapshot(snapshot.roundId));setReceiptDrafts(prev=>{const next={...prev};delete next[key];return next;});setNotice('Încasările au fost actualizate.');
       try {await onClosed?.();}catch{}
     }catch(e){setError(e instanceof Error?e.message:String(e));}
     finally{setBusy(false);}
@@ -112,6 +116,7 @@ export default function RoundPaymentPanel({ onClosed }: { onClosed?: () => Promi
       if (fresh.roundId !== snapshot.roundId) { setSnapshot(fresh); throw new Error('Runda activă s-a schimbat. Verifică lista nouă.'); }
       if (!fresh.paymentLink) throw new Error('Salvează mai întâi linkul MIA oficial, generat de bancă.');
       if (!fresh.orders.length) throw new Error('Nu există comenzi în această rundă.');
+      if(fresh.orders.some(o=>o.supplierConfirmedKey!==supplierSignature(o)))throw new Error('Verifică și confirmă toate produsele în secțiunea Furnizor înainte de achitare.');
       if (signature(fresh) !== signature(snapshot)) { setSnapshot(fresh); throw new Error('Comenzile sau plățile s-au modificat. Verifică lista actualizată înainte de confirmare.'); }
       if (!window.confirm('Confirmi că vânzătorul a acceptat produsele și cantitățile, iar sumele sunt finale? Runda va fi închisă și se va pregăti mesajul Viber.')) return;
       if (!fresh.closed) {
@@ -161,8 +166,8 @@ export default function RoundPaymentPanel({ onClosed }: { onClosed?: () => Promi
       <div className="flex items-center justify-between gap-2"><h2 className="font-serif text-xl font-semibold">Lista de achitare</h2><Button variant="outline" onClick={()=>void load()} disabled={busy}><RefreshCw/> Actualizează</Button></div>
       <p className="mt-2 text-xs text-[#74837b]">O singură poziție per telefon și rundă. Plățile deja înregistrate se scad.</p>
       <div className="manager-payment-grid mt-4">{groups.map(g=>{
-        const locked=g.entries.filter(o=>o.paid).reduce((sum,o)=>sum+orderDiscountBani(o),0);
-        const max=locked+g.entries.filter(o=>!o.paid).reduce((sum,o)=>sum+grossOrderBani(o),0);
+        const locked=g.entries.filter(o=>o.paid||receivedOrderBani(o)>0).reduce((sum,o)=>sum+orderDiscountBani(o),0);
+        const max=locked+g.entries.filter(o=>!o.paid&&receivedOrderBani(o)===0).reduce((sum,o)=>sum+grossOrderBani(o),0);
         const draft=drafts[g.key];
         const parsed=draft===undefined?g.discountBani:parseDiscountLei(draft);
         const valid=parsed!==null&&parsed>=locked&&parsed<=max;
@@ -173,7 +178,9 @@ export default function RoundPaymentPanel({ onClosed }: { onClosed?: () => Promi
           {!valid&&<p className="text-xs text-red-600">Reducere permisă: {money(locked)} – {money(max)} lei.</p>}
           {g.paid&&<p className="text-xs text-[#74837b]">Reducerea este blocată pentru plata deja înregistrată.</p>}
           <p className="text-sm font-semibold text-[#173d2c]">Rest de achitat: {money(g.totalBani-g.paidBani)} lei {draft!==undefined&&valid&&parsed!==null&&<span className="ml-2 text-xs font-normal">După salvare: {money(g.grossBani-parsed-g.paidBani)} lei</span>}</p>
-          <Button type="button" variant={g.paid?'outline':'default'} className="w-full" disabled={busy||!snapshot?.closed||Object.keys(drafts).length>0} onClick={()=>void changePayment(g.key,!g.paid)}><CheckCircle2/> {g.paid?'Anulează confirmarea plății':'Confirmă achitarea'}</Button>
+          {!g.paid&&<div className="manager-pay-actions"><label className="text-xs font-semibold">Transfer primit (lei)<input inputMode="decimal" className="mt-1 h-11 w-full rounded-xl border bg-white px-3" value={receiptDrafts[g.key]||''} onChange={e=>setReceiptDrafts(prev=>({...prev,[g.key]:e.target.value}))}/></label><Button disabled={busy||!snapshot?.closed||Object.keys(drafts).length>0} onClick={()=>void changePayment(g.key,'partial')}>Înregistrează suma</Button></div>}
+          {!g.paid&&<Button className="w-full" disabled={busy||!snapshot?.closed||Object.keys(drafts).length>0} onClick={()=>void changePayment(g.key,'full')}><CheckCircle2/> Confirmă integral</Button>}
+          {g.paidBani>0&&<Button variant="outline" className="w-full" disabled={busy||Object.keys(drafts).length>0} onClick={()=>void changePayment(g.key,'reset')}>Anulează încasările</Button>}
         </div>;
       })}</div>
       {!groups.length && <p className="py-4 text-sm text-[#74837b]">Nu există comenzi în runda curentă.</p>}

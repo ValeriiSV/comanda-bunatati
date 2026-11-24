@@ -163,6 +163,7 @@ export function decodeDocument(doc: RestDocument) {
   const data: Record<string, any> = {};
   Object.entries(doc.fields || {}).forEach(([key, value]) => { data[key] = fromFireValue(value); });
   data.id = doc.name?.split('/').pop() || '';
+  Object.defineProperty(data,'_updateTime',{value:(doc as RestDocument & {updateTime?:string}).updateTime,enumerable:false});
   return data;
 }
 
@@ -172,7 +173,7 @@ async function authHeaders() {
   return { Authorization: `Bearer ${session.idToken}`, 'Content-Type': 'application/json' };
 }
 
-export async function listCollection(path: string) {
+export async function listCollection(path: string, includeArchived = false) {
   const headers = await authHeaders();
   const documents: RestDocument[] = [];
   let pageToken = '';
@@ -183,7 +184,7 @@ export async function listCollection(path: string) {
     documents.push(...(data.documents || []));
     pageToken = data.nextPageToken || '';
   } while (pageToken);
-  return documents.map(decodeDocument);
+  return documents.map(decodeDocument).filter(doc => path !== 'groupOrders' || includeArchived || !doc.archivedAt);
 }
 
 export async function getDocument(path: string) {
@@ -222,19 +223,35 @@ export async function deleteDocument(path: string) {
   if (!response.ok && response.status !== 404) await jsonOrThrow(response);
 }
 
-export async function updateDocumentsAtomically(updates: { path: string; data: Record<string, unknown> }[]) {
+export async function updateDocumentsAtomically(updates: { path: string; data: Record<string, unknown>; expectedUpdateTime?:string }[]) {
   if (!updates.length) return;
   if (updates.length > 500) throw new Error('Prea multe comenzi pentru o singură actualizare.');
   const headers = await authHeaders();
-  const writes = updates.map(({ path, data }) => ({
+  const writes = updates.map(({ path, data, expectedUpdateTime }) => ({
     update: {
       name: `projects/${PROJECT_ID}/databases/(default)/documents/${path}`,
       fields: Object.fromEntries(Object.entries(data).map(([key, value]) => [key, toFireValue(value)])),
     },
     updateMask: { fieldPaths: Object.keys(data) },
-    currentDocument: { exists: true },
+    currentDocument: expectedUpdateTime ? {updateTime:expectedUpdateTime} : { exists: true },
   }));
   return jsonOrThrow(await fetchWithTimeout(`${FIRESTORE_BASE}:commit`, {
     method: 'POST', headers, body: JSON.stringify({ writes }),
   }, 15000));
+}
+
+export async function updateOrdersWithHistory(updates: {path:string;data:Record<string,unknown>}[], action:string) {
+  if(!updates.length)return;
+  const snapshots=await Promise.all(updates.map(u=>getDocument(u.path)));
+  const now=new Date();
+  const writes=updates.map((u,index)=>{
+    const prior=snapshots[index];
+    if(!prior || !prior._updateTime)throw new Error('Comanda nu mai este disponibilă. Reîncarcă lista.');
+    if(prior.archivedAt && action!=='Restaurare')throw new Error('Comanda este arhivată.');
+    const before=Object.fromEntries(Object.keys(u.data).filter(k=>k!=='updatedAt').map(k=>[k,prior[k]??null]));
+    const after=Object.fromEntries(Object.entries(u.data).filter(([k])=>k!=='updatedAt'));
+    const history=Array.isArray(prior.managerHistory)?prior.managerHistory:[];
+    return {...u,expectedUpdateTime:prior._updateTime,data:{...u.data,updatedAt:now,managerHistory:[...history.slice(-49),{action,at:now,before,after}]}};
+  });
+  await updateDocumentsAtomically(writes);
 }

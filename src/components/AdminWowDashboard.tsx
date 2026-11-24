@@ -23,6 +23,7 @@ type Order = {
   totalBani?: number;
   discountBani?: number;
   paid?: boolean;
+  receivedBani?: number;
   status?: string;
   createdAt?: Date | string | null;
   scheduledOrderDates?: string[];
@@ -84,7 +85,7 @@ export default function AdminWowDashboard() {
       setDocument('settings/publicStats', {
         orderCount: customerGroups(visible).length,
         totalBani: visible.reduce((sum, order) => sum + (Number(order.totalBani) || 0), 0),
-        paidCount: customerGroups(visible).filter(group => group.every(order => order.paid)).length,
+        paidCount: groupRoundOrders(visible).filter(group=>group.paid).length,
         roundLabel: currentRound.roundLabel,
         totalGrams,
         lastOrderAt: last ? orderDate(last) : null,
@@ -156,7 +157,7 @@ export default function AdminWowDashboard() {
       totalBani,
       paidBani,
       discountBani,
-      unpaid: customerGroups(roundOrders).filter(group => group.some(order => !order.paid)).length,
+      unpaid: groups.filter(g=>g.totalBani>g.paidBani).length,
       ready: customerGroups(roundOrders).filter(group => groupStage(group) === 'Gata de ridicare').length,
       delivered: customerGroups(roundOrders).filter(group => groupStage(group) === 'Predată').length,
     };

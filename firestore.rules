@@ -58,13 +58,17 @@ service cloud.firestore {
       allow create, update, delete: if isAdmin();
     }
 
+    match /managerRoundFinance/{roundId} {
+      allow read, write: if isAdmin();
+    }
+
     match /groupOrders/{orderId} {
       allow create: if request.resource.data.orderCode is string
         && request.resource.data.customerName is string
         && request.resource.data.phone is string
         && request.resource.data.totalBani is number
         && request.resource.data.items is list
-        && !('discountBani' in request.resource.data)
+        && !request.resource.data.keys().hasAny(['discountBani','receivedBani','archivedAt','managerHistory','supplierConfirmedKey','packingChecks'])
         && request.resource.data.paid == false;
       allow read, update, delete: if isAdmin();
     }
