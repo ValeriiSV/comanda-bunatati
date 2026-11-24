@@ -543,12 +543,32 @@ export default function AdminStablePage({ section = 'dashboard' }: { section?: A
   const removeProduct = async (p: Product) => { if (!window.confirm(`Ștergi produsul „${p.name}”?`)) return; try { const isCatalogProduct = catalogProducts.some((item) => item.id === p.id); if (isCatalogProduct) { await setDocument(`products/${p.id}`, { ...p, active: false, updatedAt: new Date() }); setNotice('Produsul standard a fost ascuns din catalog.'); } else { await deleteDocument(`products/${p.id}`); } await loadAll(); } catch (e) { setError(friendly((e as Error).message)); } };
 
   const exportCsv = () => {
-    const rows = [['Rundă','Coduri','Data','Nume','Telefon','Achitat (lei)','Rest (lei)','Produs','Categorie','Cantitate','Produs (lei)','Total inițial (lei)','Reducere (lei)','Total final (lei)']];
+    // Numeric cells use a decimal comma and no thousands separators.
+    const csvMoney = (bani: number) => ((Number(bani) || 0) / 100).toFixed(2).replace('.', ',');
+    const csvQty = (value?: number) => String(Number(value) || 0).replace('.', ',');
+    const safeText = (value: unknown) => {
+      const text = String(value ?? '');
+      return /^[\s]*[=+\-@]/.test(text) || /^[\t\r\n]/.test(text) ? "'" + text : text;
+    };
+    const rows = [['Rundă','Coduri','Data','Nume','Telefon','Achitat (lei)','Rest (lei)','Produs','Categorie','Cantitate','Unitate','Produs (lei)','Total inițial (lei)','Reducere (lei)','Total final (lei)']];
     groupedOrders.forEach(group => {
       const o = group.entries[0];
-      group.items.forEach(i => rows.push([effectiveRound(o).roundLabel, group.entries.map(entry => entry.orderCode || '').join(' / '), orderDate(o).toLocaleString('ro-MD'), o.customerName || '', o.phone || '', lei(group.paidBani), lei(group.totalBani-group.paidBani), i.productName || '', i.category || '', orderQuantityLabel(i.productId,i.grams || 0,products), lei(i.lineTotalBani || 0), lei(group.grossBani), lei(group.discountBani), lei(group.totalBani)]));
+      // Group-level amounts appear only once so SUM in Excel is correct.
+      const items: (typeof group.items[number] | null)[] = group.items.length ? group.items : [null];
+      items.forEach((i,index) => {
+        const first = index === 0;
+        const unit = i ? i.quantityUnit || 'g' : '';
+        rows.push([
+          safeText(effectiveRound(o).roundLabel), safeText(group.entries.map(entry => entry.orderCode || '').join(' / ')),
+          orderDate(o).toLocaleString('ro-MD'), safeText(o.customerName), safeText(o.phone),
+          first ? csvMoney(group.paidBani) : '', first ? csvMoney(group.totalBani-group.paidBani) : '',
+          safeText(i?.productName), safeText(i?.category), i ? csvQty(i.grams) : '', safeText(unit === 'g' ? 'gr' : unit),
+          i ? csvMoney(i.lineTotalBani || 0) : '',
+          first ? csvMoney(group.grossBani) : '', first ? csvMoney(group.discountBani) : '', first ? csvMoney(group.totalBani) : '',
+        ]);
+      });
     });
-    const csv = '\uFEFF' + rows.map(r => r.map(c => '"' + String(c).replaceAll('"','""') + '"').join(';')).join('\n');
+    const csv = '\uFEFF' + rows.map(r => r.map(c => '"' + String(c).replaceAll('"','""') + '"').join(';')).join('\r\n');
     const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv], {type:'text/csv;charset=utf-8'})); a.download = `comenzi-bunatati-${selectedRoundId || selectedMonth}.csv`; a.click(); URL.revokeObjectURL(a.href);
   };
 

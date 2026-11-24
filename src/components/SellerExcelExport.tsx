@@ -1,24 +1,7 @@
 import { useState } from 'react';
 import { Download } from 'lucide-react';
 import { listCollection } from '@/lib/firebaseRest';
-import { effectiveRound } from '@/lib/orderRounds';
-
-type OrderItem = {
-  productId?: string;
-  productName?: string;
-  grams?: number;
-  quantityUnit?: string;
-  lineTotalBani?: number;
-};
-
-type Order = {
-  createdAt?: Date | string | null;
-  scheduledOrderDates?: string[];
-  roundId?: string;
-  roundLabel?: string;
-  roundSequence?: number;
-  items?: OrderItem[];
-};
+import { effectiveRound, groupRoundOrders, type GroupableOrder } from '@/lib/orderRounds';
 
 function monthKey(date: Date) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
@@ -43,7 +26,7 @@ export default function SellerExcelExport({ selectedMonth, selectedRoundId }: { 
     setBusy(true);
     try {
       const month = selectedMonth || monthKey(new Date());
-      const orders = (await listCollection('groupOrders')) as Order[];
+      const orders = (await listCollection('groupOrders')) as GroupableOrder[];
       const monthOrders = orders.filter((order) =>
         effectiveRound(order).roundMonth === month &&
         (!selectedRoundId || effectiveRound(order).roundId === selectedRoundId)
@@ -68,6 +51,10 @@ export default function SellerExcelExport({ selectedMonth, selectedRoundId }: { 
 
       const rows = [...grouped.values()].sort((a, b) => a.name.localeCompare(b.name, 'ro'));
       const totalBani = rows.reduce((sum, row) => sum + row.sumBani, 0);
+      const customerGroups = groupRoundOrders(monthOrders);
+      const grossBani = customerGroups.reduce((sum, group) => sum + group.grossBani, 0);
+      const discountBani = customerGroups.reduce((sum, group) => sum + group.discountBani, 0);
+      const netBani = customerGroups.reduce((sum, group) => sum + group.totalBani, 0);
       const tableRows = rows.map((row) => `
         <tr>
           <td>${escapeHtml(row.name)}</td>
@@ -82,7 +69,11 @@ export default function SellerExcelExport({ selectedMonth, selectedRoundId }: { 
   <tr><th colspan="4">Lista pentru vânzător — ${escapeHtml(selectedRoundId || month)}</th></tr>
   <tr><th>Produs</th><th>Cantitate</th><th>Unitate</th><th>Sumă (lei)</th></tr>
   ${tableRows}
-  <tr><th>TOTAL GENERAL</th><th></th><th></th><th x:num="${(totalBani / 100).toFixed(2)}" style="mso-number-format:'0.00'">${(totalBani / 100).toFixed(2)}</th></tr>
+  <tr><th>TOTAL PRODUSE (furnizor)</th><th></th><th></th><th x:num="${(totalBani / 100).toFixed(2)}" style="mso-number-format:'0.00'">${(totalBani / 100).toFixed(2)}</th></tr>
+  <tr><th colspan="3">Total inițial comenzi clienți</th><td x:num="${(grossBani / 100).toFixed(2)}" style="mso-number-format:'0.00'">${(grossBani / 100).toFixed(2)}</td></tr>
+  <tr><th colspan="3">Reduceri acordate clienților (lei)</th><td x:num="${(discountBani / 100).toFixed(2)}" style="mso-number-format:'0.00'">${(discountBani / 100).toFixed(2)}</td></tr>
+  <tr><th colspan="3">Total final clienți după reduceri</th><th x:num="${(netBani / 100).toFixed(2)}" style="mso-number-format:'0.00'">${(netBani / 100).toFixed(2)}</th></tr>
+  <tr><td colspan="4">Reducerile sunt acordate clienților; nu modifică automat suma datorată furnizorului.</td></tr>
 </table>
 </body></html>`;
 
