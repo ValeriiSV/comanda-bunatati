@@ -46,6 +46,7 @@ function lei(bani = 0) {
 }
 
 export default function AdminWowDashboard() {
+  const [chartMode,setChartMode]=useState<'amount'|'count'>('amount');
   const [roundClosed,setRoundClosed]=useState(false);
   const [orders, setOrders] = useState<Order[]>([]);
   const [authorized, setAuthorized] = useState(false);
@@ -76,6 +77,7 @@ export default function AdminWowDashboard() {
       current.amount += Number(item.grams) || 0;
       current.orders += 1;
       current.bani += Number(item.lineTotalBani) || 0;
+        current.count+=1;
       productTotals.set(id, current);
       if ((item.quantityUnit || 'g') === 'g') totalGrams += Number(item.grams) || 0;
     }));
@@ -167,17 +169,17 @@ export default function AdminWowDashboard() {
   }, [roundOrders]);
 
   const topProducts = useMemo(() => {
-    const totals = new Map<string, { name: string; bani: number }>();
+    const totals = new Map<string, { name: string; bani: number; count:number }>();
     roundOrders.forEach((order) => {
       (order.items || []).forEach((item) => {
         const key = item.productId || item.productName || 'produs';
-        const current = totals.get(key) || { name: item.productName || 'Produs', bani: 0 };
+        const current = totals.get(key) || { name: item.productName || 'Produs', bani: 0, count:0 };
         current.bani += Number(item.lineTotalBani) || 0;
         totals.set(key, current);
       });
     });
-    return [...totals.values()].sort((a, b) => b.bani - a.bani).slice(0, 5);
-  }, [roundOrders]);
+    return [...totals.values()].sort((a, b) => (chartMode==='amount'?b.bani-a.bani:b.count-a.count)).slice(0, 5);
+  }, [roundOrders,chartMode]);
 
   const stageCounts = useMemo(
     () => ORDER_STAGES.map((stage) => ({
@@ -193,7 +195,7 @@ export default function AdminWowDashboard() {
   const step=orderCount===0?0:!supplierDone?1:!roundClosed||stats.totalBani>stats.paidBani?2:stats.ready+stats.delivered<orderCount?3:stats.delivered<orderCount?4:5;
   const nextLinks=['/admin/program','/admin/furnizor','/admin/plati','/admin/pregatire','/admin/pregatire','/admin/finante'];
   const stepLabels=['Colectarea comenzilor','Confirmarea furnizorului','Încasări MIA','Pregătirea produselor','Predarea comenzilor'];
-  const maxTop = Math.max(1, ...topProducts.map((product) => product.bani));
+  const maxTop = Math.max(1, ...topProducts.map((product) => chartMode==='amount'?product.bani:product.count));
 
   if (!authorized) return null;
 
@@ -212,6 +214,7 @@ export default function AdminWowDashboard() {
 
       {error && <p className="rounded-2xl bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p>}
 
+      <section className="rounded-[24px] border bg-white p-5"><h3 className="font-serif text-xl font-semibold">Notificări operaționale</h3><div className="mt-3 space-y-2 text-sm">{!supplierDone&&orderCount>0&&<Link className="block rounded-xl border p-3" to="/admin/furnizor">Produse în așteptarea confirmării furnizorului →</Link>}{roundClosed&&stats.unpaid>0&&<Link className="block rounded-xl border p-3" to="/admin/plati">{stats.unpaid} clienți cu rest de achitat →</Link>}{stats.ready>0&&<Link className="block rounded-xl border p-3" to="/admin/pregatire">{stats.ready} comenzi gata de ridicare →</Link>}{(orderCount===0||step===5)&&<p>Nu există acțiuni urgente pentru runda curentă.</p>}</div></section>
       <section className="rounded-[24px] border bg-white p-5"><h3 className="font-serif text-xl font-semibold">Fluxul rundei</h3><div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-5">{stepLabels.map((label,i)=><div key={label} className="rounded-xl border p-3 text-sm"><span className="block text-xs">{i<step?'✓ Finalizat':i===step?'● În curs':'○ Urmează'}</span><strong>{label}</strong></div>)}</div><Link className="mt-3 inline-flex rounded-xl bg-[#173d2c] px-4 py-3 text-sm font-semibold text-white" to={nextLinks[step]}>{step===5?'Vezi raportul financiar':step===0?'Deschide programul':stepLabels[step]}</Link></section>
       <div className="relative overflow-hidden rounded-[28px] bg-gradient-to-br from-[#173d2c] to-[#315b32] p-5 text-white shadow-lg sm:p-7">
         <div aria-hidden="true" className="pointer-events-none absolute -right-12 -top-14 size-52 rounded-full border-[25px] border-white/5"/>
@@ -237,11 +240,11 @@ export default function AdminWowDashboard() {
 
       <div className="manager-two-columns">
         <section className="rounded-[26px] border bg-white p-5">
-          <div className="mb-4 flex items-center gap-2"><BarChart3 className="size-5" /><h3 className="font-serif text-xl font-semibold">Top produse</h3></div>
+          <div className="mb-4 flex items-center gap-2"><BarChart3 className="size-5" /><h3 className="font-serif text-xl font-semibold">Top produse</h3></div><div className="mb-4 flex flex-wrap gap-2"><Button size="sm" variant={chartMode==="amount"?"default":"outline"} onClick={()=>setChartMode("amount")}>Valoare</Button><Button size="sm" variant={chartMode==="count"?"default":"outline"} onClick={()=>setChartMode("count")}>Poziții comandate</Button></div>
           {topProducts.length ? <div className="space-y-3">{topProducts.map((product) => (
             <div key={product.name}>
-              <div className="mb-1 flex justify-between gap-3 text-sm"><span className="truncate">{product.name}</span><strong>{lei(product.bani)} lei</strong></div>
-              <div className="h-2 overflow-hidden rounded-full bg-[#dfe8dc]"><div className="manager-progress h-full rounded-full bg-[#63865d]" style={{ width: `${Math.max(8, product.bani / maxTop * 100)}%` }} /></div>
+              <div className="mb-1 flex justify-between gap-3 text-sm"><span className="truncate">{product.name}</span><strong>{chartMode==='amount'?lei(product.bani)+' lei':product.count+' poziții'}</strong></div>
+              <div className="h-2 overflow-hidden rounded-full bg-[#dfe8dc]"><div className="manager-progress h-full rounded-full bg-[#63865d]" style={{ width: `${Math.max(8, (chartMode==='amount'?product.bani:product.count) / maxTop * 100)}%` }} /></div>
             </div>
           ))}</div> : <p className="text-sm text-[#74837b]">Încă nu sunt comenzi în runda curentă.</p>}
         </section>
@@ -265,7 +268,7 @@ export default function AdminWowDashboard() {
       <section className="rounded-[26px] border bg-white p-5">
         <p className="text-xs font-bold uppercase tracking-[.12em] text-[#7b8981]">Acțiuni rapide</p>
         <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
-          <QuickLink to="/admin/comenzi" icon={<ShoppingBag className="size-4" />} title="Comenzi" text="Editare și plăți" />
+          <QuickLink to="/admin/comenzi" icon={<ShoppingBag className="size-4" />} title="Comenzi" text="Editare și export" />
           <QuickLink to="/admin/pregatire" icon={<PackageCheck className="size-4" />} title="Pregătire" text="QR și predare" />
           <QuickLink to="/admin/program" icon={<CheckCircle2 className="size-4" />} title="Program" text="Termen și rundă" />
           <QuickLink to="/admin/viber" icon={<Users className="size-4" />} title="Viber" text="Mesaj pentru grup" />
