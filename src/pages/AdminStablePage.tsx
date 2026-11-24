@@ -1,6 +1,6 @@
-import { Fragment, useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowLeft, Check, Download, Eye, EyeOff, ImagePlus, LogOut, Minus, Pencil, Plus, RefreshCw, Save, ShieldCheck, Trash2, WalletCards, X } from 'lucide-react';
+import { ArrowLeft, Download, Eye, EyeOff, ImagePlus, LogOut, Minus, Pencil, Plus, RefreshCw, Save, ShieldCheck, Trash2, WalletCards, X } from 'lucide-react';
 import { GoogleAuthProvider, signInWithPopup, signOut } from 'firebase/auth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -17,7 +17,7 @@ import PackingModePanel from '@/components/PackingModePanel';
 import ViberCampaignPanel from '@/components/ViberCampaignPanel';
 import RoundPaymentPanel from '@/components/RoundPaymentPanel';
 import CollectiveGoalsPanel from '@/components/CollectiveGoalsPanel';
-import { effectiveRound, roundMeta, groupRoundOrders, netOrderBani, orderDiscountBani } from '@/lib/orderRounds';
+import { effectiveRound, roundMeta, groupRoundOrders, orderDiscountBani } from '@/lib/orderRounds';
 
 type OrderItem = { productId?: string; productName?: string; category?: string; grams?: number; quantityUnit?: string; lineTotalBani?: number };
 type Order = { id: string; orderCode?: string; customerName?: string; phone?: string; totalBani?: number; discountBani?: number; paid?: boolean; status?: string; createdAt?: Date | string | null; scheduledOrderDates?: string[]; roundId?: string; roundLabel?: string; roundSequence?: number; items?: OrderItem[] };
@@ -312,26 +312,10 @@ export default function AdminStablePage({ section = 'dashboard' }: { section?: A
   const availableOrderProducts = products.filter((product) => product.active !== false);
   const productCategories = [...new Set([...categories, ...products.map((product) => product.category)])];
 
-  const togglePaid = async (o: Order) => { try { await updateDocument(`groupOrders/${o.id}`, { paid: !o.paid, updatedAt: new Date() }); await loadAll(); } catch (e) { setError(friendly((e as Error).message)); } };
-
-  const moveOrderToRound = async (order: Order, nextRoundId: string) => {
-    const option = roundOptions.find((candidate) => candidate.id === nextRoundId);
-    if (!option) return;
-    try {
-      await updateDocument(`groupOrders/${order.id}`, {
-        roundId: option.id,
-        roundLabel: option.label,
-        roundSequence: option.sequence,
-        updatedAt: new Date(),
-      });
-      setNotice(`${order.customerName || order.orderCode || 'Comanda'} a fost mutată în ${option.label}.`);
-      await loadAll();
-    } catch (e) {
-      setError(friendly((e as Error).message));
-    }
-  };
-  const removeOrder = async (o: Order) => { if (!window.confirm(`Ștergi comanda lui ${o.customerName || 'acest coleg'}?`)) return; try { await deleteDocument(`groupOrders/${o.id}`); setNotice('Comanda a fost ștearsă.'); await loadAll(); } catch (e) { setError(friendly((e as Error).message)); } };
+  const removeOrder = async (o: Order) => { if (o.paid) {setError('Anulează confirmarea plății din secțiunea Plăți înainte de ștergere.');return;} if (!window.confirm(`Ștergi comanda lui ${o.customerName || 'acest coleg'}?`)) return; try { await deleteDocument(`groupOrders/${o.id}`); setNotice('Comanda a fost ștearsă.'); await loadAll(); } catch (e) { setError(friendly((e as Error).message)); } };
   const startOrderEdit = (order: Order) => {
+    if (order.paid) {setError('Anulează confirmarea plății din secțiunea Plăți înainte de a modifica această comandă.');return;}
+    window.setTimeout(() => document.getElementById('manager-order-editor')?.scrollIntoView({behavior:'smooth',block:'start'}),0);
     const combined = new Map<string, OrderDraftItem>();
     (order.items || []).forEach((item, index) => {
       const productId = item.productId || `produs-necunoscut-${index}`;
@@ -602,7 +586,7 @@ export default function AdminStablePage({ section = 'dashboard' }: { section?: A
     </div>
   </section></>}
 
-  {section === 'orders' && <><RoundSeparationPanel orders={orders} activeRoundId={roundId} onComplete={async (nextRoundId) => { setSelectedMonth('2026-11'); setSelectedRoundId(nextRoundId); await loadAll(); }} /><section className="rounded-[22px] border bg-white p-4">
+  {section === 'orders' && <><section className="rounded-[22px] border bg-white p-4">
     <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
       <div>
         <p className="font-semibold">Perioada comenzilor</p>
@@ -624,13 +608,13 @@ export default function AdminStablePage({ section = 'dashboard' }: { section?: A
   <section className="overflow-hidden rounded-[24px] border bg-white">
     <div className="flex flex-col gap-3 border-b p-5 sm:flex-row sm:items-center sm:justify-between">
       <div>
-        <h2 className="font-serif text-2xl font-semibold">Comenzi individuale · {roundOptions.find((option) => option.id === selectedRoundId)?.label || monthLabel(selectedMonth)}</h2>
-        <p className="mt-1 text-sm text-[#74837b]">Același telefon în aceeași rundă = o comandă comună. Deschide detaliile pentru a modifica fiecare trimitere și a verifica plățile.</p>
+        <h2 className="font-serif text-2xl font-semibold">Comenzi · {roundOptions.find((option) => option.id === selectedRoundId)?.label || monthLabel(selectedMonth)}</h2>
+        <p className="mt-1 text-sm text-[#74837b]">Comenzile sunt grupate după telefon. Aici modifici produsele sau ștergi comenzile; achitările se gestionează separat.</p>
       </div>
       <span className="rounded-full bg-[#eef3e8] px-3 py-1.5 text-sm font-semibold">{groupedOrders.length} comenzi</span>
     </div>
 
-    {editingOrder && <div className="border-b bg-[#f7faf4] p-5">
+    {editingOrder && <div id="manager-order-editor" className="scroll-mt-4 border-b bg-[#f7faf4] p-5">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div><p className="text-xs font-bold uppercase tracking-[.1em] text-[#74837b]">Editezi comanda</p><h3 className="mt-1 text-lg font-semibold">{editingOrder.customerName || 'Fără nume'} · {editingOrder.orderCode || '—'}</h3></div>
         <div className="text-left sm:text-right"><p className="text-xs text-[#74837b]">Total recalculat</p><strong className="font-serif text-2xl">{lei(orderDraftTotalBani)} lei</strong></div>
@@ -665,21 +649,36 @@ export default function AdminStablePage({ section = 'dashboard' }: { section?: A
       </div>
     </div>}
 
-    <div className="overflow-x-auto"><Table><TableHeader><TableRow><TableHead>Nume</TableHead><TableHead>Rundă</TableHead><TableHead>Telefon</TableHead><TableHead>Produse</TableHead><TableHead>Total</TableHead><TableHead>Plată</TableHead><TableHead className="text-right">Acțiuni</TableHead></TableRow></TableHeader><TableBody>{groupedOrders.map(group => <Fragment key={group.key}>
-    {group.entries.length > 1 && <TableRow className="bg-[#f7faf4]">
-      <TableCell><strong>{group.entries[0].customerName || 'Fără nume'}</strong><span className="block text-xs text-[#829087]">Comandă comună · {group.entries.length} trimiteri</span></TableCell>
-      <TableCell>{effectiveRound(group.entries[0]).roundLabel}</TableCell>
-      <TableCell>{group.entries[0].phone || '—'}</TableCell>
-      <TableCell className="min-w-72">{group.items.map((item, idx) => <span key={idx} className="mr-1.5 mb-1.5 inline-flex rounded-full bg-[#eef3e8] px-2.5 py-1 text-xs">{item.productName} · {orderQuantityLabel(item.productId, item.grams || 0, products)}</span>)}</TableCell>
-      <TableCell className="font-semibold">{lei(group.totalBani)} lei{group.discountBani>0&&<span className="block text-xs text-[#74837b]">Reducere: {lei(group.discountBani)} lei</span>}</TableCell>
-      <TableCell><strong className="block text-xs">{group.entries.every(o => o.paid) ? 'Achitat' : group.entries.some(o => o.paid) ? 'Achitat parțial' : 'Neachitat'}</strong><span className="block text-xs">Achitat: {lei(group.paidBani)} lei</span><span className="block text-xs">Rest: {lei(group.totalBani - group.paidBani)} lei</span></TableCell>
-      <TableCell className="text-right"><Button size="sm" variant="outline" onClick={() => setExpandedGroups(current => current.includes(group.key) ? current.filter(key => key !== group.key) : [...current, group.key])}>{expandedGroups.includes(group.key) ? 'Ascunde' : 'Detalii'}</Button></TableCell>
-    </TableRow>}
-    {(group.entries.length === 1 || expandedGroups.includes(group.key)) && group.entries.map((o) => <TableRow key={o.id} className={editingOrderId === o.id ? 'bg-[#f7faf4]' : ''}><TableCell><strong>{o.customerName || 'Fără nume'}</strong><span className="block text-xs text-[#829087]">{o.orderCode || '—'} · {orderDate(o).toLocaleDateString('ro-MD')} · {o.status || 'Trimisă'}</span></TableCell><TableCell><select value={effectiveRound(o).roundId} onChange={(event) => void moveOrderToRound(o, event.target.value)} className="h-9 min-w-44 rounded-lg border bg-white px-2 text-xs">{roundOptions.map((option) => <option key={option.id} value={option.id}>{option.label}</option>)}</select></TableCell><TableCell>{o.phone || '—'}</TableCell><TableCell className="min-w-72">{(o.items || []).map((i, idx) => <span key={`${i.productId}-${idx}`} className="mr-1.5 mb-1.5 inline-flex rounded-full bg-[#eef3e8] px-2.5 py-1 text-xs">{i.productName} · {orderQuantityLabel(i.productId, i.grams || 0, products)}</span>)}</TableCell><TableCell className="font-semibold">{lei(netOrderBani(o))} lei{orderDiscountBani(o)>0&&<span className="block text-xs text-[#74837b]">Reducere: {lei(orderDiscountBani(o))} lei</span>}</TableCell><TableCell><Button size="sm" variant={o.paid ? 'secondary' : 'outline'} onClick={() => togglePaid(o)}>{o.paid && <Check />} {o.paid ? 'Achitat' : 'Neachitat'}</Button></TableCell><TableCell className="text-right"><div className="flex justify-end gap-1"><Button variant="ghost" size="icon" onClick={() => startOrderEdit(o)} title="Modifică această comandă"><Pencil /></Button><Button variant="ghost" size="icon" onClick={() => removeOrder(o)} className="text-red-600" title="Șterge comanda"><Trash2 /></Button></div></TableCell></TableRow>)}
-  </Fragment>)}{groupedOrders.length === 0 && <TableRow><TableCell colSpan={7} className="py-10 text-center text-[#74837b]">Nu există comenzi în această rundă.</TableCell></TableRow>}</TableBody></Table></div>
+    <div className="grid gap-3 p-3 sm:p-5 xl:grid-cols-2">
+      {groupedOrders.map(group => {
+        const customer=group.entries[0];
+        const multiple=group.entries.length>1;
+        const expanded=expandedGroups.includes(group.key);
+        return <article key={group.key} className="manager-stat min-w-0 rounded-[22px] border bg-[#f7faf4] p-4">
+          <div className="flex flex-wrap items-start justify-between gap-2">
+            <div className="min-w-0"><h3 className="break-words text-lg font-semibold">{customer.customerName || 'Fără nume'}</h3><p className="text-xs text-[#74837b]">{customer.phone || '—'} · {multiple ? `${group.entries.length} trimiteri` : customer.orderCode || '—'}</p></div>
+            <div className="text-right"><span className="block text-xs text-[#74837b]">Valoare produse</span><strong className="text-lg tabular-nums">{lei(group.grossBani)} lei</strong></div>
+          </div>
+          <div className="mt-3 flex flex-wrap gap-1.5">{group.items.map((item,idx)=><span key={idx} className="max-w-full break-words rounded-xl bg-[#e9f0e3] px-2.5 py-1.5 text-xs">{item.productName} · {orderQuantityLabel(item.productId,item.grams||0,products)}</span>)}</div>
+          {!multiple ? <div className="mt-4 grid grid-cols-2 gap-2">
+            <Button variant="outline" onClick={()=>startOrderEdit(customer)}><Pencil/> Modifică</Button>
+            <Button variant="outline" className="text-red-600" onClick={()=>void removeOrder(customer)}><Trash2/> Șterge</Button>
+          </div> : <>
+            <Button variant="outline" className="mt-4 w-full" aria-expanded={expanded} onClick={()=>setExpandedGroups(current=>expanded?current.filter(k=>k!==group.key):[...current,group.key])}>{expanded?'Ascunde trimiterile':'Modifică / șterge trimiteri'} </Button>
+            {expanded && <div className="mt-3 space-y-2">{group.entries.map(o=><div key={o.id} className="rounded-2xl border bg-white p-3">
+              <div className="flex justify-between gap-2 text-sm"><strong>{o.orderCode || 'Comandă'}</strong><strong>{lei(o.totalBani||0)} lei</strong></div>
+              <p className="mt-1 text-xs text-[#74837b]">{orderDate(o).toLocaleDateString('ro-MD')}</p>
+              <div className="mt-2 flex flex-wrap gap-1">{(o.items||[]).map((i,idx)=><span key={idx} className="rounded-lg bg-[#eef3e8] px-2 py-1 text-xs">{i.productName} · {orderQuantityLabel(i.productId,i.grams||0,products)}</span>)}</div>
+              <div className="mt-3 grid grid-cols-2 gap-2"><Button size="sm" variant="outline" onClick={()=>startOrderEdit(o)}><Pencil/> Modifică</Button><Button size="sm" variant="outline" className="text-red-600" onClick={()=>void removeOrder(o)}><Trash2/> Șterge</Button></div>
+            </div>)}</div>}
+          </>}
+        </article>;
+      })}
+      {!groupedOrders.length && <p className="py-10 text-center text-sm text-[#74837b]">Nu există comenzi în această rundă.</p>}
+    </div>
   </section></>}
 
-  {section === 'schedule' && <div className="space-y-5">
+  {section === 'schedule' && <div className="space-y-5"><RoundSeparationPanel orders={orders} activeRoundId={roundId} onComplete={async (nextRoundId) => { setSelectedMonth('2026-11'); setSelectedRoundId(nextRoundId); await loadAll(); }} />
     <section className={`rounded-[24px] border p-5 ${scheduleClosed ? 'border-[#e7c8aa] bg-[#fff4e8]' : 'border-[#cfe0cf] bg-[#f5faf2]'}`}>
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
