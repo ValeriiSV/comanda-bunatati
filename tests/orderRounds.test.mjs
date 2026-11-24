@@ -52,3 +52,15 @@ test('manual discounts respect existing payments and group totals', async () => 
   assert.equal(parseDiscountLei('-2'),null);
   assert.equal(netOrderBani({id:'x',totalBani:100,discountBani:999}),0);
 });
+
+test('partial receipts preserve legacy amounts and reconcile exact cents', async()=>{
+ const {allocateReceipt,receivedOrderBani}=await import('../src/lib/orderRounds.ts');
+ const rows=[{...first,paid:false,receivedBani:3000},{...second,discountBani:1000}];
+ assert.equal(groupRoundOrders(rows)[0].paidBani,3000);
+ const allocations=allocateReceipt(rows,18000);
+ assert.equal(allocations.reduce((s,o)=>s+o.receivedBani,0),18000);
+ const updated=rows.map(o=>({...o,...allocations.find(a=>a.id===o.id)}));
+ assert.equal(groupRoundOrders(updated)[0].totalBani-groupRoundOrders(updated)[0].paidBani,16000);
+ assert.equal(receivedOrderBani(first),15000);
+ assert.throws(()=>allocateReceipt(rows,999999));
+});

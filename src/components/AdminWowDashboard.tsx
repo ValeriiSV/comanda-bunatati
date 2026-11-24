@@ -3,7 +3,7 @@ import { BarChart3, CheckCircle2, PackageCheck, RefreshCw, ShoppingBag, Truck, U
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { getAdminSession, getDocument, listCollection, setDocument } from '@/lib/firebaseRest';
-import { effectiveRound, roundMeta, groupRoundOrders, groupStage, ORDER_STAGES } from '@/lib/orderRounds';
+import { effectiveRound, roundMeta, groupRoundOrders, groupStage, ORDER_STAGES, supplierSignature } from '@/lib/orderRounds';
 
 
 
@@ -24,6 +24,7 @@ type Order = {
   discountBani?: number;
   paid?: boolean;
   receivedBani?: number;
+  supplierConfirmedKey?:string;
   status?: string;
   createdAt?: Date | string | null;
   scheduledOrderDates?: string[];
@@ -45,6 +46,7 @@ function lei(bani = 0) {
 }
 
 export default function AdminWowDashboard() {
+  const [roundClosed,setRoundClosed]=useState(false);
   const [orders, setOrders] = useState<Order[]>([]);
   const [authorized, setAuthorized] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -127,6 +129,7 @@ export default function AdminWowDashboard() {
         roundMonth: month,
       };
       setActiveRound(currentRound);
+      setRoundClosed(schedule?.closed===true);
       setOrders(sorted);
       await publishPublicMeta(sorted, currentRound);
       setError('');
@@ -186,6 +189,10 @@ export default function AdminWowDashboard() {
 
   const orderCount = customerGroups(roundOrders).length;
   const completion = orderCount ? Math.round((stats.ready + stats.delivered) / orderCount * 100) : 0;
+  const supplierDone=roundOrders.length>0&&roundOrders.every(o=>o.supplierConfirmedKey===supplierSignature(o));
+  const step=orderCount===0?0:!supplierDone?1:!roundClosed||stats.totalBani>stats.paidBani?2:stats.ready+stats.delivered<orderCount?3:stats.delivered<orderCount?4:5;
+  const nextLinks=['/admin/program','/admin/furnizor','/admin/plati','/admin/pregatire','/admin/pregatire','/admin/finante'];
+  const stepLabels=['Colectarea comenzilor','Confirmarea furnizorului','Încasări MIA','Pregătirea produselor','Predarea comenzilor'];
   const maxTop = Math.max(1, ...topProducts.map((product) => product.bani));
 
   if (!authorized) return null;
@@ -205,6 +212,7 @@ export default function AdminWowDashboard() {
 
       {error && <p className="rounded-2xl bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p>}
 
+      <section className="rounded-[24px] border bg-white p-5"><h3 className="font-serif text-xl font-semibold">Fluxul rundei</h3><div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-5">{stepLabels.map((label,i)=><div key={label} className="rounded-xl border p-3 text-sm"><span className="block text-xs">{i<step?'✓ Finalizat':i===step?'● În curs':'○ Urmează'}</span><strong>{label}</strong></div>)}</div><Link className="mt-3 inline-flex rounded-xl bg-[#173d2c] px-4 py-3 text-sm font-semibold text-white" to={nextLinks[step]}>{step===5?'Vezi raportul financiar':step===0?'Deschide programul':stepLabels[step]}</Link></section>
       <div className="relative overflow-hidden rounded-[28px] bg-gradient-to-br from-[#173d2c] to-[#315b32] p-5 text-white shadow-lg sm:p-7">
         <div aria-hidden="true" className="pointer-events-none absolute -right-12 -top-14 size-52 rounded-full border-[25px] border-white/5"/>
         <p className="text-sm font-medium text-white/70">Valoarea finală a comenzilor</p>

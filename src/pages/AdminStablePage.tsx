@@ -13,6 +13,7 @@ import RoundSeparationPanel from '@/components/RoundSeparationPanel';
 import OrderDeadlineTimeEditor from '@/components/OrderDeadlineTimeEditor';
 import SellerExcelExport from '@/components/SellerExcelExport';
 import PackingModePanel from '@/components/PackingModePanel';
+import SmartViberPanel from '@/components/SmartViberPanel';
 import ViberCampaignPanel from '@/components/ViberCampaignPanel';
 import {SupplierPanel,ClientsPanel,FinancePanel,HistoryPanel} from '@/components/ManagerOperations';
 import RoundPaymentPanel from '@/components/RoundPaymentPanel';
@@ -566,7 +567,7 @@ export default function AdminStablePage({ section = 'dashboard' }: { section?: A
   {section === 'finance' && <FinancePanel/>}
   {section === 'history' && <HistoryPanel/>}
   {section === 'packing' && <PackingModePanel />}
-  {section === 'campaign' && <ViberCampaignPanel />}
+  {section === 'campaign' && <><ViberCampaignPanel /><SmartViberPanel/></>}
 
   {section === 'payments' && <><RoundPaymentPanel onClosed={loadAll}/><section className="rounded-[24px] border border-[#cfe0cf] bg-white p-5 sm:p-6">
     <div className="flex items-start gap-4">
