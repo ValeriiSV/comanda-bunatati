@@ -174,9 +174,16 @@ async function authHeaders() {
 
 export async function listCollection(path: string) {
   const headers = await authHeaders();
-  const response = await fetchWithTimeout(`${FIRESTORE_BASE}/${path}?pageSize=300`, { headers });
-  const data = await jsonOrThrow(response);
-  return (data.documents || []).map(decodeDocument);
+  const documents: RestDocument[] = [];
+  let pageToken = '';
+  do {
+    const query = new URLSearchParams({ pageSize: '300' });
+    if (pageToken) query.set('pageToken', pageToken);
+    const data = await jsonOrThrow(await fetchWithTimeout(`${FIRESTORE_BASE}/${path}?${query}`, { headers }));
+    documents.push(...(data.documents || []));
+    pageToken = data.nextPageToken || '';
+  } while (pageToken);
+  return documents.map(decodeDocument);
 }
 
 export async function getDocument(path: string) {
@@ -213,4 +220,21 @@ export async function deleteDocument(path: string) {
   const headers = await authHeaders();
   const response = await fetchWithTimeout(`${FIRESTORE_BASE}/${path}`, { method: 'DELETE', headers });
   if (!response.ok && response.status !== 404) await jsonOrThrow(response);
+}
+
+export async function updateDocumentsAtomically(updates: { path: string; data: Record<string, unknown> }[]) {
+  if (!updates.length) return;
+  if (updates.length > 500) throw new Error('Prea multe comenzi pentru o singură actualizare.');
+  const headers = await authHeaders();
+  const writes = updates.map(({ path, data }) => ({
+    update: {
+      name: `projects/${PROJECT_ID}/databases/(default)/documents/${path}`,
+      fields: Object.fromEntries(Object.entries(data).map(([key, value]) => [key, toFireValue(value)])),
+    },
+    updateMask: { fieldPaths: Object.keys(data) },
+    currentDocument: { exists: true },
+  }));
+  return jsonOrThrow(await fetchWithTimeout(`${FIRESTORE_BASE}:commit`, {
+    method: 'POST', headers, body: JSON.stringify({ writes }),
+  }, 15000));
 }
