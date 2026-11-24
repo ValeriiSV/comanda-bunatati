@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Archive, CheckCircle2, GitBranch, LoaderCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { getDocument, listCollection, setDocument, updateDocument } from '@/lib/firebaseRest';
-import { effectiveRound, roundMeta, type RoundMeta } from '@/lib/orderRounds';
+import { effectiveRound, roundMeta, groupRoundOrders, type RoundMeta } from '@/lib/orderRounds';
 
 type OrderItem = {
   productId?: string;
@@ -15,6 +15,7 @@ type Order = {
   id: string;
   orderCode?: string;
   customerName?: string;
+  phone?: string;
   paid?: boolean;
   status?: string;
   createdAt?: Date | string | null;
@@ -61,7 +62,7 @@ function splitOrders(orders: Order[]) {
 function publicStats(orders: Order[], round: RoundMeta) {
   const productTotals = new Map<string, { name: string; amount: number; unit: string; orders: number; bani: number }>();
   let totalGrams = 0;
-  orders.forEach((order) => (order.items || []).forEach((item) => {
+  groupRoundOrders(orders).forEach((order) => order.items.forEach((item) => {
     const id = item.productId || item.productName || 'produs';
     const current = productTotals.get(id) || {
       name: item.productName || 'Produs', amount: 0,
@@ -77,9 +78,9 @@ function publicStats(orders: Order[], round: RoundMeta) {
   const latest = [...orders].sort((a, b) =>
     new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime())[0];
   return {
-    orderCount: orders.length,
+    orderCount: groupRoundOrders(orders).length,
     totalBani: orders.reduce((sum, order) => sum + (Number(order.totalBani) || 0), 0),
-    paidCount: orders.filter((order) => order.paid).length,
+    paidCount: groupRoundOrders(orders).filter(group => group.paid).length,
     roundLabel: round.roundLabel,
     totalGrams,
     lastOrderAt: latest ? new Date(latest.createdAt || 0) : null,
