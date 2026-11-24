@@ -30,8 +30,8 @@ export default function AdminPage() {
     const oldViewport = viewport?.content;
     if (viewport) viewport.content = 'width=device-width, initial-scale=1.0, viewport-fit=cover';
     const tags: [string, Record<string,string>][] = [
-      ['link', {rel:'manifest', href:'/manager.webmanifest'}],
-      ['link', {rel:'apple-touch-icon', href:'/manager-icon-180.png'}],
+      ['link', {rel:'manifest', href:'/manager.webmanifest?v=2'}],
+      ['link', {rel:'apple-touch-icon', href:'/valera-app-180.png'}],
       ['meta', {name:'apple-mobile-web-app-capable', content:'yes'}],
       ['meta', {name:'apple-mobile-web-app-title', content:'Bunătăți Manager'}],
       ['meta', {name:'apple-mobile-web-app-status-bar-style', content:'default'}],

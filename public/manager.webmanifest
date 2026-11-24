@@ -11,15 +11,15 @@
   "theme_color": "#f2f5ed",
   "icons": [
     {
-      "src": "/manager-icon-192.png",
+      "src": "/valera-app-192.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "/manager-icon-512.png",
-      "sizes": "512x512",
-      "type": "image/png",
+      "src": "/valera-logo.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
       "purpose": "any"
     }
   ]

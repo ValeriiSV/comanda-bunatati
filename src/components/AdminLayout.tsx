@@ -118,7 +118,7 @@ export default function AdminLayout({
         <aside className="manager-aside border-b border-[#d9e3d7] bg-white/90 lg:sticky lg:top-0 lg:flex lg:h-dvh lg:flex-col lg:border-b-0 lg:border-r">
           <div className="flex items-center justify-between gap-3 px-4 py-4 lg:px-5 lg:py-6">
             <Link to="/admin" className="flex min-w-0 items-center gap-3">
-              <img src="/manager-icon.svg" alt="Bunătăți cu Valera" className="size-11 shrink-0 rounded-full border border-[#d9e3d7] bg-white object-cover" />
+              <img src="/valera-logo.svg?v=8" alt="Bunătăți cu Valera" className="size-11 shrink-0 rounded-full border border-[#d9e3d7] bg-white object-cover" />
               <div className="min-w-0">
                 <strong className="block truncate font-serif text-lg">Bunătăți Manager</strong>
                 <span className="block text-xs text-[#74837b]">Administrare privată</span>
