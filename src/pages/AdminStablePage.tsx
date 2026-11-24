@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { Fragment, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowLeft, Check, Download, Eye, EyeOff, ImagePlus, LogOut, Minus, Pencil, Plus, RefreshCw, Save, ShieldCheck, Trash2, WalletCards, X } from 'lucide-react';
 import { GoogleAuthProvider, signInWithPopup, signOut } from 'firebase/auth';
@@ -37,6 +37,39 @@ const CATALOG_REFRESH_AT = Date.parse('2026-11-04T06:50:00Z');
 
 function lei(bani = 0) { return new Intl.NumberFormat('ro-MD', { maximumFractionDigits: 2 }).format(bani / 100); }
 function slugify(value: string) { return value.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''); }
+function normalizedOrderPhone(value?: string) {
+  const raw = (value || '').trim();
+  if (!raw || !/^[+\d\s().-]+$/.test(raw)) return '';
+  let digits = raw.replace(/\D/g, '');
+  if (digits.startsWith('00')) digits = digits.slice(2);
+  if (/^0\d{8}$/.test(digits)) digits = '373' + digits.slice(1);
+  if (/^[67]\d{7}$/.test(digits)) digits = '373' + digits;
+  return digits.length >= 8 && digits.length <= 15 ? digits : '';
+}
+function groupRoundOrders(orders: Order[]) {
+  const groups = new Map<string, Order[]>();
+  for (const order of orders) {
+    const phone = normalizedOrderPhone(order.phone);
+    const key = phone ? JSON.stringify([effectiveRound(order).roundId, phone]) : order.id;
+    const group = groups.get(key) || [];
+    group.push(order);
+    groups.set(key, group);
+  }
+  return [...groups].map(([key, entries]) => {
+    const items = new Map<string, OrderItem>();
+    for (const order of entries) for (const [index, item] of (order.items || []).entries()) {
+      const key = JSON.stringify([item.productId || item.productName || order.id + index, item.quantityUnit || 'g']);
+      const previous = items.get(key);
+      if (previous) {
+        previous.grams = (Number(previous.grams) || 0) + (Number(item.grams) || 0);
+        previous.lineTotalBani = (Number(previous.lineTotalBani) || 0) + (Number(item.lineTotalBani) || 0);
+      } else items.set(key, { ...item });
+    }
+    return { key, entries, items: [...items.values()],
+      totalBani: entries.reduce((sum, o) => sum + (Number(o.totalBani) || 0), 0),
+      paidBani: entries.reduce((sum, o) => sum + (o.paid ? Number(o.totalBani) || 0 : 0), 0) };
+  });
+}
 function orderDate(order: Order) { const d = order.createdAt instanceof Date ? order.createdAt : new Date(order.createdAt || Date.now()); return Number.isNaN(d.getTime()) ? new Date() : d; }
 function monthKey(date: Date) { return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`; }
 function monthLabel(key: string) { const [y, m] = key.split('-').map(Number); return new Intl.DateTimeFormat('ro-MD', { month: 'long', year: 'numeric' }).format(new Date(y, m - 1, 1)); }
@@ -124,6 +157,7 @@ export default function AdminStablePage({ section = 'dashboard' }: { section?: A
   const [notice, setNotice] = useState('');
   const [busy, setBusy] = useState(false);
   const [orders, setOrders] = useState<Order[]>([]);
+  const [expandedGroups, setExpandedGroups] = useState<string[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [selectedMonth, setSelectedMonth] = useState(monthKey(new Date()));
   const [selectedRoundId, setSelectedRoundId] = useState('');
@@ -301,6 +335,7 @@ export default function AdminStablePage({ section = 'dashboard' }: { section?: A
     return effectiveRound(order).roundId === selectedRoundId;
   }), [orders, selectedMonth, selectedRoundId]);
 
+  const groupedOrders = useMemo(() => groupRoundOrders(visibleOrders), [visibleOrders]);
   const editingOrder = editingOrderId ? orders.find((order) => order.id === editingOrderId) : undefined;
   const orderDraftTotalBani = useMemo(() => orderDraftItems.reduce((sum, item) => {
     const product = products.find((candidate) => candidate.id === item.productId);
@@ -586,9 +621,9 @@ export default function AdminStablePage({ section = 'dashboard' }: { section?: A
     <div className="flex flex-col gap-3 border-b p-5 sm:flex-row sm:items-center sm:justify-between">
       <div>
         <h2 className="font-serif text-2xl font-semibold">Comenzi individuale · {roundOptions.find((option) => option.id === selectedRoundId)?.label || monthLabel(selectedMonth)}</h2>
-        <p className="mt-1 text-sm text-[#74837b]">Modifică produsele și cantitățile direct din fiecare comandă.</p>
+        <p className="mt-1 text-sm text-[#74837b]">Același telefon în aceeași rundă = o comandă comună. Deschide detaliile pentru a modifica fiecare trimitere și a verifica plățile.</p>
       </div>
-      <span className="rounded-full bg-[#eef3e8] px-3 py-1.5 text-sm font-semibold">{visibleOrders.length} comenzi</span>
+      <span className="rounded-full bg-[#eef3e8] px-3 py-1.5 text-sm font-semibold">{groupedOrders.length} comenzi</span>
     </div>
 
     {editingOrder && <div className="border-b bg-[#f7faf4] p-5">
@@ -626,7 +661,18 @@ export default function AdminStablePage({ section = 'dashboard' }: { section?: A
       </div>
     </div>}
 
-    <div className="overflow-x-auto"><Table><TableHeader><TableRow><TableHead>Nume</TableHead><TableHead>Rundă</TableHead><TableHead>Telefon</TableHead><TableHead>Produse</TableHead><TableHead>Total</TableHead><TableHead>Plată</TableHead><TableHead className="text-right">Acțiuni</TableHead></TableRow></TableHeader><TableBody>{visibleOrders.map((o) => <TableRow key={o.id} className={editingOrderId === o.id ? 'bg-[#f7faf4]' : ''}><TableCell><strong>{o.customerName || 'Fără nume'}</strong><span className="block text-xs text-[#829087]">{o.orderCode || '—'} · {orderDate(o).toLocaleDateString('ro-MD')} · {o.status || 'Trimisă'}</span></TableCell><TableCell><select value={effectiveRound(o).roundId} onChange={(event) => void moveOrderToRound(o, event.target.value)} className="h-9 min-w-44 rounded-lg border bg-white px-2 text-xs">{roundOptions.map((option) => <option key={option.id} value={option.id}>{option.label}</option>)}</select></TableCell><TableCell>{o.phone || '—'}</TableCell><TableCell className="min-w-72">{(o.items || []).map((i, idx) => <span key={`${i.productId}-${idx}`} className="mr-1.5 mb-1.5 inline-flex rounded-full bg-[#eef3e8] px-2.5 py-1 text-xs">{i.productName} · {orderQuantityLabel(i.productId, i.grams || 0, products)}</span>)}</TableCell><TableCell className="font-semibold">{lei(o.totalBani || 0)} lei</TableCell><TableCell><Button size="sm" variant={o.paid ? 'secondary' : 'outline'} onClick={() => togglePaid(o)}>{o.paid && <Check />} {o.paid ? 'Achitat' : 'Neachitat'}</Button></TableCell><TableCell className="text-right"><div className="flex justify-end gap-1"><Button variant="ghost" size="icon" onClick={() => startOrderEdit(o)} title="Modifică această comandă"><Pencil /></Button><Button variant="ghost" size="icon" onClick={() => removeOrder(o)} className="text-red-600" title="Șterge comanda"><Trash2 /></Button></div></TableCell></TableRow>)}{visibleOrders.length === 0 && <TableRow><TableCell colSpan={7} className="py-10 text-center text-[#74837b]">Nu există comenzi în această rundă.</TableCell></TableRow>}</TableBody></Table></div>
+    <div className="overflow-x-auto"><Table><TableHeader><TableRow><TableHead>Nume</TableHead><TableHead>Rundă</TableHead><TableHead>Telefon</TableHead><TableHead>Produse</TableHead><TableHead>Total</TableHead><TableHead>Plată</TableHead><TableHead className="text-right">Acțiuni</TableHead></TableRow></TableHeader><TableBody>{groupedOrders.map(group => <Fragment key={group.key}>
+    {group.entries.length > 1 && <TableRow className="bg-[#f7faf4]">
+      <TableCell><strong>{group.entries[0].customerName || 'Fără nume'}</strong><span className="block text-xs text-[#829087]">Comandă comună · {group.entries.length} trimiteri</span></TableCell>
+      <TableCell>{effectiveRound(group.entries[0]).roundLabel}</TableCell>
+      <TableCell>{group.entries[0].phone || '—'}</TableCell>
+      <TableCell className="min-w-72">{group.items.map((item, idx) => <span key={idx} className="mr-1.5 mb-1.5 inline-flex rounded-full bg-[#eef3e8] px-2.5 py-1 text-xs">{item.productName} · {orderQuantityLabel(item.productId, item.grams || 0, products)}</span>)}</TableCell>
+      <TableCell className="font-semibold">{lei(group.totalBani)} lei</TableCell>
+      <TableCell><strong className="block text-xs">{group.entries.every(o => o.paid) ? 'Achitat' : group.entries.some(o => o.paid) ? 'Achitat parțial' : 'Neachitat'}</strong><span className="block text-xs">Achitat: {lei(group.paidBani)} lei</span><span className="block text-xs">Rest: {lei(group.totalBani - group.paidBani)} lei</span></TableCell>
+      <TableCell className="text-right"><Button size="sm" variant="outline" onClick={() => setExpandedGroups(current => current.includes(group.key) ? current.filter(key => key !== group.key) : [...current, group.key])}>{expandedGroups.includes(group.key) ? 'Ascunde' : 'Detalii'}</Button></TableCell>
+    </TableRow>}
+    {(group.entries.length === 1 || expandedGroups.includes(group.key)) && group.entries.map((o) => <TableRow key={o.id} className={editingOrderId === o.id ? 'bg-[#f7faf4]' : ''}><TableCell><strong>{o.customerName || 'Fără nume'}</strong><span className="block text-xs text-[#829087]">{o.orderCode || '—'} · {orderDate(o).toLocaleDateString('ro-MD')} · {o.status || 'Trimisă'}</span></TableCell><TableCell><select value={effectiveRound(o).roundId} onChange={(event) => void moveOrderToRound(o, event.target.value)} className="h-9 min-w-44 rounded-lg border bg-white px-2 text-xs">{roundOptions.map((option) => <option key={option.id} value={option.id}>{option.label}</option>)}</select></TableCell><TableCell>{o.phone || '—'}</TableCell><TableCell className="min-w-72">{(o.items || []).map((i, idx) => <span key={`${i.productId}-${idx}`} className="mr-1.5 mb-1.5 inline-flex rounded-full bg-[#eef3e8] px-2.5 py-1 text-xs">{i.productName} · {orderQuantityLabel(i.productId, i.grams || 0, products)}</span>)}</TableCell><TableCell className="font-semibold">{lei(o.totalBani || 0)} lei</TableCell><TableCell><Button size="sm" variant={o.paid ? 'secondary' : 'outline'} onClick={() => togglePaid(o)}>{o.paid && <Check />} {o.paid ? 'Achitat' : 'Neachitat'}</Button></TableCell><TableCell className="text-right"><div className="flex justify-end gap-1"><Button variant="ghost" size="icon" onClick={() => startOrderEdit(o)} title="Modifică această comandă"><Pencil /></Button><Button variant="ghost" size="icon" onClick={() => removeOrder(o)} className="text-red-600" title="Șterge comanda"><Trash2 /></Button></div></TableCell></TableRow>)}
+  </Fragment>)}{groupedOrders.length === 0 && <TableRow><TableCell colSpan={7} className="py-10 text-center text-[#74837b]">Nu există comenzi în această rundă.</TableCell></TableRow>}</TableBody></Table></div>
   </section></>}
 
   {section === 'schedule' && <div className="space-y-5">
