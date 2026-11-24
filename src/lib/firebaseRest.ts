@@ -135,7 +135,10 @@ export function toFireValue(value: unknown): FireValue {
   if (value === null || value === undefined) return { nullValue: null };
   if (typeof value === 'string') return { stringValue: value };
   if (typeof value === 'boolean') return { booleanValue: value };
-  if (typeof value === 'number') return Number.isInteger(value) ? { integerValue: String(value) } : { doubleValue: value };
+  if (typeof value === 'number') {
+    if (!Number.isFinite(value)) throw new Error('Valoare numerică invalidă: datele nu au fost trimise către Firebase.');
+    return Number.isInteger(value) ? { integerValue: String(value) } : { doubleValue: value };
+  }
   if (value instanceof Date) return { timestampValue: value.toISOString() };
   if (Array.isArray(value)) return { arrayValue: { values: value.map(toFireValue) } };
   if (typeof value === 'object') {

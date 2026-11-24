@@ -77,7 +77,6 @@ export default function AdminWowDashboard() {
       current.amount += Number(item.grams) || 0;
       current.orders += 1;
       current.bani += Number(item.lineTotalBani) || 0;
-        current.count+=1;
       productTotals.set(id, current);
       if ((item.quantityUnit || 'g') === 'g') totalGrams += Number(item.grams) || 0;
     }));
@@ -175,6 +174,7 @@ export default function AdminWowDashboard() {
         const key = item.productId || item.productName || 'produs';
         const current = totals.get(key) || { name: item.productName || 'Produs', bani: 0, count:0 };
         current.bani += Number(item.lineTotalBani) || 0;
+        current.count += 1;
         totals.set(key, current);
       });
     });
