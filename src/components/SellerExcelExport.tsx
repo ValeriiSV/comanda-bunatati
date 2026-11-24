@@ -53,7 +53,7 @@ export default function SellerExcelExport({ selectedMonth, selectedRoundId }: { 
       const month = selectedMonth || monthKey(new Date());
       const orders = (await listCollection('groupOrders')) as Order[];
       const monthOrders = orders.filter((order) =>
-        monthKey(orderDate(order)) === month &&
+        effectiveRound(order).roundMonth === month &&
         (!selectedRoundId || effectiveRound(order).roundId === selectedRoundId)
       );
 
