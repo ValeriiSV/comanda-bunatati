@@ -39,7 +39,7 @@ function orderDate(order: Order) {
 }
 
 function lei(bani = 0) {
-  return new Intl.NumberFormat('ro-MD', { maximumFractionDigits: 0 }).format(bani / 100);
+  return new Intl.NumberFormat('ro-MD', { maximumFractionDigits: 2 }).format(bani / 100);
 }
 
 export default function AdminWowDashboard() {
@@ -179,6 +179,8 @@ export default function AdminWowDashboard() {
     [roundOrders],
   );
 
+  const orderCount = customerGroups(roundOrders).length;
+  const completion = orderCount ? Math.round((stats.ready + stats.delivered) / orderCount * 100) : 0;
   const maxTop = Math.max(1, ...topProducts.map((product) => product.bani));
 
   if (!authorized) return null;
@@ -198,12 +200,26 @@ export default function AdminWowDashboard() {
 
       {error && <p className="rounded-2xl bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p>}
 
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <Stat icon={<Users />} label="Comenzi" value={String(customerGroups(roundOrders).length)} />
-        <Stat icon={<WalletCards />} label="Total comandat" value={`${lei(stats.totalBani)} lei`} />
-        <Stat icon={<CheckCircle2 />} label="Încasat" value={`${lei(stats.paidBani)} lei`} />
-        <Stat icon={<PackageCheck />} label="Gata de ridicare" value={String(stats.ready)} />
+      <div className="relative overflow-hidden rounded-[28px] bg-gradient-to-br from-[#173d2c] to-[#315b32] p-5 text-white shadow-lg sm:p-7">
+        <div aria-hidden="true" className="pointer-events-none absolute -right-12 -top-14 size-52 rounded-full border-[25px] border-white/5"/>
+        <p className="text-sm font-medium text-white/70">Valoarea totală a comenzilor</p>
+        <strong className="mt-2 block text-4xl font-semibold tracking-tight tabular-nums">{lei(stats.totalBani)} <span className="text-xl text-white/65">MDL</span></strong>
+        <div className="mt-5 grid grid-cols-2 gap-4 border-t border-white/15 pt-4">
+          <div><p className="text-xs text-white/65">Încasat</p><strong className="mt-1 block text-xl tabular-nums">{lei(stats.paidBani)} lei</strong></div>
+          <div><p className="text-xs text-white/65">Rest de încasat</p><strong className="mt-1 block text-xl text-[#f4cf93] tabular-nums">{lei(stats.totalBani-stats.paidBani)} lei</strong></div>
+        </div>
       </div>
+      <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+        <Stat icon={<Users />} label="Comenzi unice" value={String(orderCount)} />
+        <Stat icon={<PackageCheck />} label="Gata de ridicare" value={String(stats.ready)} />
+        <Stat icon={<Truck />} label="Predate" value={String(stats.delivered)} />
+        <Stat icon={<WalletCards />} label="Cu rest de plată" value={String(stats.unpaid)} />
+      </div>
+      <section className="rounded-[24px] border bg-white p-5">
+        <div className="flex items-center justify-between gap-2"><h3 className="font-semibold">Progresul pregătirii</h3><strong className="text-xl tabular-nums">{completion}%</strong></div>
+        <div className="mt-3 h-2.5 overflow-hidden rounded-full bg-[#e8efe3]" role="progressbar" aria-label="Progresul pregătirii" aria-valuenow={completion} aria-valuemin={0} aria-valuemax={100}><div className="manager-progress h-full rounded-full bg-[#63865d]" style={{width:`${completion}%`}}/></div>
+        <p className="mt-2 text-xs text-[#74837b]">{stats.ready+stats.delivered} din {orderCount} comenzi pregătite sau predate</p>
+      </section>
 
       <div className="grid gap-4 xl:grid-cols-2">
         <section className="rounded-[26px] border bg-white p-5">
@@ -211,7 +227,7 @@ export default function AdminWowDashboard() {
           {topProducts.length ? <div className="space-y-3">{topProducts.map((product) => (
             <div key={product.name}>
               <div className="mb-1 flex justify-between gap-3 text-sm"><span className="truncate">{product.name}</span><strong>{lei(product.bani)} lei</strong></div>
-              <div className="h-2 overflow-hidden rounded-full bg-[#dfe8dc]"><div className="h-full rounded-full bg-[#63865d]" style={{ width: `${Math.max(8, product.bani / maxTop * 100)}%` }} /></div>
+              <div className="h-2 overflow-hidden rounded-full bg-[#dfe8dc]"><div className="manager-progress h-full rounded-full bg-[#63865d]" style={{ width: `${Math.max(8, product.bani / maxTop * 100)}%` }} /></div>
             </div>
           ))}</div> : <p className="text-sm text-[#74837b]">Încă nu sunt comenzi în runda curentă.</p>}
         </section>
@@ -246,7 +262,7 @@ export default function AdminWowDashboard() {
 }
 
 function Stat({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
-  return <div className="rounded-[24px] border bg-white p-5"><div className="mb-3 flex size-10 items-center justify-center rounded-2xl bg-[#edf3e8] text-[#315b32]">{icon}</div><p className="text-xs uppercase tracking-[.08em] text-[#7b8981]">{label}</p><strong className="mt-1 block font-serif text-3xl">{value}</strong></div>;
+  return <div className="manager-stat rounded-[24px] border bg-white p-4 sm:p-5"><div className="mb-3 flex size-10 items-center justify-center rounded-2xl bg-[#edf3e8] text-[#315b32]">{icon}</div><p className="text-xs uppercase tracking-[.08em] text-[#7b8981]">{label}</p><strong className="mt-1 block font-serif text-3xl tabular-nums">{value}</strong></div>;
 }
 
 function QuickLink({ to, icon, title, text }: { to: string; icon: React.ReactNode; title: string; text: string }) {

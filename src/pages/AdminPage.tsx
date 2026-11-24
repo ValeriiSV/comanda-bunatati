@@ -5,6 +5,7 @@ import { auth } from '@/lib/firebase';
 import { saveExternalAdminSession } from '@/lib/firebaseRest';
 import type { AdminSection } from '@/components/AdminLayout';
 import AdminStablePage from './AdminStablePage';
+import './manager.css';
 
 const sectionByPath: Record<string, AdminSection> = {
   '/admin': 'dashboard',
@@ -21,7 +22,24 @@ const sectionByPath: Record<string, AdminSection> = {
 export default function AdminPage() {
   const [ready, setReady] = useState(false);
   const location = useLocation();
-  const section = sectionByPath[location.pathname] || 'dashboard';
+  const section = sectionByPath[location.pathname.replace(/\/$/, '')] || 'dashboard';
+  useEffect(() => {
+    const oldTitle = document.title;
+    document.title = 'Bunătăți Manager';
+    const viewport = document.querySelector<HTMLMetaElement>('meta[name="viewport"]');
+    const oldViewport = viewport?.content;
+    if (viewport) viewport.content = 'width=device-width, initial-scale=1.0, viewport-fit=cover';
+    const tags: [string, Record<string,string>][] = [
+      ['link', {rel:'manifest', href:'/manager.webmanifest'}],
+      ['link', {rel:'apple-touch-icon', href:'/manager-icon-180.png'}],
+      ['meta', {name:'apple-mobile-web-app-capable', content:'yes'}],
+      ['meta', {name:'apple-mobile-web-app-title', content:'Bunătăți Manager'}],
+      ['meta', {name:'apple-mobile-web-app-status-bar-style', content:'default'}],
+      ['meta', {name:'theme-color', content:'#f2f5ed'}],
+    ];
+    const nodes = tags.map(([name, attrs]) => { const node=document.createElement(name); Object.entries(attrs).forEach(([key,value])=>node.setAttribute(key,value)); document.head.appendChild(node); return node; });
+    return () => { nodes.forEach(node=>node.remove()); document.title=oldTitle; if(viewport && oldViewport)viewport.content=oldViewport; };
+  }, []);
 
   useEffect(() => {
     let finished = false;
