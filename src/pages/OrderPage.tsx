@@ -554,7 +554,7 @@ export default function OrderApp() {
 
   return (
     <main className="liquid-page min-h-screen pb-28 text-[#173d2c] lg:pb-0">
-      <header className="sticky top-0 z-40 bg-[#f3f5ed]/30 px-2 backdrop-blur-xl">
+      <header className="page-enter sticky top-0 z-40 bg-[#f3f5ed]/30 px-2 backdrop-blur-xl">
         <div className="glass glass-shine mx-auto my-2 flex h-16 max-w-[1440px] items-center justify-between rounded-[24px] px-3 sm:px-6">
           <div className="flex min-w-0 items-center gap-3">
             <img src="/valera-logo.svg?v=7" alt="Bunătăți împreună cu Valera" className="size-12 shrink-0 rounded-full border border-white/70 bg-white/65 object-cover shadow-sm" />
@@ -574,7 +574,7 @@ export default function OrderApp() {
             <div className="absolute inset-0 bg-gradient-to-r from-[#173d2c]/97 via-[#173d2c]/83 to-[#173d2c]/35" />
             <span className="hero-orb hero-orb-one" /><span className="hero-orb hero-orb-two" />
             <div className="relative grid min-h-[320px] items-center gap-6 p-7 sm:p-10 lg:grid-cols-[minmax(0,1fr)_270px]">
-              <div>
+              <div className="hero-copy">
                 <div className="mb-4 flex flex-wrap gap-2">
                   <span className={`glass-dark inline-flex w-fit items-center gap-2 rounded-full px-3 py-1.5 text-xs font-semibold uppercase tracking-[.12em] ${schedule.closed ? 'text-[#ffd1a5]' : 'text-[#f8c982]'}`}><Sparkles className="size-3.5" /> {schedule.closed ? 'Comandă închisă' : 'Comandă deschisă'}</span>
                   <span className="glass-dark inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-semibold text-white/85"><Clock className="size-3.5" /> {countdown}</span>
@@ -653,7 +653,7 @@ export default function OrderApp() {
               const visual = getCategoryExperience(product.category);
               const productPhoto = productImage(product);
               return (
-                <article id={`product-${product.id}`} key={product.id} onPointerMove={glassMove} className={`glass interactive-glass glass-card-hover overflow-hidden rounded-[26px] ${amount ? 'ring-2 ring-[#8daa82]/45' : ''}`}>
+                <article id={`product-${product.id}`} key={product.id} onPointerMove={glassMove} className={`product-card glass interactive-glass glass-card-hover overflow-hidden rounded-[26px] ${amount ? 'ring-2 ring-[#8daa82]/45' : ''}`}>
                   <div className="relative h-32 overflow-hidden bg-[#dfe9db]">
                     <img src={productPhoto} alt={product.name} loading="lazy" decoding="async" className="size-full object-cover transition duration-500 hover:scale-105" onError={(event) => {
   const fallback = productImageFallback(product);
@@ -662,7 +662,7 @@ export default function OrderApp() {
                     <div className="absolute inset-0 bg-gradient-to-t from-[#173d2c]/72 via-transparent to-black/10" />
                     <div className="absolute inset-x-3 top-3 flex items-start justify-between gap-2">
                       <span className="grid size-10 place-items-center rounded-2xl bg-white/72 text-lg shadow-sm backdrop-blur-xl">{visual.icon}</span>
-                      <button onClick={() => toggleFavorite(product.id)} aria-label={favorite ? 'Scoate din favorite' : 'Adaugă la favorite'} className={`grid size-10 place-items-center rounded-full border border-white/35 backdrop-blur-xl transition ${favorite ? 'bg-[#173d2c]/82 text-white' : 'bg-white/65 text-[#315b32]'}`}><Heart className={`size-4 ${favorite ? 'fill-current' : ''}`} /></button>
+                      <button onClick={() => toggleFavorite(product.id)} aria-label={favorite ? 'Scoate din favorite' : 'Adaugă la favorite'} className={`favorite-pop grid size-10 place-items-center rounded-full border border-white/35 backdrop-blur-xl transition ${favorite ? 'bg-[#173d2c]/82 text-white' : 'bg-white/65 text-[#315b32]'}`}><Heart className={`size-4 ${favorite ? 'fill-current' : ''}`} /></button>
                     </div>
                     <div className="absolute bottom-3 left-3 right-3 flex flex-wrap items-center justify-between gap-2">
                       <div className="flex gap-1.5">{fresh && <span className="rounded-full bg-[#e4f2d8]/92 px-2.5 py-1 text-[11px] font-bold text-[#315b32] backdrop-blur-md">Nou</span>}{product.promo && <span className="rounded-full bg-[#fff0d9]/92 px-2.5 py-1 text-[11px] font-bold text-[#a65d13] backdrop-blur-md">Promo</span>}</div>
@@ -675,7 +675,7 @@ export default function OrderApp() {
                     {amount ? (
                       <div className="mt-4 flex items-center justify-between gap-3"><div className="glass-chip flex items-center gap-1 rounded-full p-1"><Button variant="ghost" size="icon-sm" className="rounded-full" onClick={() => change(product.id, -product.stepGrams)}><Minus /></Button><strong className="min-w-14 text-center text-sm">{quantityLabel(product, amount)}</strong><Button variant="ghost" size="icon-sm" className="rounded-full" onClick={() => change(product.id, product.stepGrams)}><Plus /></Button></div><strong className="shrink-0">{money(linePrice(product, amount))} lei</strong></div>
                     ) : (
-                      <Button onClick={() => change(product.id, product.stepGrams)} variant="outline" className="glass-chip mt-4 h-10 w-full rounded-xl border-white/60 text-[#315b32] hover:bg-white/75"><Plus /> Adaugă {quantityLabel(product, product.stepGrams)}</Button>
+                      <Button onClick={() => change(product.id, product.stepGrams)} variant="outline" className="add-to-cart glass-chip mt-4 h-10 w-full rounded-xl border-white/60 text-[#315b32] hover:bg-white/75"><Plus /> Adaugă {quantityLabel(product, product.stepGrams)}</Button>
                     )}
                   </div>
                 </article>
@@ -694,7 +694,7 @@ export default function OrderApp() {
         </aside>
       </div>
 
-      <div className="glass fixed inset-x-3 bottom-3 z-40 rounded-[24px] p-2 lg:hidden">
+      <div className={`glass fixed inset-x-3 bottom-3 z-40 rounded-[24px] p-2 lg:hidden ${itemCount ? 'cart-dock--active' : ''}`}>
         <Sheet>
           <SheetTrigger render={<Button className="glass-dark h-13 w-full rounded-[20px] px-5 text-base text-white" />}><ShoppingBag /> Vezi comanda <span className="ml-auto">{money(total)} lei</span></SheetTrigger>
           <SheetContent side="bottom" className="glass-strong max-h-[90vh] rounded-t-[30px] border-white/70 bg-white/68"><SheetHeader className="border-b border-white/60 px-5 py-4"><SheetTitle className="font-serif text-2xl">Comanda mea</SheetTitle><SheetDescription>{itemCount ? `${itemCount} produse alese` : 'Coșul este gol'}</SheetDescription></SheetHeader><CartPanel cart={cart} setCart={setCart} products={products} schedule={schedule} lastOrder={lastOrder} onSubmitted={handleSubmitted} /></SheetContent>
