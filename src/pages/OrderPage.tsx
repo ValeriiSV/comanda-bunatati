@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type Dispatch, type PointerEvent, type SetStateAction } from 'react';
+import { useEffect, useMemo, useRef, useState, type Dispatch, type PointerEvent, type SetStateAction } from 'react';
 import { Link } from 'react-router-dom';
 import {
   CalendarDays,
@@ -517,6 +517,24 @@ export default function OrderApp() {
     .filter((product) => !favoritesOnly || favorites.has(product.id))
     .sort((a, b) => Number(favorites.has(b.id)) - Number(favorites.has(a.id))), [activeCategory, search, products, favoritesOnly, favorites]);
 
+  const catalogGrid = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!catalogGrid.current || typeof IntersectionObserver === 'undefined') return;
+
+    const observer = new IntersectionObserver((entries) => {
+      for (const entry of entries) {
+        if (!entry.isIntersecting) continue;
+        entry.target.setAttribute('data-revealed', '');
+        observer.unobserve(entry.target);
+      }
+    }, { threshold: 0.12 });
+
+    catalogGrid.current.querySelectorAll('.product-card:not([data-revealed])')
+      .forEach((card) => observer.observe(card));
+
+    return () => observer.disconnect();
+  }, [filtered]);
+
   const freshProducts = useMemo(() => products.filter((product) => isNewProduct(product)).slice(0, 9), [products]);
   const itemCount = Object.values(cart).filter(Boolean).length;
   const total = products.reduce((sum, product) => sum + linePrice(product, cart[product.id] || 0), 0);
@@ -645,7 +663,7 @@ export default function OrderApp() {
 
           <div className="mb-3 flex justify-end"><span className="text-sm text-[#839087]">{loading ? 'Se încarcă…' : `${filtered.length} produse`}</span></div>
 
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          <div ref={catalogGrid} className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
             {filtered.map((product: ManagedProduct) => {
               const amount = cart[product.id] || 0;
               const favorite = favorites.has(product.id);
@@ -662,7 +680,7 @@ export default function OrderApp() {
                     <div className="absolute inset-0 bg-gradient-to-t from-[#173d2c]/72 via-transparent to-black/10" />
                     <div className="absolute inset-x-3 top-3 flex items-start justify-between gap-2">
                       <span className="grid size-10 place-items-center rounded-2xl bg-white/72 text-lg shadow-sm backdrop-blur-xl">{visual.icon}</span>
-                      <button onClick={() => toggleFavorite(product.id)} aria-label={favorite ? 'Scoate din favorite' : 'Adaugă la favorite'} className={`favorite-pop grid size-10 place-items-center rounded-full border border-white/35 backdrop-blur-xl transition ${favorite ? 'bg-[#173d2c]/82 text-white' : 'bg-white/65 text-[#315b32]'}`}><Heart className={`size-4 ${favorite ? 'fill-current' : ''}`} /></button>
+                      <button onClick={() => toggleFavorite(product.id)} aria-label={favorite ? 'Scoate din favorite' : 'Adaugă la favorite'} className={`favorite-pop grid size-10 place-items-center rounded-full border border-white/35 backdrop-blur-xl transition ${favorite ? 'bg-[#173d2c]/82 text-white' : 'bg-white/65 text-[#315b32]'}`}><Heart key={favorite ? 'saved' : 'unsaved'} className={`size-4 ${favorite ? 'favorite-icon--saved fill-current' : ''}`} /></button>
                     </div>
                     <div className="absolute bottom-3 left-3 right-3 flex flex-wrap items-center justify-between gap-2">
                       <div className="flex gap-1.5">{fresh && <span className="rounded-full bg-[#e4f2d8]/92 px-2.5 py-1 text-[11px] font-bold text-[#315b32] backdrop-blur-md">Nou</span>}{product.promo && <span className="rounded-full bg-[#fff0d9]/92 px-2.5 py-1 text-[11px] font-bold text-[#a65d13] backdrop-blur-md">Promo</span>}</div>
@@ -673,7 +691,7 @@ export default function OrderApp() {
                     <h3 className="min-h-12 text-[17px] font-semibold leading-6">{product.name}</h3>
                     <CollectiveGoalBadge product={product} goal={goals[product.id]} total={productTotals[product.id]} />
                     {amount ? (
-                      <div className="mt-4 flex items-center justify-between gap-3"><div className="glass-chip flex items-center gap-1 rounded-full p-1"><Button variant="ghost" size="icon-sm" className="rounded-full" onClick={() => change(product.id, -product.stepGrams)}><Minus /></Button><strong className="min-w-14 text-center text-sm">{quantityLabel(product, amount)}</strong><Button variant="ghost" size="icon-sm" className="rounded-full" onClick={() => change(product.id, product.stepGrams)}><Plus /></Button></div><strong className="shrink-0">{money(linePrice(product, amount))} lei</strong></div>
+                      <div className="mt-4 flex items-center justify-between gap-3"><div className="glass-chip flex items-center gap-1 rounded-full p-1"><Button variant="ghost" size="icon-sm" className="rounded-full" onClick={() => change(product.id, -product.stepGrams)}><Minus /></Button><strong key={amount} className="cart-feedback min-w-14 rounded-lg px-1.5 py-1 text-center text-sm">{quantityLabel(product, amount)}</strong><Button variant="ghost" size="icon-sm" className="rounded-full" onClick={() => change(product.id, product.stepGrams)}><Plus /></Button></div><strong className="shrink-0">{money(linePrice(product, amount))} lei</strong></div>
                     ) : (
                       <Button onClick={() => change(product.id, product.stepGrams)} variant="outline" className="add-to-cart glass-chip mt-4 h-10 w-full rounded-xl border-white/60 text-[#315b32] hover:bg-white/75"><Plus /> Adaugă {quantityLabel(product, product.stepGrams)}</Button>
                     )}
@@ -696,7 +714,7 @@ export default function OrderApp() {
 
       <div className={`glass fixed inset-x-3 bottom-3 z-40 rounded-[24px] p-2 lg:hidden ${itemCount ? 'cart-dock--active' : ''}`}>
         <Sheet>
-          <SheetTrigger render={<Button className="glass-dark h-13 w-full rounded-[20px] px-5 text-base text-white" />}><ShoppingBag /> Vezi comanda <span className="ml-auto">{money(total)} lei</span></SheetTrigger>
+          <SheetTrigger render={<Button className="glass-dark h-13 w-full rounded-[20px] px-5 text-base text-white" />}><ShoppingBag /> Vezi comanda <span key={total} className={`ml-auto rounded-full px-2 py-1 ${total > 0 ? 'cart-feedback cart-feedback--total' : ''}`}>{money(total)} lei</span></SheetTrigger>
           <SheetContent side="bottom" className="glass-strong max-h-[90vh] rounded-t-[30px] border-white/70 bg-white/68"><SheetHeader className="border-b border-white/60 px-5 py-4"><SheetTitle className="font-serif text-2xl">Comanda mea</SheetTitle><SheetDescription>{itemCount ? `${itemCount} produse alese` : 'Coșul este gol'}</SheetDescription></SheetHeader><CartPanel cart={cart} setCart={setCart} products={products} schedule={schedule} lastOrder={lastOrder} onSubmitted={handleSubmitted} /></SheetContent>
         </Sheet>
       </div>

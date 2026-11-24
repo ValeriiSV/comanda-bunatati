@@ -116,18 +116,13 @@
 .hero-copy > :nth-child(3) { animation-delay: .16s; }
 .hero-copy > :nth-child(4) { animation-delay: .24s; }
 
-.product-card {
+.product-card[data-revealed] {
   transform-origin: center bottom;
-  animation: product-enter .48s cubic-bezier(.2,.72,.25,1) backwards;
+  animation: product-enter .72s cubic-bezier(.2,.72,.25,1) backwards;
 }
 
-.product-card:nth-child(1) { animation-delay: 0ms; }
-.product-card:nth-child(2) { animation-delay: 45ms; }
-.product-card:nth-child(3) { animation-delay: 90ms; }
-.product-card:nth-child(4) { animation-delay: 135ms; }
-.product-card:nth-child(5) { animation-delay: 180ms; }
-.product-card:nth-child(6) { animation-delay: 225ms; }
-.product-card:nth-child(n+7) { animation-delay: 270ms; }
+.product-card[data-revealed]:nth-child(3n+2) { animation-delay: 65ms; }
+.product-card[data-revealed]:nth-child(3n+3) { animation-delay: 130ms; }
 
 .product-card.glass-card-hover {
   transition: transform .28s cubic-bezier(.2,.72,.25,1), box-shadow .28s ease, border-color .22s ease, background .22s ease;
@@ -158,8 +153,16 @@
   transform: rotate(90deg);
 }
 
-.favorite-pop:active svg {
-  animation: heart-pop .38s cubic-bezier(.2,.8,.25,1);
+.favorite-icon--saved {
+  animation: heart-pop .55s cubic-bezier(.2,.8,.25,1);
+}
+
+.cart-feedback {
+  animation: cart-feedback .65s ease-out;
+}
+
+.cart-feedback--total {
+  --cart-feedback-color: rgb(247 217 154 / .34);
 }
 
 .cart-dock--active {
@@ -177,13 +180,21 @@
 }
 
 @keyframes product-enter {
-  from { opacity: 0; transform: translateY(14px) scale(.985); }
+  from { opacity: .15; transform: translateY(36px) scale(.94); }
   to { opacity: 1; transform: translateY(0) scale(1); }
 }
 
 @keyframes heart-pop {
-  45% { transform: scale(1.35); }
+  0% { transform: scale(.85); }
+  40% { transform: scale(1.6) rotate(-12deg); }
+  70% { transform: scale(.92) rotate(5deg); }
   100% { transform: scale(1); }
+}
+
+@keyframes cart-feedback {
+  0% { transform: scale(.92); background-color: transparent; }
+  38% { transform: scale(1.16); background-color: var(--cart-feedback-color, #dbeacb); }
+  100% { transform: scale(1); background-color: transparent; }
 }
 
 @keyframes cart-arrive {
@@ -192,12 +203,17 @@
   100% { transform: translateY(0) scale(1); }
 }
 
+@media (max-width: 639px) {
+  .product-card[data-revealed]:nth-child(n) { animation-delay: 0ms; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .page-enter,
   .hero-copy > *,
-  .product-card,
+  .product-card[data-revealed],
   .cart-dock--active,
-  .favorite-pop:active svg {
+  .favorite-icon--saved,
+  .cart-feedback {
     animation: none !important;
   }
 
